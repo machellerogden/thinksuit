@@ -1,0 +1,42 @@
+{
+  "name": "thinksuit-mcp-tools",
+  "version": "0.0.0",
+  "description": "Custom MCP tools consumed BY ThinkSuit for extended functionality",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "thinksuit-mcp-tools": "server.js"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "vitest --config ../../vitest.config.js",
+    "test:ui": "vitest --ui --config ../../vitest.config.js",
+    "test:coverage": "vitest --coverage --config ../../vitest.config.js",
+    "publish": "npm publish --access public"
+  },
+  "keywords": [
+    "thinksuit",
+    "mcp",
+    "model-context-protocol",
+    "tools",
+    "ai"
+  ],
+  "author": {
+    "name": "Mac Heller-Ogden",
+    "email": "mac@machellerogden.com"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/machellerogden/thinksuit.git",
+    "directory": "packages/thinksuit-mcp-tools"
+  },
+  "bugs": {
+    "url": "https://github.com/machellerogden/thinksuit/issues"
+  },
+  "homepage": "https://github.com/machellerogden/thinksuit/tree/main/packages/thinksuit-mcp-tools#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.19.1",
+    "zod": "^3.24.1"
+  }
+}

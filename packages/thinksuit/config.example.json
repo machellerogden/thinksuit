@@ -1,0 +1,25 @@
+{
+    "module": "thinksuit/mu",
+    "provider": "openai",
+    "model": "gpt-5",
+    "providerConfig": {
+        "openai": {
+            "apiKey": "sk-..."
+        },
+        "vertexAi": {
+            "projectId": "your-gcp-project-id",
+            "location": "us-central1"
+        }
+    },
+    "maxDepth": 5,
+    "maxFanout": 3,
+    "allowedTools": [
+        "read_file",
+        "list_directory"
+    ],
+    "allowedDirectories": [
+        "/Users/mac/repos/github.com/machellerogden"
+    ],
+    "cwd": "/Users/mac/repos/github.com/machellerogden",
+    "trace": false
+}

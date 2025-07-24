@@ -1,0 +1,33 @@
+<!-- Edit below as needed and save to ~/Library/LaunchAgents/thinksuit-console.service.plist -->
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>thinksuit-console.service</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardErrorPath</key>
+    <string>/Users/mac/Library/Logs/thinksuit-console.service.stderr.log</string>
+    <key>StandardOutPath</key>
+    <string>/Users/mac/Library/Logs/thinksuit-console.service.stdout.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>FORCE_COLOR</key>
+      <string>true</string>
+      <key>PATH</key>
+      <string><![CDATA[/Users/mac/.local/share/mise/installs/node/20/bin:/opt/homebrew/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin]]></string>
+      <key>THINKSUIT_CONSOLE_PORT</key>
+      <string>60660</string>
+      <key>THINKSUIT_CONSOLE_HOST</key>
+      <string>localhost</string>
+    </dict>
+    <key>WorkingDirectory</key>
+    <string>/Users/mac/repos/github.com/machellerogden/thinksuit/packages/thinksuit-console</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>/Users/mac/.local/share/mise/installs/node/20/bin/node</string>
+      <string>bin/service.mjs</string>
+    </array>
+  </dict>
+</plist>

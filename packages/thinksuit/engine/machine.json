@@ -1,0 +1,200 @@
+{
+    "StartAt": "CheckSelectedPlan",
+    "States": {
+        "CheckSelectedPlan": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.selectedPlan",
+                    "IsPresent": true,
+                    "Next": "UseSelectedPlan"
+                }
+            ],
+            "Default": "DetectSignals"
+        },
+        "UseSelectedPlan": {
+            "Type": "Pass",
+            "Parameters": {
+                "plan.$": "$.selectedPlan"
+            },
+            "ResultPath": "$.planResult",
+            "Next": "ComposeInstructions"
+        },
+        "DetectSignals": {
+            "Type": "Task",
+            "Resource": "detectSignals",
+            "Parameters": {
+                "thread.$": "$.thread",
+                "context.$": "$.context",
+                "profile.$": "$.policy.perception.profile",
+                "budgetMs.$": "$.policy.perception.budgetMs"
+            },
+            "ResultPath": "$.signalsResult",
+            "Next": "AggregateFacts"
+        },
+        "AggregateFacts": {
+            "Type": "Task",
+            "Resource": "aggregateFacts",
+            "Parameters": {
+                "signals.$": "$.signalsResult.facts",
+                "context.$": "$.context"
+            },
+            "ResultPath": "$.aggregatedFacts",
+            "Next": "EvaluateRules"
+        },
+        "EvaluateRules": {
+            "Type": "Task",
+            "Resource": "evaluateRules",
+            "Parameters": {
+                "facts.$": "$.aggregatedFacts.facts",
+                "context.$": "$.context"
+            },
+            "ResultPath": "$.evaluateRulesResult",
+            "Next": "SelectPlan"
+        },
+        "SelectPlan": {
+            "Type": "Task",
+            "Resource": "selectPlan",
+            "Parameters": {
+                "factMap.$": "$.evaluateRulesResult.factMap",
+                "context.$": "$.context"
+            },
+            "ResultPath": "$.planResult",
+            "Next": "ComposeInstructions"
+        },
+        "ComposeInstructions": {
+            "Type": "Task",
+            "Resource": "composeInstructions",
+            "Parameters": {
+                "plan.$": "$.planResult.plan",
+                "factMap.$": "$.evaluateRulesResult.factMap",
+                "context.$": "$.context"
+            },
+            "ResultPath": "$.instructions",
+            "Next": "Route"
+        },
+        "Route": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.planResult.plan.strategy",
+                    "StringEquals": "sequential",
+                    "Next": "DoSequential"
+                },
+                {
+                    "Variable": "$.planResult.plan.strategy",
+                    "StringEquals": "parallel",
+                    "Next": "DoParallel"
+                },
+                {
+                    "Variable": "$.planResult.plan.strategy",
+                    "StringEquals": "task",
+                    "Next": "DoTask"
+                },
+                {
+                    "Variable": "$.planResult.plan.strategy",
+                    "StringEquals": "direct",
+                    "Next": "DoDirect"
+                }
+            ],
+            "Default": "DoTask"
+        },
+        "DoDirect": {
+            "Type": "Task",
+            "Resource": "execDirect",
+            "Parameters": {
+                "plan.$": "$.planResult.plan",
+                "instructions.$": "$.instructions",
+                "thread.$": "$.thread",
+                "context.$": "$.context",
+                "policy.$": "$.policy"
+            },
+            "ResultPath": "$.responseResult",
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "Fallback"
+                }
+            ],
+            "End": true
+        },
+        "DoSequential": {
+            "Type": "Task",
+            "Resource": "execSequential",
+            "Parameters": {
+                "plan.$": "$.planResult.plan",
+                "instructions.$": "$.instructions",
+                "thread.$": "$.thread",
+                "context.$": "$.context",
+                "policy.$": "$.policy",
+                "module.$": "$.module"
+            },
+            "ResultPath": "$.responseResult",
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "Fallback"
+                }
+            ],
+            "End": true
+        },
+        "DoParallel": {
+            "Type": "Task",
+            "Resource": "execParallel",
+            "Parameters": {
+                "plan.$": "$.planResult.plan",
+                "instructions.$": "$.instructions",
+                "thread.$": "$.thread",
+                "context.$": "$.context",
+                "policy.$": "$.policy",
+                "module.$": "$.module"
+            },
+            "ResultPath": "$.responseResult",
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "Fallback"
+                }
+            ],
+            "End": true
+        },
+        "DoTask": {
+            "Type": "Task",
+            "Resource": "execTask",
+            "Parameters": {
+                "plan.$": "$.planResult.plan",
+                "instructions.$": "$.instructions",
+                "thread.$": "$.thread",
+                "context.$": "$.context",
+                "policy.$": "$.policy",
+                "module.$": "$.module"
+            },
+            "ResultPath": "$.responseResult",
+            "Catch": [
+                {
+                    "ErrorEquals": [
+                        "States.ALL"
+                    ],
+                    "Next": "Fallback"
+                }
+            ],
+            "End": true
+        },
+        "Fallback": {
+            "Type": "Task",
+            "Resource": "execFallback",
+            "Parameters": {
+                "lastError.$": "$.error"
+            },
+            "ResultPath": "$.responseResult",
+            "OutputPath": "$",
+            "End": true
+        }
+    }
+}

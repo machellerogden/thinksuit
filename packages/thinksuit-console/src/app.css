@@ -1,0 +1,18 @@
+@import "tailwindcss";
+@config "../tailwind.config.cjs";
+
+@font-face {
+	font-family: 'Roboto Mono';
+	src: url('/fonts/RobotoMono[wght].woff2') format('woff2-variations');
+	font-weight: 100 700;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: 'Roboto Mono';
+	src: url('/fonts/RobotoMono-Italic[wght].woff2') format('woff2-variations');
+	font-weight: 100 700;
+	font-style: italic;
+	font-display: swap;
+}

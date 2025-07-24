@@ -1,0 +1,130 @@
+{
+    "$id": "thinksuit/plan.v1",
+    "type": "object",
+    "required": [
+        "strategy",
+        "name"
+    ],
+    "properties": {
+        "name": {
+            "type": "string",
+            "description": "Unique identifier for this plan, used for precedence matching"
+        },
+        "strategy": {
+            "enum": [
+                "direct",
+                "task",
+                "sequential",
+                "parallel"
+            ]
+        },
+        "sequence": {
+            "type": "array",
+            "items": {
+                "oneOf": [
+                    {
+                        "type": "string"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "role": {
+                                "type": "string"
+                            },
+                            "adaptationKey": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "role"
+                        ]
+                    }
+                ]
+            }
+        },
+        "roles": {
+            "type": "array",
+            "items": {
+                "oneOf": [
+                    {
+                        "type": "string"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "role": {
+                                "type": "string"
+                            },
+                            "adaptationKey": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "role"
+                        ]
+                    }
+                ]
+            }
+        },
+        "role": {
+            "type": "string"
+        },
+        "rationale": {
+            "type": "string"
+        },
+        "maxTokens": {
+            "type": "number"
+        },
+        "buildThread": {
+            "type": "boolean",
+            "description": "Whether to build conversation thread between sequential steps"
+        },
+        "resultStrategy": {
+            "enum": [
+                "last",
+                "concat",
+                "label",
+                "formatted"
+            ],
+            "description": "How to combine results: 'last' returns final output, 'concat' merges all outputs, 'label' adds role labels, 'formatted' uses module formatter"
+        },
+        "latency": {
+            "enum": [
+                "low",
+                "medium",
+                "high"
+            ],
+            "description": "Expected response time characteristics of this plan"
+        },
+        "cost": {
+            "enum": [
+                "low",
+                "medium",
+                "high"
+            ],
+            "description": "Expected token/API cost of this plan"
+        },
+        "risks": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Known risk factors for this plan (e.g., 'dependency-chain', 'high-latency')"
+        },
+        "assumptions": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Assumptions this plan makes about the input or context"
+        },
+        "coverage": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Signals or contracts this plan addresses (e.g., 'contract.explore', 'contract.analyze')"
+        }
+    },
+    "additionalProperties": true
+}

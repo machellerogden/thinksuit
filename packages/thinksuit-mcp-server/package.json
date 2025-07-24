@@ -1,0 +1,43 @@
+{
+  "name": "thinksuit-mcp-server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "MCP server that exposes ThinkSuit functionality to external MCP clients like Claude Desktop and IDEs",
+  "type": "module",
+  "main": "lib/index.js",
+  "bin": {
+    "thinksuit-mcp-server": "bin/mcp-server.js"
+  },
+  "scripts": {
+    "start": "node bin/mcp-server.js",
+    "test": "vitest --config ../../vitest.config.js",
+    "test:ui": "vitest --ui --config ../../vitest.config.js",
+    "test:coverage": "vitest --coverage --config ../../vitest.config.js"
+  },
+  "keywords": [
+    "thinksuit",
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "tools"
+  ],
+  "author": {
+    "name": "Mac Heller-Ogden",
+    "email": "mac@machellerogden.com"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/machellerogden/thinksuit.git",
+    "directory": "packages/thinksuit-mcp-server"
+  },
+  "bugs": {
+    "url": "https://github.com/machellerogden/thinksuit/issues"
+  },
+  "homepage": "https://github.com/machellerogden/thinksuit/tree/main/packages/thinksuit-mcp-server#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.19.1",
+    "thinksuit": "*",
+    "zod": "^3.24.1"
+  }
+}

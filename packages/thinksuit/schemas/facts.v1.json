@@ -1,0 +1,192 @@
+{
+    "$id": "thinksuit/facts.v1",
+    "type": "object",
+    "properties": {
+        "ns": {
+            "type": "string",
+            "description": "Module namespace (e.g., thinksuit/mu)"
+        },
+        "type": {
+            "enum": [
+                "Adaptation",
+                "Capability",
+                "Config",
+                "Constraint",
+                "Critique",
+                "Derived",
+                "Evidence",
+                "ExecutionPlan",
+                "PlanPrecedence",
+                "RoleSelection",
+                "SelectedPlan",
+                "Signal",
+                "TokenMultiplier",
+                "PolicyConstraint",
+                "PolicyPreference"
+            ]
+        },
+        "dimension": {
+            "type": "string"
+        },
+        "signal": {
+            "type": "string"
+        },
+        "name": {
+            "type": "string"
+        },
+        "data": {
+            "type": "object"
+        },
+        "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+        },
+        "enriched": {
+            "type": "boolean"
+        },
+        "rationale": {
+            "type": "string"
+        },
+        "resultStrategy": {
+            "enum": [
+                "last",
+                "concat",
+                "label",
+                "formatted"
+            ]
+        },
+        "buildThread": {
+            "type": "boolean"
+        },
+        "strategy": {
+            "enum": [
+                "direct",
+                "sequential",
+                "parallel"
+            ]
+        },
+        "sequence": {
+            "type": "array",
+            "items": {
+                "oneOf": [
+                    {
+                        "type": "string"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "role": {
+                                "type": "string"
+                            },
+                            "adaptationKey": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "role"
+                        ]
+                    }
+                ]
+            }
+        },
+        "roles": {
+            "type": "array",
+            "items": {
+                "oneOf": [
+                    {
+                        "type": "string"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "role": {
+                                "type": "string"
+                            },
+                            "adaptationKey": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "role"
+                        ]
+                    }
+                ]
+            }
+        },
+        "role": {
+            "type": "string"
+        },
+        "directive": {
+            "type": "string"
+        },
+        "instruction": {
+            "type": "string"
+        },
+        "priority": {
+            "type": "number"
+        },
+        "precedence": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Ordered list of plan names/IDs for PlanPrecedence facts"
+        },
+        "plan": {
+            "type": "object",
+            "description": "The selected ExecutionPlan for SelectedPlan facts"
+        },
+        "value": {
+            "oneOf": [
+                {
+                    "type": "number"
+                },
+                {
+                    "type": "object",
+                    "description": "Fact value containing type-specific data"
+                },
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "array"
+                }
+            ]
+        },
+        "tools": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "provenance": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "enum": [
+                        "classifier",
+                        "generator",
+                        "rule",
+                        "evaluator",
+                        "executor"
+                    ]
+                },
+                "producer": {
+                    "type": "string"
+                },
+                "profile": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "durationMs": {
+                    "type": "number"
+                }
+            },
+            "additionalProperties": true
+        }
+    },
+    "additionalProperties": false
+}

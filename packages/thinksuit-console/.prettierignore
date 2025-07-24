@@ -1,0 +1,25 @@
+# Dependencies
+node_modules
+
+# SvelteKit
+.svelte-kit
+build
+
+# Production
+dist
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# System
+.DS_Store
+*.log
+
+# Lock files
+package-lock.json
+pnpm-lock.yaml
+
+# Generated
+*.json

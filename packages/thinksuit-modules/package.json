@@ -1,0 +1,35 @@
+{
+  "name": "thinksuit-modules",
+  "version": "0.0.0",
+  "description": "Behavioral modules for ThinkSuit - cognitive roles, classifiers, rules, and prompts including mu module",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "scripts": {
+    "test": "vitest --config ../../vitest.config.js",
+    "test:ui": "vitest --ui --config ../../vitest.config.js",
+    "test:coverage": "vitest --coverage --config ../../vitest.config.js",
+    "publish": "npm publish --access public"
+  },
+  "keywords": [
+    "thinksuit",
+    "modules",
+    "ai"
+  ],
+  "author": {
+    "name": "Mac Heller-Ogden",
+    "email": "mac@machellerogden.com"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/machellerogden/thinksuit.git",
+    "directory": "packages/thinksuit-modules"
+  },
+  "bugs": {
+    "url": "https://github.com/machellerogden/thinksuit/issues"
+  },
+  "homepage": "https://github.com/machellerogden/thinksuit/tree/main/packages/thinksuit-modules#readme"
+}

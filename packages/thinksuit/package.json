@@ -1,0 +1,72 @@
+{
+  "name": "thinksuit",
+  "version": "0.0.0",
+  "description": "Core orchestration engine for ThinkSuit - state machine-based AI execution with signal detection and modular cognitive architecture",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./sessions/tree": "./engine/sessions/tree.js",
+    "./sessions/deriveSessionStatus": "./engine/sessions/deriveSessionStatus.js",
+    "./constants/events": "./engine/constants/events.js"
+  },
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "cli": "node engine/cli.js",
+    "test": "vitest --config ../../vitest.config.js",
+    "test:ui": "vitest --ui --config ../../vitest.config.js",
+    "test:coverage": "vitest --coverage --config ../../vitest.config.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "publish": "npm publish --access public"
+  },
+  "keywords": [
+    "ai",
+    "orchestration",
+    "llm",
+    "agent"
+  ],
+  "author": {
+    "name": "Mac Heller-Ogden",
+    "email": "mac@machellerogden.com"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/machellerogden/thinksuit.git",
+    "directory": "packages/thinksuit"
+  },
+  "bugs": {
+    "url": "https://github.com/machellerogden/thinksuit/issues"
+  },
+  "homepage": "https://github.com/machellerogden/thinksuit/tree/main/packages/thinksuit#readme",
+  "dependencies": {
+    "@google-cloud/vertexai": "^1.10.0",
+    "@modelcontextprotocol/sdk": "^1.19.1",
+    "chokidar": "^4.0.3",
+    "jsonschema": "^1.5.0",
+    "meow": "^13.2.0",
+    "openai": "^5.20.1",
+    "p-queue": "^8.1.0",
+    "pino": "^9.9.0",
+    "pino-pretty": "^13.1.1",
+    "the-rules-engine": "^0.6.0",
+    "thinksuit-modules": "*",
+    "trajectory": "^1.7.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.33.0",
+    "eslint": "^9.37.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
+    "jscodeshift": "^17.3.0",
+    "prettier": "^3.6.2",
+    "vite": "^7.1.2"
+  }
+}
