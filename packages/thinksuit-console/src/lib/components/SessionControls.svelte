@@ -1,5 +1,5 @@
 <script>
-    import { Button, Input, Textarea, Checkbox, Badge } from '$lib/components/ui/index.js';
+    import { Button, Input, Textarea, Checkbox } from '$lib/components/ui/index.js';
     import { getSession } from '$lib/stores/session.svelte.js';
 
     let {

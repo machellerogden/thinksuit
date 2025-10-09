@@ -1,5 +1,4 @@
 import { json } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
 import { schedule, createLogger, buildConfig } from 'thinksuit';
 import { SESSION_STATUS } from 'thinksuit/constants/events';
 import { registerExecution, removeExecution } from '$lib/server/activeExecutions.js';
@@ -17,7 +16,6 @@ export async function POST({ request }) {
             module,
             provider,
             model,
-            apiKey,
             allowedTools,
             autoApproveTools,
             policy,

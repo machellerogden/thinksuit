@@ -1,7 +1,7 @@
 <script>
     import { SvelteSet } from 'svelte/reactivity';
-    import { Card, EmptyState, Badge, Button, JSONView } from '$lib/components/ui/index.js';
-    import { getSession, loadSession, createFork } from '$lib/stores/session.svelte.js';
+    import { EmptyState, Badge, Button, JSONView } from '$lib/components/ui/index.js';
+    import { getSession, loadSession } from '$lib/stores/session.svelte.js';
     import { EXECUTION_EVENTS } from 'thinksuit/constants/events';
     import SignalDetectionView from '$lib/components/session/boundary/SignalDetectionView.svelte';
     import RuleEvaluationView from '$lib/components/session/boundary/RuleEvaluationView.svelte';
@@ -191,7 +191,6 @@
         }
 
         const approvalStatuses = new Map(); // approvalId -> status
-        const newRequests = [];
 
         // Scan entries to find all approval states
         for (const entry of session.entries) {
@@ -242,20 +241,6 @@
             minute: '2-digit',
             second: '2-digit'
         });
-    }
-
-    async function handleCreateFork(eventIndex, sourceSessionId) {
-        try {
-            const newSessionId = await createFork(eventIndex, sourceSessionId);
-            window.location.hash = `#/run/sessions/${newSessionId}/thread`;
-        } catch (error) {
-            console.error('Error creating fork:', error);
-        }
-    }
-
-    function navigateToSession(newSessionId, eventId = null) {
-        const baseHash = `#/run/sessions/${newSessionId}/thread`;
-        window.location.hash = eventId ? `${baseHash}/${eventId}` : baseHash;
     }
 
     async function copyToClipboard(text) {

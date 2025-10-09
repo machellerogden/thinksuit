@@ -1,5 +1,5 @@
 <script>
-    import { PanelWithDrawer, Card, Button, Badge } from '$lib/components/ui';
+    import { PanelWithDrawer, Card, Button, Badge } from '$lib/components/ui/index.js';
 
     let horizontalCollapsed = $state(false);
     let verticalCollapsed = $state(false);

@@ -1,8 +1,7 @@
 <script>
     import { onMount } from 'svelte';
-    import { SvelteSet, SvelteMap } from 'svelte/reactivity';
     import { Badge, Card, JSONView, EmptyState, Tabs, Copyable } from '$lib/components/ui/index.js';
-    import { SESSION_EVENTS, ORCHESTRATION_EVENTS, EXECUTION_EVENTS, PROCESSING_EVENTS } from 'thinksuit/constants/events';
+    import { SESSION_EVENTS } from 'thinksuit/constants/events';
 
     let { sessionId = null } = $props();
 
@@ -51,12 +50,10 @@
     }
 
     const jsonCache = new LRUCache(1000);
-    let expandedEntries = $state(new SvelteSet());
     let traceLoading = $state(false);
     let traceError = $state(null);
     let selectedTraceEntry = $state(null);
     let selectedTraceIndex = $state(null);
-    let traceTree = $state(null);
 
     // Reactive session selection
     $effect(() => {
@@ -64,7 +61,6 @@
             selectSession(sessionId);
         } else {
             selectedSessionData = null;
-            expandedEntries = new SvelteSet();
         }
     });
 
@@ -92,7 +88,6 @@
 
         selectedSessionData = null;
         selectedTraceData = null;
-        expandedEntries = new SvelteSet();
         jsonCache.clear();  // Clear cache when switching sessions
 
         try {
@@ -119,51 +114,11 @@
             if (!response.ok) throw new Error('Failed to load trace data');
             const data = await response.json();
             selectedTraceData = data;
-            // Build the execution tree from trace entries
-            if (data?.entries) {
-                traceTree = buildExecutionTree(data.entries);
-            }
         } catch (err) {
             traceError = err.message;
             console.error('Error loading trace data:', err);
         } finally {
             traceLoading = false;
-        }
-    }
-
-    function buildExecutionTree(entries) {
-        const nodeMap = new SvelteMap();
-        const rootNodes = [];
-
-        // First pass: create all nodes
-        entries.forEach(entry => {
-            if (entry.spanId) {
-                nodeMap.set(entry.spanId, {
-                    ...entry,
-                    children: []
-                });
-            }
-        });
-
-        // Second pass: build tree structure
-        nodeMap.forEach(node => {
-            if (node.parentSpanId && nodeMap.has(node.parentSpanId)) {
-                nodeMap.get(node.parentSpanId).children.push(node);
-            } else if (!node.parentSpanId) {
-                rootNodes.push(node);
-            }
-        });
-
-        return { nodeMap, rootNodes };
-    }
-
-    // Removed trace-related functions - LLM data now comes from session
-
-    function toggleEntry(index) {
-        if (expandedEntries.has(index)) {
-            expandedEntries.delete(index);
-        } else {
-            expandedEntries.add(index);
         }
     }
 
@@ -189,16 +144,6 @@
         if (level === 20) return 'DEBUG';
         if (level === 10) return 'TRACE';
         return `Level ${level}`;
-    }
-
-    function formatTime(timestamp) {
-        if (!timestamp) return '';
-        const date = new Date(timestamp);
-        return date.toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-        });
     }
 
     function formatTimeWithMs(timestamp) {
@@ -412,7 +357,7 @@
                             message={`No entries matching "${eventFilter}" found`}
                         />
                     {:else}
-                        {#each filteredEntries as entry, i (entry)}
+                        {#each filteredEntries as entry, _i (entry)}
                             <Card variant="default">
                                 <div class="text-xs text-gray-500 mb-2">
                                     {#if entry.event}

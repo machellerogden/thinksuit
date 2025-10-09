@@ -63,7 +63,6 @@
     );
 
     // Resize handle positioning
-    let resizeHandlePosition = $derived(position === 'bottom' ? 'top' : 'bottom');
     let resizeHandleBorder = $derived(position === 'bottom' ? 'border-t' : 'border-b');
 </script>
 

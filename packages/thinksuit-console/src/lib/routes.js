@@ -1,5 +1,4 @@
 import Welcome from '$lib/components/Welcome.svelte';
-import SessionInspector from '$lib/components/SessionInspector.svelte';
 import RunInterface from '$lib/components/RunInterface.svelte';
 import ConfigViewer from '$lib/components/ConfigViewer.svelte';
 import Sandbox from '$lib/components/Sandbox.svelte';

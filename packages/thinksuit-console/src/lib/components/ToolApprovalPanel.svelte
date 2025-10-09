@@ -1,5 +1,5 @@
 <script>
-    import { Card, Button, Badge } from '$lib/components/ui/index.js';
+    import { Button, Badge } from '$lib/components/ui/index.js';
     import { SvelteSet } from 'svelte/reactivity';
 
     let { approvalQueue = [], onApprove = () => {}, onDeny = () => {} } = $props();
@@ -10,7 +10,6 @@
 
     // Auto-expand new items and collapse completed ones
     $effect(() => {
-        const currentIds = new Set(approvalQueue.map(req => req.approvalId));
         const previousIds = new Set(previousQueue.map(req => req.approvalId));
 
         // Auto-expand new pending items

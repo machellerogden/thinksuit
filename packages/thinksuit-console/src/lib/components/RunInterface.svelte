@@ -1,14 +1,12 @@
 <script>
-    import { Card, Button } from '$lib/components/ui/index.js';
+    import { Button } from '$lib/components/ui/index.js';
     import SessionThread from '$lib/components/SessionThread.svelte';
     import SessionInspector from '$lib/components/SessionInspector.svelte';
     import SessionControls from '$lib/components/SessionControls.svelte';
     import RunSidebarLeft from '$lib/components/RunSidebarLeft.svelte';
     import RunSidebarRight from '$lib/components/RunSidebarRight.svelte';
-    import { getSession, canSubmitToSession, loadSession } from '$lib/stores/session.svelte.js';
-    import { ui } from '$lib/stores/ui.svelte.js';
+    import { canSubmitToSession, loadSession } from '$lib/stores/session.svelte.js';
     import { registerHotkey } from '$lib/stores/hotkeys.svelte.js';
-    import { SESSION_EVENTS } from 'thinksuit/constants/events';
     import { subscribeToSessionEvents } from '$lib/utils/sessionEvents.js';
     import { onDestroy, onMount } from 'svelte';
 
@@ -27,8 +25,6 @@
     let isCancelling = $state(false);
     let approvalQueue = $state([]);
     let sessionControlsComponent = $state();
-
-    const session = getSession();
 
 
     // Fetch default working directory from config on mount
@@ -178,13 +174,13 @@
         // Subscribe to real-time events
         activeSubscription = subscribeToSessionEvents(
             sessionId,
-            (notification) => {
+            (_notification) => {
                 // Trigger a session update event - SessionThread will handle incremental loading
                 window.dispatchEvent(new CustomEvent('session-updated', {
                     detail: { sessionId }
                 }));
             },
-            (error) => {
+            (_error) => {
             // Silently ignore SSE errors - they're often from browser reconnection attempts
                 // and don't affect functionality
             }

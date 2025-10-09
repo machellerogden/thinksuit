@@ -1,6 +1,6 @@
 <script>
     import { onMount } from 'svelte';
-    import { Card, Badge, JSONView, EmptyState } from '$lib/components/ui';
+    import { Card, Badge, JSONView, EmptyState } from '$lib/components/ui/index.js';
 
     let config = $state(null);
     let loading = $state(true);
@@ -19,16 +19,6 @@
             loading = false;
         }
     });
-
-    function formatValue(value) {
-        if (value === undefined) return 'undefined';
-        if (value === null) return 'null';
-        if (typeof value === 'boolean') return value.toString();
-        if (typeof value === 'string') return value;
-        if (typeof value === 'number') return value.toString();
-        if (typeof value === 'object') return JSON.stringify(value, null, 2);
-        return String(value);
-    }
 
     function getValueType(value) {
         if (value === true) return 'success';

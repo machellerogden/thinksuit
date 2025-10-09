@@ -11,9 +11,9 @@
     const MIN_SIZE = 100;
     const MAX_SIZE = 800;
     const DRAWER_Z_INDEX = 30;
-    const BUTTON_PADDING = 28; // pt-7/pb-7/pr-7/pl-7 = 1.75rem = 28px
 
     let terminalComponent = $state();
+    // eslint-disable-next-line svelte/valid-compile
     let terminalActive = false;
     let ttyPort = $state(60662);
     let ttyToken = $state('');

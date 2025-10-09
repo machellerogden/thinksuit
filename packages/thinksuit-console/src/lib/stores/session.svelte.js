@@ -6,7 +6,7 @@
 
 import { buildSessionTree } from 'thinksuit/sessions/tree';
 import { deriveSessionStatus } from 'thinksuit/sessions/deriveSessionStatus';
-import { SESSION_EVENTS, SESSION_STATUS } from 'thinksuit/constants/events';
+import { SESSION_STATUS } from 'thinksuit/constants/events';
 
 // Core state
 let activeSessionId = $state(null);

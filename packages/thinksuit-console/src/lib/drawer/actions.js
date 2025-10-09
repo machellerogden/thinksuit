@@ -3,7 +3,6 @@
 
 import { drawers, ui } from './drawerState.svelte.js';
 import {
-    getSiblings,
     getFirstVisibleChild,
     isVisible,
     cycleStateForward as cycleForward,

@@ -6,8 +6,7 @@
         selectedSessionId = null,
         baseRoute = '/inspect/sessions',
         defaultView = 'timeline',
-        searchFilter = '',
-        collapsed = false
+        searchFilter = ''
     } = $props();
 
     let sessions = $state([]);

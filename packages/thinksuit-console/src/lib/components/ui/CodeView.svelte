@@ -23,7 +23,7 @@
         try {
             const result = hljs.highlight(code, { language });
             highlightedCode = result.value;
-        } catch (e) {
+        } catch (_err) {
             // Fallback to plain text if highlighting fails
             highlightedCode = code;
         }

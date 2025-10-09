@@ -1,5 +1,5 @@
 <script>
-    const copyText = (text, done) => async (evt) => {
+    const copyText = (text, done) => async (_evt) => {
         if (window.ClipboardItem) {
             const data = [
                 new window.ClipboardItem({
@@ -9,7 +9,7 @@
             try {
                 await window.navigator.clipboard.write(data);
                 console.log('Copied to clipboard successfully!');
-            } catch (e) {
+            } catch (_err) {
                 console.error('Unable to write to clipboard. :-(');
             }
             done(text);
@@ -29,7 +29,7 @@
     let { text = '', displayText = '' } = $props();
     let copied = $state(false);
 
-    const done = _ => {
+    const done = _unused => {
         copied = true;
         setTimeout(() => {
             copied = false;
