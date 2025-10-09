@@ -78,7 +78,12 @@ export function startServer(options = {}) {
         }
     });
 
-    wss.on('connection', ws => {
+    wss.on('connection', (ws, request) => {
+        // Parse cwd from query parameter
+        const url = new URL(request.url, `https://${request.headers.host}`);
+        const cwdParam = url.searchParams.get('cwd');
+        const targetCwd = cwdParam || process.env.HOME;
+
         let ptyProcess;
 
         try {
@@ -87,10 +92,13 @@ export function startServer(options = {}) {
                 encoding: 'utf8',
                 cols: 80,
                 rows: 24,
-                cwd: process.env.HOME,
+                cwd: targetCwd,
                 env: {
                     ...process.env,
                     COLORTERM: 'truecolor',
+                    // Ensure UTF-8 locale (use system default or fallback to en_US.UTF-8)
+                    LANG: process.env.LANG || 'en_US.UTF-8',
+                    LC_ALL: process.env.LC_ALL || process.env.LANG || 'en_US.UTF-8'
                 }
             });
 

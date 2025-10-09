@@ -17,6 +17,7 @@
     let terminalActive = $state(false);
     let ttyPort = $state(60662);
     let ttyToken = $state('');
+    let ttyCwd = $state('');
 
     // Helper function for directional hotkeys
     async function handleDirectionalHotkey(targetPosition) {
@@ -51,13 +52,14 @@
 
     // Register hotkeys and fetch config on mount
     onMount(async () => {
-        // Fetch TTY config (port and auth token)
+        // Fetch TTY config (port, auth token, and cwd)
         try {
             const response = await fetch('/api/config');
             if (response.ok) {
                 const config = await response.json();
                 ttyPort = config.ttyPort || 60662;
                 ttyToken = config.ttyToken || '';
+                ttyCwd = config.ttyCwd || '';
             }
         } catch (error) {
             console.error('Failed to fetch TTY config:', error);
@@ -397,7 +399,7 @@
         class="flex-1 p-4 invert hue-rotate-180 overflow-hidden {ui.terminalOpen ? '' : 'hidden'}"
         style="background-color:#0A0B0D"
     >
-        <Terminal bind:this={terminalComponent} bind:active={terminalActive} port={ttyPort} token={ttyToken} />
+        <Terminal bind:this={terminalComponent} bind:active={terminalActive} port={ttyPort} token={ttyToken} cwd={ttyCwd} />
     </div>
 
     <!-- Resize Handle - positioned after for top/left, hidden in fullscreen -->

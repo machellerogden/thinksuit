@@ -10,6 +10,7 @@ import '@xterm/xterm/css/xterm.css';
 let {
     port = 60662, // default thinksuit-tty port
     token = '', // auth token for WebSocket connection
+    cwd = '', // initial working directory
     fontFamily = '"Noto Sans Mono", Lekton, Menlo, Monaco, "Courier New", monospace',
     theme = { background: "#0A0B0D" },
     active = $bindable(false)
@@ -58,8 +59,10 @@ onMount(() => {
     });
 
     // Pass token as WebSocket subprotocol for authentication
+    // Pass cwd as query parameter for initial working directory
     const protocols = token ? [token] : [];
-    ttySocket = new WebSocket(`wss://localhost:${port}`, protocols);
+    const cwdParam = cwd ? `?cwd=${encodeURIComponent(cwd)}` : '';
+    ttySocket = new WebSocket(`wss://localhost:${port}${cwdParam}`, protocols);
 
     const attachAddon = new AttachAddon(ttySocket);
     fitAddon = new FitAddon();
