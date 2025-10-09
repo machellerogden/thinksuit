@@ -23,7 +23,17 @@ npm run build
 node bin/service.mjs
 ```
 
-The TTY service runs on port 60662 (configurable via `TTW_PORT` env var).
+The TTY service runs on port 60662 (configurable via `THINKSUIT_TTY_PORT` env var).
+
+## Security
+
+The TTY service requires authentication via the `THINKSUIT_TTY_AUTH_TOKEN` environment variable. Generate a secure token:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Set this token in your LaunchAgent plist configuration before starting the service.
 
 ## Service Management
 
@@ -92,8 +102,8 @@ import { startServer } from 'thinksuit-tty/server';
 
 startServer({
   port: 60662,
-  sslKeyPath: './ssl/ttw.key',
-  sslCertPath: './ssl/ttw.crt',
+  sslKeyPath: './ssl/thinksuit-tty.key',
+  sslCertPath: './ssl/thinksuit-tty.crt',
   onReady: (address) => {
     console.log(`TTY server ready at wss://localhost:${address.port}`);
   }

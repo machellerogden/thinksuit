@@ -4,7 +4,7 @@ import { registerDiceRoller } from './tools/dice.js';
 export async function createMcpServer() {
     const server = new McpServer({
         name: 'ThinkSuit Custom Tools',
-        version: '0.0.0'
+        version: '0.0.1'
     });
 
     registerDiceRoller(server);

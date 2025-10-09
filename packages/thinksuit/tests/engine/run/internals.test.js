@@ -566,7 +566,7 @@ describe('run/internals', () => {
             expect(module).toBeDefined();
             expect(module.namespace).toBe('thinksuit');
             expect(module.name).toBe('mu');
-            expect(module.version).toBe('0.0.0');
+            expect(module.version).toMatch(/^\d+\.\d+\.\d+$/);
         });
 
         it('should use default modules when none provided', async () => {

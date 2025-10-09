@@ -1,6 +1,6 @@
 {
   "name": "thinksuit-monorepo",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "description": "ThinkSuit monorepo - AI orchestration system with modular cognitive architecture",
   "workspaces": [
@@ -16,9 +16,9 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "version:patch": "npm version patch --workspaces --include-workspace-root --no-git-tag-version && git add -A && git commit -m \"$(node -p 'require(\"./package.json\").version')\" && git tag v$(node -p 'require(\"./package.json\").version')",
-    "version:minor": "npm version minor --workspaces --include-workspace-root --no-git-tag-version && git add -A && git commit -m \"$(node -p 'require(\"./package.json\").version')\" && git tag v$(node -p 'require(\"./package.json\").version')",
-    "version:major": "npm version major --workspaces --include-workspace-root --no-git-tag-version && git add -A && git commit -m \"$(node -p 'require(\"./package.json\").version')\" && git tag v$(node -p 'require(\"./package.json\").version')"
+    "version:patch": "./scripts/version.sh patch",
+    "version:minor": "./scripts/version.sh minor",
+    "version:major": "./scripts/version.sh major"
   },
   "repository": {
     "type": "git",

@@ -7,7 +7,7 @@ describe('Mu Module', () => {
         it('should export required manifest fields', () => {
             expect(module.namespace).toBe('thinksuit');
             expect(module.name).toBe('mu');
-            expect(module.version).toBe('0.0.0');
+            expect(module.version).toMatch(/^\d+\.\d+\.\d+$/);
             expect(module.description).toBeDefined();
             expect(module.author).toBeDefined();
             expect(module.license).toBeDefined();

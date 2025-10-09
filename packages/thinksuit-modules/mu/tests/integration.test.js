@@ -21,7 +21,7 @@ describe('Mu Module', () => {
         it('exports required module interface', () => {
             expect(module).toHaveProperty('namespace', 'thinksuit');
             expect(module).toHaveProperty('name', 'mu');
-            expect(module).toHaveProperty('version', '0.0.0');
+            expect(module.version).toMatch(/^\d+\.\d+\.\d+$/);
             expect(module).toHaveProperty('roles');
             expect(module).toHaveProperty('classifiers');
             expect(module).toHaveProperty('rules');

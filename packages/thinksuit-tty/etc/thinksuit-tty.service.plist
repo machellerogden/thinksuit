@@ -17,8 +17,10 @@
       <string>true</string>
       <key>PATH</key>
       <string><![CDATA[/Users/mac/.local/share/mise/installs/node/22/bin:/opt/homebrew/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin]]></string>
-      <key>TTW_PORT</key>
+      <key>THINKSUIT_TTY_PORT</key>
       <string>60662</string>
+      <key>THINKSUIT_TTY_AUTH_TOKEN</key>
+      <string>REPLACE_WITH_YOUR_TOKEN</string>
     </dict>
     <key>WorkingDirectory</key>
     <string>/Users/mac/repos/github.com/machellerogden/thinksuit/packages/thinksuit-tty</string>

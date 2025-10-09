@@ -64,10 +64,8 @@ npm install
 npm run cli "Your input here"
 
 # Run the web console (development)
-npm run console
-
-# Run the MCP server
-npm run mcp
+npm run tty       # First, start the tty service
+npm run console   # Then, the console
 
 # Run tests
 npm run test
@@ -79,7 +77,7 @@ npm run format
 
 ### Running the Console as a Background Service
 
-The web console can run as a persistent LaunchAgent service. The console requires both the console and TTY services to be running.
+On macOS, the web console can run as a persistent LaunchAgent service. The console requires both the console and TTY services to be running.
 
 See the **[Service Management Guide](docs/SERVICE_MANAGEMENT.md)** for complete installation and operation instructions.
 
@@ -91,8 +89,8 @@ This monorepo uses npm workspaces for package management. All dependencies are i
 
 ```bash
 # Run commands in specific packages
-npm --workspace=thinksuit run test
-npm --workspace=thinksuit-console run dev
+npm -w thinksuit run test
+npm -w thinksuit-console run dev
 
 # Or use the shortcuts in root package.json
 npm run cli "input"     # runs thinksuit CLI
@@ -104,8 +102,8 @@ npm run test           # runs thinksuit tests
 
 ```bash
 # Add to specific package
-npm install --workspace=thinksuit some-package
-npm install --workspace=thinksuit-console some-package
+npm install -w thinksuit some-package
+npm install -w thinksuit-console some-package
 
 # Add to root (for build tools, etc)
 npm install -D some-dev-tool

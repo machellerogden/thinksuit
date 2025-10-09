@@ -18,7 +18,10 @@ export async function GET() {
                 anthropic: config.providerConfig.anthropic?.apiKey ? { apiKey: '***' } : undefined
             } : undefined,
             // Preserve sources metadata including error/isEmpty flags
-            _sources: config._sources
+            _sources: config._sources,
+            // Add TTY configuration
+            ttyPort: parseInt(process.env.THINKSUIT_TTY_PORT || '60662'),
+            ttyToken: process.env.THINKSUIT_TTY_AUTH_TOKEN || ''
         };
         
         // Remove internal CLI object

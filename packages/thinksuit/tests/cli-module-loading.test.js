@@ -36,7 +36,7 @@ describe('CLI module loading', () => {
         expect(module).toBeDefined();
         expect(module.namespace).toBe('thinksuit');
         expect(module.name).toBe('mu');
-        expect(module.version).toBe('0.0.0');
+        expect(module.version).toMatch(/^\d+\.\d+\.\d+$/);
     });
 
     it('should load module from custom modules object', async () => {

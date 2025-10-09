@@ -39,11 +39,20 @@ function printable(buf) {
 
 export function startServer(options = {}) {
     const {
-        port = process.env.TTW_PORT || 0,
-        sslKeyPath = process.env.TTW_SSL_KEY || path.join(__dirname, '../ssl/ttw.key'),
-        sslCertPath = process.env.TTW_SSL_CERT || path.join(__dirname, '../ssl/ttw.crt'),
+        port = process.env.THINKSUIT_TTY_PORT || 0,
+        sslKeyPath = process.env.THINKSUIT_TTY_SSL_KEY || path.join(__dirname, '../ssl/thinksuit-tty.key'),
+        sslCertPath = process.env.THINKSUIT_TTY_SSL_CERT || path.join(__dirname, '../ssl/thinksuit-tty.crt'),
         onReady = null
     } = options;
+
+    // Require auth token
+    const AUTH_TOKEN = process.env.THINKSUIT_TTY_AUTH_TOKEN;
+    if (!AUTH_TOKEN) {
+        console.error('THINKSUIT_TTY_AUTH_TOKEN environment variable is required for security.');
+        console.error('Generate a token with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+        console.error('Then set it in your LaunchAgent plist or environment.');
+        process.exit(1);
+    }
 
     // Check for SSL certificates
     if (!fs.existsSync(sslKeyPath) || !fs.existsSync(sslCertPath)) {
@@ -57,7 +66,17 @@ export function startServer(options = {}) {
     const cert = fs.readFileSync(sslCertPath);
     const app = express();
     const server = https.createServer({ key, cert }, app);
-    const wss = new WebSocketServer({ server });
+    const wss = new WebSocketServer({
+        server,
+        handleProtocols: (protocols, request) => {
+            // Validate auth token via WebSocket subprotocol
+            if (protocols.has(AUTH_TOKEN)) {
+                return AUTH_TOKEN;
+            }
+            console.warn('Unauthorized WebSocket connection attempt');
+            return false;
+        }
+    });
 
     wss.on('connection', ws => {
         let ptyProcess;
@@ -137,7 +156,7 @@ export function startServer(options = {}) {
         }
     });
 
-    server.listen(port, () => {
+    server.listen(port, '127.0.0.1', () => {
         const address = server.address();
         console.log(`TTY server started on port ${address.port}`);
         if (onReady) {

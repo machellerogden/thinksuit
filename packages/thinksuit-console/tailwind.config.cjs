@@ -1,6 +1,7 @@
 module.exports = {
     content: [
         './src/**/*.{html,js,svelte}',
+        '../thinksuit-tty/src/**/*.svelte',
     ],
     theme: {
         extend: {

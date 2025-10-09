@@ -9,9 +9,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const packageRoot = join(__dirname, '..');
 
-const port = process.env.TTW_PORT || 60662;
-const sslKeyPath = process.env.TTW_SSL_KEY || join(packageRoot, 'ssl/ttw.key');
-const sslCertPath = process.env.TTW_SSL_CERT || join(packageRoot, 'ssl/ttw.crt');
+const port = process.env.THINKSUIT_TTY_PORT || 60662;
+const sslKeyPath = process.env.THINKSUIT_TTY_SSL_KEY || join(packageRoot, 'ssl/thinksuit-tty.key');
+const sslCertPath = process.env.THINKSUIT_TTY_SSL_CERT || join(packageRoot, 'ssl/thinksuit-tty.crt');
 
 console.log(`Starting ThinkSuit TTY service on port ${port}`);
 
