@@ -29,61 +29,25 @@ The TTY service runs on port 60662 (configurable via `TTW_PORT` env var).
 
 ThinkSuit TTY includes LaunchAgent integration for automatic startup on macOS.
 
-### Setup
+For complete installation instructions and service management reference, see the **[Service Management Guide](../../docs/SERVICE_MANAGEMENT.md)**.
 
-The service plist is already installed at `~/Library/LaunchAgents/thinksuit-tty.service.plist`.
-
-### Service Commands
-
-All service management is handled through npm scripts:
+### Quick Reference
 
 ```bash
 # Initialize service (reset logs, bootstrap, start, and tail)
-npm run thinksuit-tty-service-init
+thinksuit-tty-service-init
 
-# Load service into launchd
-npm run thinksuit-tty-service-load
-
-# Unload service from launchd
-npm run thinksuit-tty-service-unload
-
-# Start/restart service
-npm run thinksuit-tty-service-start
-
-# Stop service gracefully (SIGTERM)
-npm run thinksuit-tty-service-stop
-
-# Force kill service (SIGKILL)
-npm run thinksuit-tty-service-kill
-
-# Tail service logs
-npm run thinksuit-tty-service-logs
-
-# Show service info
-npm run thinksuit-tty-service-info
+# Other commands
+thinksuit-tty-service-load      # Register with launchd
+thinksuit-tty-service-unload    # Unregister from launchd
+thinksuit-tty-service-start     # Start/restart service
+thinksuit-tty-service-stop      # Stop gracefully (SIGTERM)
+thinksuit-tty-service-kill      # Force kill (SIGKILL)
+thinksuit-tty-service-logs      # Tail logs
+thinksuit-tty-service-info      # Show service status
 ```
 
-### Configuration
-
-The service can be configured via environment variables in the plist file (`~/Library/LaunchAgents/thinksuit-tty.service.plist`):
-
-- `TTW_PORT` - Port number (default: 60662)
-- `TTW_SSL_KEY` - Path to SSL key file
-- `TTW_SSL_CERT` - Path to SSL certificate file
-
-After editing the plist, reload the service:
-
-```bash
-npm run thinksuit-tty-service-unload
-npm run thinksuit-tty-service-load
-npm run thinksuit-tty-service-start
-```
-
-### Logs
-
-Service logs are written to:
-- stdout: `~/Library/Logs/thinksuit-tty.service.stdout.log`
-- stderr: `~/Library/Logs/thinksuit-tty.service.stderr.log`
+**Note:** Commands are available globally after running `npm -w thinksuit-tty link` from the monorepo root.
 
 ## Architecture
 

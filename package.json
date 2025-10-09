@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "console": "npm -w thinksuit-console run dev --",
+    "tty": "npm -w thinksuit-tty run dev --",
     "mcp": "npm -w thinksuit-mcp-server run start --",
     "cli": "npm -w thinksuit run cli --",
     "build": "npm run build --workspaces --if-present",

@@ -34,7 +34,8 @@
   "scripts": {
     "prepare": "npm run build",
     "build": "vite build",
-    "dev": "vite build --watch",
+    "dev": "node ./bin/service.mjs",
+    "dev:ui": "vite build --watch",
     "test": "vitest --config ../../vitest.config.js"
   },
   "keywords": [

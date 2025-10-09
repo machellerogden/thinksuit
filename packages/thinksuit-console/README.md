@@ -10,7 +10,11 @@ ThinkSuit Console provides visual tools for inspecting and debugging ThinkSuit e
 - Raw JSONL data viewing
 - Real-time session monitoring
 
-## Quick Start
+## Prerequisites
+
+ThinkSuit Console requires the ThinkSuit TTY service to be running.
+
+## Development
 
 ```bash
 # Install dependencies
@@ -27,6 +31,10 @@ npm run preview
 ```
 
 The development server runs on http://localhost:5173 (or next available port).
+
+## Running as a Background Service
+
+To run the console as a persistent LaunchAgent service, see the **[Service Management Guide](../../docs/SERVICE_MANAGEMENT.md)**.
 
 ## Architecture
 

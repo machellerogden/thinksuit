@@ -63,7 +63,7 @@ npm install
 # Run the CLI
 npm run cli "Your input here"
 
-# Run the web console
+# Run the web console (development)
 npm run console
 
 # Run the MCP server
@@ -76,6 +76,12 @@ npm run test
 npm run lint
 npm run format
 ```
+
+### Running the Console as a Background Service
+
+The web console can run as a persistent LaunchAgent service. The console requires both the console and TTY services to be running.
+
+See the **[Service Management Guide](docs/SERVICE_MANAGEMENT.md)** for complete installation and operation instructions.
 
 ## Development
 
