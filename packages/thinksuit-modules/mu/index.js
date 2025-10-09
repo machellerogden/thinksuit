@@ -9,7 +9,7 @@ import rules from './rules.js';
 const mu = {
     namespace: 'thinksuit',
     name: 'mu',
-    version: '0.0.1',
+    version: '0.0.2',
 
     roles: [
         'assistant',

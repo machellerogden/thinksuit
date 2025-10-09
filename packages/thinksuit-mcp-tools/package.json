@@ -1,6 +1,6 @@
 {
   "name": "thinksuit-mcp-tools",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Custom MCP tools consumed BY ThinkSuit for extended functionality",
   "type": "module",
   "main": "index.js",
