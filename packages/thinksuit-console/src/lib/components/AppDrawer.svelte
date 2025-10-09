@@ -14,10 +14,45 @@
     const BUTTON_PADDING = 28; // pt-7/pb-7/pr-7/pl-7 = 1.75rem = 28px
 
     let terminalComponent = $state();
-    let terminalActive = $state(false);
+    let terminalActive = false;
     let ttyPort = $state(60662);
     let ttyToken = $state('');
     let ttyCwd = $state('');
+    let stateBeforeFullscreen = $state({ open: false, position: 'bottom' });
+
+    // State transition functions
+    function collapseTerminal() {
+        ui.terminalOpen = false;
+        ui.terminalFullscreen = false;
+    }
+
+    function expandTerminal() {
+        ui.terminalOpen = true;
+        ui.terminalFullscreen = false;
+    }
+
+    function enterFullscreen() {
+        // Save current state before going fullscreen
+        stateBeforeFullscreen = {
+            open: ui.terminalOpen,
+            position: ui.terminalPosition
+        };
+        ui.terminalOpen = true;
+        ui.terminalFullscreen = true;
+    }
+
+    function exitFullscreen() {
+        // Restore to pre-fullscreen state
+        ui.terminalFullscreen = false;
+        ui.terminalOpen = stateBeforeFullscreen.open;
+    }
+
+    async function focusTerminal() {
+        await tick();
+        if (terminalComponent) {
+            terminalComponent.focus();
+        }
+    }
 
     // Helper function for directional hotkeys
     async function handleDirectionalHotkey(targetPosition) {
@@ -25,28 +60,20 @@
             // Already in target position
             if (!ui.terminalOpen) {
                 // Closed -> open and focus
-                ui.terminalOpen = true;
-                await tick();
-                if (terminalComponent) {
-                    terminalComponent.focus();
-                }
+                expandTerminal();
+                await focusTerminal();
             } else if (!terminalActive) {
                 // Open but not focused -> just focus
-                if (terminalComponent) {
-                    terminalComponent.focus();
-                }
+                await focusTerminal();
             } else {
                 // Open and focused -> close
-                ui.terminalOpen = false;
+                collapseTerminal();
             }
         } else {
             // Move to target position, open, and focus
             ui.terminalPosition = targetPosition;
-            ui.terminalOpen = true;
-            await tick();
-            if (terminalComponent) {
-                terminalComponent.focus();
-            }
+            expandTerminal();
+            await focusTerminal();
         }
     }
 
@@ -68,17 +95,12 @@
         // Register toggle hotkey (ctrl+alt+o)
         const toggleCleanup = registerHotkey('ctrl+alt+o', async () => {
             if (!ui.terminalOpen) {
-                ui.terminalOpen = true;
-                await tick();
-                if (terminalComponent) {
-                    terminalComponent.focus();
-                }
+                expandTerminal();
+                await focusTerminal();
             } else if (!terminalActive) {
-                if (terminalComponent) {
-                    terminalComponent.focus();
-                }
+                await focusTerminal();
             } else {
-                ui.terminalOpen = false;
+                collapseTerminal();
             }
         }, {
             description: 'Toggle/focus terminal',
@@ -140,11 +162,15 @@
         ];
 
         // Register fullscreen toggle hotkey (ctrl+alt+f)
-        const fullscreenCleanup = registerHotkey('ctrl+alt+f', () => {
-            if (!terminalActive || !ui.terminalOpen) return;
-            ui.terminalFullscreen = !ui.terminalFullscreen;
+        const fullscreenCleanup = registerHotkey('ctrl+alt+f', async () => {
+            if (ui.terminalFullscreen) {
+                exitFullscreen();
+            } else {
+                enterFullscreen();
+                await focusTerminal();
+            }
         }, {
-            description: 'Toggle terminal fullscreen (when terminal focused)',
+            description: 'Toggle terminal fullscreen',
             preventDefault: true,
             allowInInput: true
         });
