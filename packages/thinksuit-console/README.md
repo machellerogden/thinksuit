@@ -122,3 +122,9 @@ thinksuit-console/
 ## License
 
 Apache 2.0
+
+### Third-Party Assets
+
+**Roboto Mono Font**
+Copyright 2015 The Roboto Mono Project Authors (https://github.com/googlefonts/robotomono)
+Licensed under the [SIL Open Font License, Version 1.1](https://openfontlicense.org)
