@@ -133,7 +133,7 @@
             </button>
             {#if showPrompt}
                 <div class="ml-5 mt-2 space-y-2">
-                    {#each metadata.thread || [] as message, _i}
+                    {#each metadata.thread || [] as message, i (i)}
                         <div class="text-xs bg-gray-50 rounded p-2 border border-gray-200">
                             {#if message.role}
                                 <!-- Standard message with role -->

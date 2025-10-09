@@ -21,6 +21,8 @@
       <string>60660</string>
       <key>THINKSUIT_CONSOLE_HOST</key>
       <string>localhost</string>
+      <key>THINKSUIT_TTY_AUTH_TOKEN</key>
+      <string>replace-with-tty-auth-token</string>
     </dict>
     <key>WorkingDirectory</key>
     <string>/Users/mac/repos/github.com/machellerogden/thinksuit/packages/thinksuit-console</string>

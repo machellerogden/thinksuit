@@ -79,6 +79,13 @@ export function startServer(options = {}) {
     });
 
     wss.on('connection', (ws, request) => {
+        // Verify authentication - protocol must match AUTH_TOKEN
+        if (ws.protocol !== AUTH_TOKEN) {
+            console.warn('Unauthorized WebSocket connection attempt - invalid or missing auth token');
+            ws.close(1008, 'Unauthorized');
+            return;
+        }
+
         // Parse cwd from query parameter
         const url = new URL(request.url, `https://${request.headers.host}`);
         const cwdParam = url.searchParams.get('cwd');

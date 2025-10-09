@@ -4,6 +4,7 @@ import { writable } from 'svelte/store';
 const activeShortcut = writable(null);
 
 // Store for currently held keys
+/* eslint-disable svelte/prefer-svelte-reactivity */
 const heldKeys = writable(new Set());
 
 // Sequential key handling logic
@@ -53,7 +54,7 @@ function handleKeyDown(event) {
 function handleKeyUp(event) {
     // Also trigger sequential shortcuts on keyup
     triggerListener(event);
-    
+
     // Remove from held keys
     heldKeys.update(keys => {
         const newKeys = new Set(keys);
@@ -73,7 +74,7 @@ let listenersAttached = false;
 // Attach global event listeners
 function attachListeners() {
     if (listenersAttached || typeof window === 'undefined') return;
-    
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('blur', handleBlur);
@@ -83,7 +84,7 @@ function attachListeners() {
 // Detach global event listeners
 function detachListeners() {
     if (!listenersAttached || typeof window === 'undefined') return;
-    
+
     window.removeEventListener('keydown', handleKeyDown);
     window.removeEventListener('keyup', handleKeyUp);
     window.removeEventListener('blur', handleBlur);

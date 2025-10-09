@@ -21,7 +21,7 @@ let terminal;
 let ttySocket;
 let fitAddon;
 let ptyResizeHandler;
-let connectionError = $state(null); // null = no error, 'cert' = certificate issue, 'unavailable' = service not running
+let connectionError = $state(null); // null = no error, 'cert' = certificate issue, 'unavailable' = service not running, 'auth' = authentication failed
 
 // Expose focus method for parent components
 export function focus() {
@@ -107,8 +107,11 @@ onMount(() => {
         // Detect error type based on close code and whether connection was ever established
         // If close happens immediately after error, it's likely a connection failure
         if (connectionError === null && event.code !== 1000 && event.code !== 1001) {
+            // Code 1008 = policy violation (used for auth failures)
+            if (event.code === 1008) {
+                connectionError = 'auth';
             // Code 1006 = abnormal closure (usually means couldn't connect at all)
-            if (event.code === 1006) {
+            } else if (event.code === 1006) {
                 connectionError = 'unavailable';
             } else {
                 connectionError = 'cert';
@@ -147,7 +150,26 @@ onDestroy(() => {
 });
 </script>
 
-{#if connectionError === 'cert'}
+{#if connectionError === 'auth'}
+    <div class="w-full h-full flex items-center justify-center p-8">
+        <div class="max-w-2xl text-center space-y-4">
+            <div class="text-red-600 text-lg font-semibold">
+                Authentication Failed
+            </div>
+            <div class="text-gray-300 space-y-2">
+                <p>
+                    The terminal could not authenticate with the TTY service.
+                </p>
+                <p>
+                    This usually means the authentication token in the Console service doesn't match the TTY service token.
+                </p>
+                <p class="text-sm text-gray-400 mt-4">
+                    To fix this, ensure both services have the same <code class="bg-gray-800 px-2 py-1 rounded">THINKSUIT_TTY_AUTH_TOKEN</code> environment variable set in their LaunchAgent plist files.
+                </p>
+            </div>
+        </div>
+    </div>
+{:else if connectionError === 'cert'}
     <div class="w-full h-full flex items-center justify-center p-8">
         <div class="max-w-2xl text-center space-y-4">
             <div class="text-orange-600 text-lg font-semibold">

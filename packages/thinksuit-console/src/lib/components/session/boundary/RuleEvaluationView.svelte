@@ -91,7 +91,7 @@
         <div class="space-y-1.5">
             <div class="text-xs font-medium text-gray-600">Facts Produced</div>
             <div class="space-y-0.5 ml-2 text-xs text-gray-700">
-                {#each Object.entries(factCounts) as [type, count]}
+                {#each Object.entries(factCounts) as [type, count] (type)}
                     <div class="flex items-center gap-2">
                         <span class="font-mono text-gray-600">•</span>
                         <span>{type}</span>

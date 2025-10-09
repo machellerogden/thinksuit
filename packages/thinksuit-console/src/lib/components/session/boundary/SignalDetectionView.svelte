@@ -95,11 +95,11 @@
     <!-- Signals grouped by dimension -->
     {#if Object.keys(signalsByDimension).length > 0}
         <div class="space-y-3">
-            {#each Object.entries(signalsByDimension) as [dimension, dimensionSignals]}
+            {#each Object.entries(signalsByDimension) as [dimension, dimensionSignals] (dimension)}
                 <div class="space-y-1.5">
                     <div class="text-xs font-semibold text-gray-700">{dimension}</div>
                     <div class="space-y-1 ml-2">
-                        {#each dimensionSignals as signal}
+                        {#each dimensionSignals as signal, i (i)}
                             <div class="flex items-center gap-2 text-xs">
                                 <span class="font-mono text-gray-600">•</span>
                                 <span class="font-medium text-gray-800">{signal.signal}</span>

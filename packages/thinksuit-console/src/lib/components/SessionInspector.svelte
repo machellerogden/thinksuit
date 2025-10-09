@@ -217,6 +217,7 @@
         const warningCount = entries.filter(e => e.level === 40).length;
 
         // Collect unique models used
+        /* eslint-disable-next-line svelte/prefer-svelte-reactivity */
         const modelsUsed = new Set();
         let totalTokens = { prompt: 0, completion: 0 };
 

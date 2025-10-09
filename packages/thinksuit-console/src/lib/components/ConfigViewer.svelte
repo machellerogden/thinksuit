@@ -39,13 +39,13 @@
                 <div class="text-xs font-mono text-gray-500 space-y-1">
                     <div>
                         Sources: defaults
-                        {#each config._sources.files as file}
+                        {#each config._sources.files as file (file.path)}
                             → {file.type}
                         {/each}
                         {#if Object.values(config._sources.environment).some(v => v)} → env{/if}
                         {#if config._sources.cli} → cli{/if}
                     </div>
-                    {#each config._sources.files as file}
+                    {#each config._sources.files as file (file.path)}
                         <div class="flex items-center gap-2">
                             <span>{file.type}: {file.path}</span>
                             {#if file.error}
@@ -199,7 +199,7 @@
                         <div class="p-3">
                             <h2 class="text-sm font-semibold mb-3 text-gray-700">Enabled Tools</h2>
                             <div class="flex flex-wrap gap-2">
-                                {#each config.tools as tool}
+                                {#each config.tools as tool (tool)}
                                     <Badge variant="primary">{tool}</Badge>
                                 {/each}
                             </div>

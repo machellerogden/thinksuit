@@ -420,12 +420,14 @@
         </div>
     {/if}
 
-    <!-- Terminal Container - ALWAYS MOUNTED -->
+    <!-- Terminal Container - Only mount when we have required config -->
     <div
         class="flex-1 p-4 invert hue-rotate-180 overflow-hidden {ui.terminalOpen ? '' : 'hidden'}"
         style="background-color:#0A0B0D"
     >
-        <Terminal bind:this={terminalComponent} bind:active={terminalActive} port={ttyPort} token={ttyToken} cwd={ttyCwd} />
+        {#if ttyToken}
+            <Terminal bind:this={terminalComponent} bind:active={terminalActive} port={ttyPort} token={ttyToken} cwd={ttyCwd} />
+        {/if}
     </div>
 
     <!-- Resize Handle - positioned after for top/left, hidden in fullscreen -->

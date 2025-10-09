@@ -13,6 +13,7 @@
     "cli": "npm -w thinksuit run cli --",
     "build": "npm run build --workspaces --if-present",
     "publish": "npm run publish --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",

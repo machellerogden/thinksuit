@@ -190,6 +190,7 @@
             return;
         }
 
+        /* eslint-disable-next-line svelte/prefer-svelte-reactivity */
         const approvalStatuses = new Map(); // approvalId -> status
 
         // Scan entries to find all approval states
@@ -462,7 +463,7 @@
                     <!-- Child nodes -->
                     {#if node.children}
                         <div class="mt-1 space-y-1">
-                            {#each node.children as child}
+                            {#each node.children as child (child.eventId)}
                                 {@render renderNode(child, depth + 1)}
                             {/each}
                         </div>
@@ -476,12 +477,12 @@
 {#snippet renderNode(node, depth = 0)}
     {#if node.type === 'session'}
         <!-- Session boundary - render its children -->
-        {#each node.children || [] as child}
+        {#each node.children || [] as child (child.eventId)}
             {@render renderNode(child, depth)}
         {/each}
     {:else if node.type === 'turn'}
         <!-- Turn boundary - transparent container for conversational exchange -->
-        {#each node.children || [] as child}
+        {#each node.children || [] as child (child.eventId)}
             {@render renderNode(child, depth)}
         {/each}
     {:else if node.type === 'event'}
@@ -596,7 +597,7 @@
                     bind:this={scrollContainer}
                     onscroll={handleScroll}
                 >
-                    {#each session.thread.children as node}
+                    {#each session.thread.children as node (node.eventId)}
                         {@render renderNode(node)}
                     {/each}
                 </div>

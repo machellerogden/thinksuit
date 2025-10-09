@@ -101,6 +101,7 @@ function boundaryToTreeNode(boundary, allEvents) {
         type: boundary.type,
         boundaryType: boundary.type,
         boundaryId: boundary.id,
+        eventId: boundary.startEvent?.eventId,
         startTime: boundary.startEvent?.time,
         endTime: boundary.endEvent?.time,
         status: boundary.unclosed ? 'incomplete' : 'complete',

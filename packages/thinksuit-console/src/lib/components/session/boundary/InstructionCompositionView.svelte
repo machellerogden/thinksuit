@@ -80,7 +80,7 @@
                     {completion.adaptationKeys.length === 1 ? 'adaptation' : 'adaptations'} applied
                 </div>
                 <div class="flex flex-wrap gap-1 ml-2">
-                    {#each completion.adaptationKeys as key}
+                    {#each completion.adaptationKeys as key (key)}
                         <span class="font-mono text-[10px] px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded">
                             {key}
                         </span>
@@ -106,7 +106,7 @@
         <div class="space-y-1.5">
             <div class="text-xs font-medium text-gray-600">Tools Available</div>
             <div class="flex flex-wrap gap-1 ml-2">
-                {#each completion.toolsAvailable as tool}
+                {#each completion.toolsAvailable as tool (tool)}
                     <span class="font-mono text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">
                         {tool}
                     </span>
