@@ -1,6 +1,6 @@
 {
   "name": "thinksuit",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Core orchestration engine for ThinkSuit - state machine-based AI execution with signal detection and modular cognitive architecture",
   "type": "module",
   "main": "index.js",

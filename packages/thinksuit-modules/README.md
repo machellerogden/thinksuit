@@ -58,7 +58,7 @@ See [TOOLS.md](TOOLS.md) for detailed tool documentation.
 export default {
     namespace: 'thinksuit',
     name: 'mu',
-    version: '0.0.2',
+    version: '0.0.3',
 
     // Cognitive roles available
     roles: ['assistant', 'analyzer', ...],
