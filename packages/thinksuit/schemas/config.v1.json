@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ThinkSuit User Configuration",
+  "description": "Schema for .thinksuit.json user configuration files",
+  "type": "object",
+  "properties": {
+    "module": {
+      "type": "string",
+      "description": "Module to load (e.g., 'thinksuit/mu')"
+    },
+    "modulesPackage": {
+      "type": "string",
+      "description": "Path to custom modules package directory (absolute or relative)"
+    },
+    "provider": {
+      "type": "string",
+      "enum": ["openai", "vertex-ai", "anthropic"],
+      "description": "LLM provider"
+    },
+    "model": {
+      "type": "string",
+      "description": "Model name (e.g., 'gpt-4o-mini', 'gemini-2.5-pro')"
+    },
+    "maxDepth": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "description": "Maximum recursion depth"
+    },
+    "maxFanout": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50,
+      "description": "Maximum parallel branches"
+    },
+    "maxChildren": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "description": "Maximum child operations"
+    },
+    "cwd": {
+      "type": "string",
+      "description": "Working directory for tools (absolute path)"
+    },
+    "trace": {
+      "type": "boolean",
+      "description": "Enable execution tracing"
+    },
+    "silent": {
+      "type": "boolean",
+      "description": "Suppress all logging output"
+    },
+    "verbose": {
+      "type": "boolean",
+      "description": "Enable verbose logging"
+    },
+    "allowedTools": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of allowed tool names (empty array or omitted means all tools allowed)"
+    },
+    "allowedDirectories": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of allowed directory paths for tool access"
+    },
+    "mcpServers": {
+      "type": "object",
+      "description": "MCP server configurations",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "Command to execute"
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Command arguments"
+          },
+          "env": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Environment variables"
+          }
+        },
+        "required": ["command"]
+      }
+    },
+    "approvalTimeout": {
+      "type": "integer",
+      "description": "Tool approval timeout in milliseconds (-1 to disable, default: 43200000 = 12 hours)"
+    }
+  },
+  "additionalProperties": false
+}

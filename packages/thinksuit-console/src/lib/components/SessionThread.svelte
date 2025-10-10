@@ -485,6 +485,31 @@
         {#each node.children || [] as child (child.eventId)}
             {@render renderNode(child, depth)}
         {/each}
+        <!-- Fork button at end of turn if turn is complete -->
+        {#if node.status === 'complete' && node.endTime && typeof node.metadata?.index !== 'undefined'}
+            <div class="max-w-6xl mx-auto mb-2 flex justify-center">
+                <button
+                    onclick={async () => {
+                        const response = await fetch(`/api/sessions/${sessionId}/fork`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ forkPoint: node.metadata.index })
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            window.location.hash = `#/run/sessions/${result.sessionId}/thread`;
+                        }
+                    }}
+                    class="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs transition-colors flex items-center gap-2"
+                    title="Fork conversation from here"
+                >
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                    <span>fork</span>
+                </button>
+            </div>
+        {/if}
     {:else if node.type === 'event'}
         <!-- Generic event node -->
         {#if node.eventType === 'session.input'}
@@ -547,7 +572,7 @@
             </div>
         {:else}
             <!-- Other event types - show full data for debugging -->
-            <GenericEventView {node} {depth} {toggleRawData} {showRawData} />
+            <GenericEventView {node} {depth} {toggleRawData} {showRawData} {sessionId} />
         {/if}
     {:else if ['execution', 'cycle', 'step', 'branch', 'orchestration', 'pipeline', 'tool', 'llm_exchange'].includes(node.type)}
         <!-- Boundary nodes -->

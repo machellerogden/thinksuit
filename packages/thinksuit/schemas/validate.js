@@ -11,6 +11,8 @@ const factsSchema = JSON.parse(readFileSync(join(__dirname, 'facts.v1.json'), 'u
 
 const planSchema = JSON.parse(readFileSync(join(__dirname, 'plan.v1.json'), 'utf-8'));
 
+const configSchema = JSON.parse(readFileSync(join(__dirname, 'config.v1.json'), 'utf-8'));
+
 // Create validator instance
 const validator = new Validator();
 
@@ -135,4 +137,41 @@ export function assertValidPlan(plan) {
         throw new Error(`Invalid plan: ${formatValidationErrors(result)}`);
     }
     return plan;
+}
+
+/**
+ * Validates a user config object against the config.v1 schema
+ * @param {Object} config - User config object to validate
+ * @returns {Object} Validation result with { valid: boolean, errors?: Array }
+ */
+export function validateConfig(config) {
+    const result = validator.validate(config, configSchema);
+
+    if (result.valid) {
+        return { valid: true };
+    }
+
+    return {
+        valid: false,
+        errors: result.errors.map((err) => ({
+            message: err.message,
+            property: err.property,
+            stack: err.stack,
+            schema: err.schema,
+            instance: err.instance
+        }))
+    };
+}
+
+/**
+ * Strict validation that throws on invalid data
+ * @param {Object} config - Config to validate
+ * @throws {Error} If validation fails
+ */
+export function assertValidConfig(config) {
+    const result = validateConfig(config);
+    if (!result.valid) {
+        throw new Error(`Invalid config: ${formatValidationErrors(result)}`);
+    }
+    return config;
 }

@@ -8,7 +8,8 @@
     ".": "./index.js",
     "./sessions/tree": "./engine/sessions/tree.js",
     "./sessions/deriveSessionStatus": "./engine/sessions/deriveSessionStatus.js",
-    "./constants/events": "./engine/constants/events.js"
+    "./constants/events": "./engine/constants/events.js",
+    "./schemas/validate": "./schemas/validate.js"
   },
   "directories": {
     "doc": "docs",

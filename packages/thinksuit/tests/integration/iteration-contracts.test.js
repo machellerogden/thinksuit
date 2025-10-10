@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { composeInstructionsCore } from '../../engine/handlers/composeInstructions.js';
+import { composeInstructions as muComposeInstructions } from '../../../thinksuit-modules/mu/composeInstructions.js';
 import pino from 'pino';
 
 describe('Iteration Contracts Integration', () => {
@@ -14,6 +15,7 @@ describe('Iteration Contracts Integration', () => {
             name: 'iteration-test',
             version: 'v0',
             defaultRole: 'assistant',
+            composeInstructions: muComposeInstructions,
             instructionSchema: {
                 prompts: {
                     system: (role) => `You are a ${role}.`,

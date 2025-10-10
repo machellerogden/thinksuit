@@ -174,14 +174,14 @@
         // Subscribe to real-time events
         activeSubscription = subscribeToSessionEvents(
             sessionId,
-            (_notification) => {
+            ({ sessionId, type, msg, data }) => {
                 // Trigger a session update event - SessionThread will handle incremental loading
                 window.dispatchEvent(new CustomEvent('session-updated', {
-                    detail: { sessionId }
+                    detail: { sessionId, type, msg, data }
                 }));
             },
             (_error) => {
-            // Silently ignore SSE errors - they're often from browser reconnection attempts
+                // Silently ignore SSE errors - they're often from browser reconnection attempts
                 // and don't affect functionality
             }
         );

@@ -35,10 +35,20 @@ describe('Configuration', () => {
             })
         }));
 
-        // Mock fs to prevent loading real config files
+        // Mock fs to prevent loading config files but allow schema loading
+        const actualFs = await import('fs');
         vi.doMock('fs', () => ({
-            existsSync: vi.fn(() => false),
-            readFileSync: vi.fn()
+            ...actualFs,
+            existsSync: vi.fn((path) => {
+                // Allow schema files, block config files
+                if (path.includes('.thinksuit.json')) return false;
+                return actualFs.existsSync(path);
+            }),
+            readFileSync: vi.fn((path, encoding) => {
+                // Allow schema files, block config files
+                if (path.includes('.thinksuit.json')) throw new Error('File not found');
+                return actualFs.readFileSync(path, encoding);
+            })
         }));
 
         const { buildConfig } = await import('../../engine/config.js');
@@ -86,15 +96,25 @@ describe('Configuration', () => {
     it('should load config from file when specified', async () => {
         const mockConfig = {
             module: 'file/module',
-            provider: 'ollama',
+            provider: 'openai',
             model: 'llama2',
             maxDepth: 7,
             verbose: true
         };
 
+        const actualFs = await import('fs');
         vi.doMock('fs', () => ({
-            existsSync: vi.fn(() => true),
-            readFileSync: vi.fn(() => JSON.stringify(mockConfig))
+            ...actualFs,
+            existsSync: vi.fn((path) => {
+                if (path === '/path/to/config.json') return true;
+                if (path.includes('.thinksuit.json')) return false;
+                return actualFs.existsSync(path);
+            }),
+            readFileSync: vi.fn((path, encoding) => {
+                if (path === '/path/to/config.json') return JSON.stringify(mockConfig);
+                if (path.includes('.thinksuit.json')) throw new Error('File not found');
+                return actualFs.readFileSync(path, encoding);
+            })
         }));
 
         vi.doMock('meow', () => ({
@@ -111,7 +131,7 @@ describe('Configuration', () => {
         const config = buildConfig();
 
         expect(config.module).toBe('file/module');
-        expect(config.provider).toBe('ollama');
+        expect(config.provider).toBe('openai');
         expect(config.model).toBe('llama2');
         expect(config.policy.maxDepth).toBe(7);
         expect(config.logging.verbose).toBe(true);
@@ -123,9 +143,19 @@ describe('Configuration', () => {
             model: 'file-model'
         };
 
+        const actualFs = await import('fs');
         vi.doMock('fs', () => ({
-            existsSync: vi.fn(() => true),
-            readFileSync: vi.fn(() => JSON.stringify(mockConfig))
+            ...actualFs,
+            existsSync: vi.fn((path) => {
+                if (path === '/path/to/config.json') return true;
+                if (path.includes('.thinksuit.json')) return false;
+                return actualFs.existsSync(path);
+            }),
+            readFileSync: vi.fn((path, encoding) => {
+                if (path === '/path/to/config.json') return JSON.stringify(mockConfig);
+                if (path.includes('.thinksuit.json')) throw new Error('File not found');
+                return actualFs.readFileSync(path, encoding);
+            })
         }));
 
         vi.doMock('meow', () => ({
@@ -147,9 +177,19 @@ describe('Configuration', () => {
     });
 
     it('should handle invalid config file gracefully', async () => {
+        const actualFs = await import('fs');
         vi.doMock('fs', () => ({
-            existsSync: vi.fn(() => true),
-            readFileSync: vi.fn(() => 'invalid json')
+            ...actualFs,
+            existsSync: vi.fn((path) => {
+                if (path === '/path/to/invalid.json') return true;
+                if (path.includes('.thinksuit.json')) return false;
+                return actualFs.existsSync(path);
+            }),
+            readFileSync: vi.fn((path, encoding) => {
+                if (path === '/path/to/invalid.json') return 'invalid json';
+                if (path.includes('.thinksuit.json')) throw new Error('File not found');
+                return actualFs.readFileSync(path, encoding);
+            })
         }));
 
         vi.doMock('meow', () => ({
@@ -162,23 +202,27 @@ describe('Configuration', () => {
             })
         }));
 
-        // Suppress console.error for this test
-        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
         const { buildConfig } = await import('../../engine/config.js');
-        const config = buildConfig();
 
-        // Should fall back to defaults
-        expect(config.module).toBe('thinksuit/mu');
-        expect(config.provider).toBe('openai');
-
-        consoleSpy.mockRestore();
+        // Should throw an error instead of calling process.exit
+        expect(() => buildConfig()).toThrow(/Error parsing config file/);
     });
 
     it('should handle missing config file gracefully', async () => {
+        const actualFs = await import('fs');
         vi.doMock('fs', () => ({
-            existsSync: vi.fn(() => false),
-            readFileSync: vi.fn()
+            ...actualFs,
+            existsSync: vi.fn((path) => {
+                // All config files return false
+                if (path.includes('.thinksuit.json') || path === '/path/to/missing.json') return false;
+                return actualFs.existsSync(path);
+            }),
+            readFileSync: vi.fn((path, encoding) => {
+                if (path.includes('.thinksuit.json') || path === '/path/to/missing.json') {
+                    throw new Error('File not found');
+                }
+                return actualFs.readFileSync(path, encoding);
+            })
         }));
 
         vi.doMock('meow', () => ({
@@ -191,11 +235,16 @@ describe('Configuration', () => {
             })
         }));
 
+        // Suppress console.warn for this test
+        const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
         const { buildConfig } = await import('../../engine/config.js');
         const config = buildConfig();
 
         // Should use defaults
         expect(config.module).toBe('thinksuit/mu');
         expect(config.provider).toBe('openai');
+
+        consoleWarnSpy.mockRestore();
     });
 });

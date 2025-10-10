@@ -9,7 +9,7 @@ import {
     DEFAULT_MODEL,
     DEFAULT_POLICY
 } from './constants/defaults.js';
-
+import { validateConfig, formatValidationErrors } from '../schemas/validate.js';
 
 import meow from 'meow';
 
@@ -155,6 +155,7 @@ function parseCLI(argv) {
  * Load configuration from file
  * @param {string} path - Path to config file
  * @returns {{config: object, exists: boolean, error?: string}} Config object, whether file exists, and any error message
+ * @throws {Error} When config file is invalid or cannot be parsed
  */
 function loadConfigFile(path) {
     if (!existsSync(path)) {
@@ -166,11 +167,23 @@ function loadConfigFile(path) {
         const isEmpty = Object.keys(parsed).length === 0;
         if (isEmpty) {
             console.info(`Config file "${path}" exists but is empty`);
+            return { config: parsed, exists: true, error: null, isEmpty };
         }
+
+        // Validate config against schema
+        const validation = validateConfig(parsed);
+        if (!validation.valid) {
+            const errorMsg = `Invalid config file "${path}":\n${formatValidationErrors(validation)}`;
+            throw new Error(errorMsg);
+        }
+
         return { config: parsed, exists: true, error: null, isEmpty };
     } catch (error) {
-        console.error(`Error parsing config file "${path}": ${error.message}`);
-        return { config: {}, exists: true, error: error.message };
+        // Re-throw with context about which file failed
+        if (error.message.includes('Invalid config file')) {
+            throw error; // Already has context
+        }
+        throw new Error(`Error parsing config file "${path}": ${error.message}`);
     }
 }
 

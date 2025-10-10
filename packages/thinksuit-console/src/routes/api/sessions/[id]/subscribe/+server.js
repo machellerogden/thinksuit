@@ -33,12 +33,11 @@ export async function GET({ params }) {
             const subscription = subscribeToSession(
                 id,
                 // Event handler
-                (_notification) => {
-                    const data = JSON.stringify({
-                        type: 'changed',
-                        sessionId: id
-                    });
-                    safeEnqueue(`data: ${data}\n\n`);
+                ({ sessionId, type, msg, data }) => {
+                    if (sessionId) {
+                        const json = JSON.stringify({ sessionId, type, msg, data });
+                        safeEnqueue(`data: ${json}\n\n`);
+                    }
                 },
                 // Error handler
                 (error) => {

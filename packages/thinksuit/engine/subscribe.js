@@ -15,6 +15,8 @@ export function createSessionSubscriber() {
     return new SessionSubscriber();
 }
 
+const SESSION_EVENT_NS = 'session';
+
 class SessionSubscriber extends EventEmitter {
     constructor() {
         super();
@@ -44,13 +46,11 @@ class SessionSubscriber extends EventEmitter {
 
         watcher.on('change', async () => {
             try {
-                // Just emit that the session changed - let frontend fetch what it needs
-                this.emit('event', {
+                this.emit(`${SESSION_EVENT_NS}:${sessionId}`, {
                     sessionId,
-                    changed: true
+                    type: 'change',
+                    msg: 'Session changed.'
                 });
-
-                this.emit(`session:${sessionId}`, { changed: true });
             } catch (error) {
                 this.emit('error', {
                     sessionId,
@@ -124,7 +124,7 @@ class SessionSubscriber extends EventEmitter {
 export function subscribeToSession(sessionId, onEvent, onError) {
     const subscriber = new SessionSubscriber();
 
-    subscriber.on(`session:${sessionId}`, onEvent);
+    subscriber.on(`${SESSION_EVENT_NS}:${sessionId}`, onEvent);
     if (onError) {
         subscriber.on('error', (data) => {
             if (data.sessionId === sessionId) {

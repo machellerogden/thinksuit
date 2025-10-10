@@ -14,9 +14,12 @@
         <a href="#/" class="flex items-center justify-center gap-2 w-12 h-12 p-2"><!-- border-r border-gray-300 -->
             <img src="/favicon.svg" alt="ThinkSuit Logo" class="w-7 h-7" />
         </a>
+
+        <!--
         <a href="#/" class="flex items-center justify-center gap-2">
             <span href="#/" class="text-lg font-serif font-semibold tracking-wide text-gray-900">ThinkSuit</span>
         </a>
+        -->
         <div class="flex items-center justify-center gap-2 text-sm">
             <a
                 href={runHref}

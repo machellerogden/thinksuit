@@ -61,7 +61,7 @@ describe('Layered Config Loading', () => {
     it('should load global config from home directory', async () => {
         const globalConfig = {
             module: 'global-module',
-            provider: 'global-provider'
+            provider: 'anthropic'
         };
         writeFileSync(join(tempHomeDir, '.thinksuit.json'), JSON.stringify(globalConfig));
 
@@ -69,7 +69,7 @@ describe('Layered Config Loading', () => {
         const config = buildConfig({ argv: ['node', 'test.js'] });
 
         expect(config.module).toBe('global-module');
-        expect(config.provider).toBe('global-provider');
+        expect(config.provider).toBe('anthropic');
         expect(config._sources.files).toHaveLength(1);
         expect(config._sources.files[0].type).toBe('global');
     });
@@ -77,7 +77,7 @@ describe('Layered Config Loading', () => {
     it('should layer project config over global config', async () => {
         const globalConfig = {
             module: 'global-module',
-            provider: 'global-provider',
+            provider: 'vertex-ai',
             model: 'global-model'
         };
         const projectConfig = {
@@ -95,7 +95,7 @@ describe('Layered Config Loading', () => {
         });
 
         expect(config.module).toBe('project-module');  // Project wins
-        expect(config.provider).toBe('global-provider'); // Global preserved
+        expect(config.provider).toBe('vertex-ai'); // Global preserved
         expect(config.model).toBe('project-model');    // Project wins
         expect(config._sources.files).toHaveLength(2);
         expect(config._sources.files[0].type).toBe('global');
@@ -147,11 +147,11 @@ describe('Layered Config Loading', () => {
     it('should prioritize CLI flags over all config files', async () => {
         const globalConfig = {
             module: 'global-module',
-            provider: 'global-provider'
+            provider: 'openai'
         };
         const projectConfig = {
             module: 'project-module',
-            provider: 'project-provider'
+            provider: 'anthropic'
         };
 
         writeFileSync(join(tempHomeDir, '.thinksuit.json'), JSON.stringify(globalConfig));
@@ -163,26 +163,17 @@ describe('Layered Config Loading', () => {
         });
 
         expect(config.module).toBe('cli-module');        // CLI wins
-        expect(config.provider).toBe('project-provider'); // Project config used
+        expect(config.provider).toBe('anthropic'); // Project config used
         expect(config._sources.cli).toBe(true);
     });
 
     it('should handle invalid JSON gracefully', async () => {
         writeFileSync(join(tempHomeDir, '.thinksuit.json'), 'invalid json');
 
-        // Suppress console.error for this test
-        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
         const { buildConfig } = await import('../engine/config.js');
-        const config = buildConfig({ argv: ['node', 'test.js'] });
 
-        expect(config.module).toBe('thinksuit/mu'); // Falls back to default
-        // When JSON is invalid, the file metadata should still be recorded with an error
-        expect(config._sources.files).toHaveLength(1);
-        expect(config._sources.files[0].error).toBeDefined();
-        expect(config._sources.files[0].type).toBe('global');
-
-        consoleSpy.mockRestore();
+        // Should throw an error instead of calling process.exit
+        expect(() => buildConfig({ argv: ['node', 'test.js'] })).toThrow(/Error parsing config file/);
     });
 
     it('should not duplicate global and project when they are the same path', async () => {

@@ -120,7 +120,9 @@ function boundaryToTreeNode(boundary, allEvents) {
             ...(boundary.startEvent?.remainingTokens !== undefined && { remainingTokens: boundary.startEvent.remainingTokens }),
             ...(boundary.startEvent?.forced !== undefined && { forced: boundary.startEvent.forced }),
             // Add completion data if available
-            completion: boundary.endEvent?.data || null
+            completion: boundary.endEvent?.data || null,
+            // Add endIndex for fork functionality (line number of boundary_end event)
+            ...(boundary.endIndex !== undefined && { index: boundary.endIndex })
         }
     };
 
@@ -185,6 +187,7 @@ function extractDirectEvents(boundary) {
             type: 'event',
             eventType: event.event,
             timestamp: event.time,
+            index: eventIndex, // Line index in the session file
             data: {
                 ...(event.data || {}),
                 // Include execution fields from top-level

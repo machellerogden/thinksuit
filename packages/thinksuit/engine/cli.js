@@ -14,7 +14,13 @@ import { modules as defaultModules } from 'thinksuit-modules';
  */
 async function main() {
     // Get configuration (this is where CLI parsing happens)
-    const config = buildConfig();
+    let config;
+    try {
+        config = buildConfig();
+    } catch (error) {
+        console.error(error.message);
+        process.exit(1);
+    }
 
     // Handle help and version flags
     if (config.help) {

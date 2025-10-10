@@ -1,10 +1,11 @@
 <script>
     import { JSONView } from '$lib/components/ui/index.js';
 
-    let { node, depth = 0, toggleRawData, showRawData } = $props();
+    let { node, depth = 0, toggleRawData, showRawData, sessionId = null } = $props();
 
     const eventKey = `event-${node.eventId || node.eventType}-${depth}`;
     const showData = $derived(showRawData.has(eventKey));
+    const isTurnComplete = $derived(node.eventType === 'session.turn.complete');
 </script>
 
 <div class="max-w-6xl mx-auto mb-1">
@@ -19,6 +20,27 @@
                 </span>
             {/if}
         </div>
+        {#if isTurnComplete && node.index !== undefined && sessionId}
+            <button
+                onclick={async () => {
+                    const response = await fetch(`/api/sessions/${sessionId}/fork`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ forkPoint: node.index })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        window.location.hash = `#/run/sessions/${result.sessionId}/thread`;
+                    }
+                }}
+                class="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs transition-colors"
+                title="Fork conversation from here"
+            >
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+            </button>
+        {/if}
         <button
             onclick={() => toggleRawData(eventKey)}
             class="px-2 py-1 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded text-xs transition-colors"

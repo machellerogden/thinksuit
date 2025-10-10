@@ -1,6 +1,7 @@
 import prompts from './prompts.js';
 import classifiers from './classifiers/index.js';
 import rules from './rules.js';
+import { composeInstructions } from './composeInstructions.js';
 
 /**
  * Core Thinking Companion Module
@@ -45,6 +46,7 @@ const mu = {
     prompts,
     classifiers,
     rules,
+    composeInstructions,
 
     instructionSchema: {
         prompts: {

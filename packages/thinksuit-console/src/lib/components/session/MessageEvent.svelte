@@ -37,7 +37,7 @@
             </button>
         </div>
     </div>
-    <div class="text-sm whitespace-pre-wrap">
+    <div class="text-md whitespace-pre-wrap p-3">
         {content || ''}
     </div>
 </Card>

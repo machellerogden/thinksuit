@@ -7,14 +7,13 @@
  */
 export function subscribeToSessionEvents(sessionId, onEvent, onError) {
     const eventSource = new EventSource(`/api/sessions/${sessionId}/subscribe`);
-    
+
     eventSource.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
-            
-            if (data.type === 'changed') {
-                // Session file changed - trigger reload
-                onEvent({ changed: true, sessionId: data.sessionId });
+
+            if (['change'].includes(data.type)) {
+                onEvent(data);
             } else if (data.type === 'error' && onError) {
                 onError(new Error(data.error));
             } else if (data.type === 'connected') {
@@ -28,7 +27,7 @@ export function subscribeToSessionEvents(sessionId, onEvent, onError) {
             }
         }
     };
-    
+
     eventSource.onerror = (error) => {
         if (onError) {
             onError(error);
@@ -36,7 +35,7 @@ export function subscribeToSessionEvents(sessionId, onEvent, onError) {
             console.error('SSE connection error:', error);
         }
     };
-    
+
     return {
         close: () => {
             eventSource.close();

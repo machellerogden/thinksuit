@@ -391,10 +391,10 @@ export async function forkSession(sourceSessionId, forkPoint) {
             return { success: false, error: 'Invalid fork point' };
         }
 
-        // Parse the event at the fork point to validate it's a response
+        // Parse the event at the fork point to validate it's a turn.complete
         const forkEvent = JSON.parse(lines[forkPoint]);
-        if (forkEvent.event !== 'session.response') {
-            return { success: false, error: 'Can only fork from response events' };
+        if (forkEvent.event !== 'session.turn.complete') {
+            return { success: false, error: 'Can only fork from turn.complete events' };
         }
 
         // Generate new session ID

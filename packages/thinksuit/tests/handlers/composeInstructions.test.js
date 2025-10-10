@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { pino } from '../../engine/logger.js';
 import { composeInstructionsCore as composeInstructions } from '../../engine/handlers/composeInstructions.js';
 import { DEFAULT_INSTRUCTIONS } from '../../engine/constants/defaults.js';
+import { composeInstructions as muComposeInstructions } from '../../../thinksuit-modules/mu/composeInstructions.js';
 
 describe('composeInstructions handler', () => {
     let mockModule;
@@ -13,6 +14,7 @@ describe('composeInstructions handler', () => {
         logger = pino({ level: 'silent' });
 
         mockModule = {
+            composeInstructions: muComposeInstructions,
             instructionSchema: {
                 prompts: {
                     system: (role) => `System prompt for ${role}`,

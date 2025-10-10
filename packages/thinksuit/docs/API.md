@@ -411,7 +411,9 @@ The onEvent callback receives:
 
 ```javascript
 {
-    changed: true; // Indicates the session file has changed
+    sessionId: "20251010T181607143Z-wDH290W0",
+    type: "change",
+    msg: "Session changed."
 }
 ```
 
@@ -424,9 +426,9 @@ let lastIndex = 0;
 const { unsubscribe } = subscribeToSession(
     '20250821T164513435Z-xXKTbcJ2',
     async (event) => {
-        if (event.changed) {
+        if (event.sessionId && event.type == "change") {
             // Fetch new events since last read
-            const updates = await readSessionLinesFrom(sessionId, lastIndex);
+            const updates = await readSessionLinesFrom(event.sessionId, lastIndex);
             if (updates) {
                 lastIndex += updates.entryCount;
                 updates.entries.forEach((entry) => {
@@ -484,7 +486,7 @@ subscriber.subscribe('20250821T164513435Z-xXKTbcJ2');
 
 // Listen for changes
 subscriber.on('session:20250821T164513435Z-xXKTbcJ2', async (event) => {
-    console.log('Session changed:', event.changed);
+    console.log('Session changed:', event);
     // Fetch new data as needed
 });
 
