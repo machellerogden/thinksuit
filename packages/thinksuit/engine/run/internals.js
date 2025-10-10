@@ -6,7 +6,6 @@
 import { readFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { modules as defaultModules } from 'thinksuit-modules';
 import { createLogger } from '../logger.js';
 import { generateId } from '../utils/id.js';
 import { initializeHandlers } from '../handlers/index.js';
@@ -54,7 +53,7 @@ export function normalizeConfig(config) {
     const finalConfig = {
         input: config.input || '',
         module: config.module || DEFAULT_MODULE,
-        modules: config.modules, // Pass through pre-loaded modules object (defaults to thinksuit-modules in loadModuleWithConfig)
+        modules: config.modules, // Required: modules object (loaded at entry point)
         provider: config.provider || DEFAULT_PROVIDER,
         model: config.model || DEFAULT_MODEL,
         providerConfig: config.providerConfig,
@@ -137,19 +136,19 @@ export function buildLogger(finalConfig, providedLogger) {
 }
 
 /**
- * Load and validate module
- * @param {Object} finalConfig - Normalized configuration
- * @returns {Promise<Object>} Loaded module
+ * Select and validate a module from modules object
+ * @param {Object} modules - Modules object
+ * @param {string} modulePath - Module identifier (e.g., 'thinksuit/mu')
+ * @returns {Object} Selected module
  */
-export async function loadModuleWithConfig(finalConfig) {
-    const modulePath = finalConfig.module;
-    const modules = finalConfig.modules || defaultModules;
+export function selectModule(modules, modulePath) {
+    if (!modules) {
+        throw new Error('modules is required');
+    }
 
     try {
-        const source = finalConfig.modules ? 'config.modules' : 'thinksuit-modules';
-        console.log(`[MODULE] Loading ${modulePath} from ${source}`);
+        console.log(`[MODULE] Selecting ${modulePath} from modules object`);
 
-        // Look for the requested module
         if (!modules[modulePath]) {
             throw new Error(`Module '${modulePath}' not found in modules object`);
         }

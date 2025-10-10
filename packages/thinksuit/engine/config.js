@@ -26,6 +26,7 @@ function parseCLI(argv) {
 
     Options
       --module, -m       Module to load (default: thinksuit/mu)
+      --modules-package  Path to custom modules package directory
       --provider, -p     LLM provider (default: openai)
       --model            Model name (default: gpt-4o-mini)
       --max-depth        Max recursion depth (default: 5)
@@ -67,6 +68,10 @@ function parseCLI(argv) {
                     type: 'string',
                     shortFlag: 'm'
                     // No default - we'll handle this in buildConfig
+                },
+                modulesPackage: {
+                    type: 'string'
+                    // Path to custom modules package directory
                 },
                 provider: {
                     type: 'string',
@@ -291,6 +296,7 @@ function buildConfig(options = {}) {
             cli.flags.module !== undefined && cli.flags.module !== ''
                 ? cli.flags.module
                 : fileConfig.module || defaults.module,
+        modulesPackage: cli.flags.modulesPackage || fileConfig.modulesPackage || undefined,
         provider:
             cli.flags.provider !== undefined
                 ? cli.flags.provider

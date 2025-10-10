@@ -13,7 +13,8 @@ import { createInterruptController } from './errors/InterruptError.js';
  * @param {string} [config.sourceSessionId] - Optional session ID to fork from
  * @param {number} [config.forkFromIndex] - Event index to fork from (requires sourceSessionId)
  * @param {string} [config.module='thinksuit/mu'] - Module to load
- * @param {Object} [config.modules] - Optional pre-loaded modules object (defaults to thinksuit-modules)
+ * @param {Object} config.modules - Modules object (required - loaded at entry point)
+ * @param {string} [config.modulesPackage] - Not used by schedule() - loaded at entry points
  * @param {string} [config.provider='openai'] - LLM provider
  * @param {string} [config.model='gpt-4o-mini'] - Model name
  * @param {string} config.apiKey - API key for the provider

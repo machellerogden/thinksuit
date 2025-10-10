@@ -28,7 +28,7 @@ import { SESSION_EVENTS, EVENT_ROLES, BOUNDARY_TYPES } from './constants/events.
 import {
     normalizeConfig,
     buildLogger,
-    loadModuleWithConfig,
+    selectModule,
     loadMachineDefinition,
     withMcpLifecycle,
     executeOnce,
@@ -41,7 +41,8 @@ import {
  * @param {Object} config - Configuration object
  * @param {string} config.input - User input text
  * @param {string} [config.module='thinksuit/mu'] - Module to load
- * @param {Object} [config.modules] - Optional pre-loaded modules object (defaults to thinksuit-modules)
+ * @param {Object} config.modules - Modules object (required - loaded at entry point)
+ * @param {string} [config.modulesPackage] - Not used by run() - loaded at entry points
  * @param {string} [config.provider='openai'] - LLM provider
  * @param {string} [config.model='gpt-4o-mini'] - Model name
  * @param {string} config.apiKey - API key for the provider
@@ -109,8 +110,8 @@ export async function run(config) {
         'User input received'
     );
 
-    // Load module and machine definition
-    const module = await loadModuleWithConfig(finalConfig);
+    // Select module and load machine definition
+    const module = selectModule(finalConfig.modules, finalConfig.module);
     const machineDefinition = await loadMachineDefinition();
 
     // Initialize MCP servers and discover tools

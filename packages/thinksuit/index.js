@@ -1,4 +1,5 @@
 export { schedule } from './engine/schedule.js';
+export { loadModules } from './engine/modules/loader.js';
 export { createLogger } from './engine/logger.js';
 export {
     listSessions,

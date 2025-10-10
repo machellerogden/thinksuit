@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { schedule, createLogger, buildConfig } from 'thinksuit';
+import { schedule, createLogger, buildConfig, loadModules } from 'thinksuit';
+import { modules as defaultModules } from 'thinksuit-modules';
 import { SESSION_STATUS } from 'thinksuit/constants/events';
 import { registerExecution, removeExecution } from '$lib/server/activeExecutions.js';
 
@@ -12,6 +13,7 @@ export async function POST({ request }) {
             allowedDirectories,
             mcpServers,
             sessionId: providedSessionId,
+            modulesPackage,
             // Accept config overrides
             module,
             provider,
@@ -38,11 +40,21 @@ export async function POST({ request }) {
             format: 'json'  // Use JSON format instead of pretty for server
         });
 
+        // Determine modules
+        let modules;
+        const packagePath = modulesPackage || baseConfig.modulesPackage;
+        if (packagePath) {
+            modules = await loadModules(packagePath);
+        } else {
+            modules = defaultModules;
+        }
+
         // Build final config with overrides taking precedence
         const config = {
             input,
             sessionId: providedSessionId,  // May be undefined
             module: module || baseConfig.module,
+            modules,
             provider: provider || baseConfig.provider,
             model: model || baseConfig.model,
             providerConfig: baseConfig.providerConfig,

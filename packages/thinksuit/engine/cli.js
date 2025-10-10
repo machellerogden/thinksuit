@@ -2,9 +2,12 @@
 
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { buildConfig } from './config.js';
 import { schedule } from './schedule.js';
 import { createLogger } from './logger.js';
+import { loadModules } from './modules/loader.js';
+import { modules as defaultModules } from 'thinksuit-modules';
 
 /**
  * Main entry point - contains all side effects
@@ -48,10 +51,27 @@ async function main() {
         format: 'pretty' // Use pretty formatting for CLI
     });
 
+    // Determine modules
+    let modules;
+    if (config.modules) {
+        modules = config.modules;
+    } else if (config.modulesPackage) {
+        // Resolve relative paths from where the user ran the command (INIT_CWD)
+        // This handles npm workspace directory changes correctly
+        const basePath = process.env.INIT_CWD || process.cwd();
+        const resolvedPath = config.modulesPackage.startsWith('/')
+            ? config.modulesPackage
+            : join(basePath, config.modulesPackage);
+        modules = await loadModules(resolvedPath);
+    } else {
+        modules = defaultModules;
+    }
+
     // Map CLI config to schedule() config
     const scheduleConfig = {
         input,
         module: config.module,
+        modules,
         provider: config.provider,
         model: config.model,
         providerConfig: config.providerConfig,

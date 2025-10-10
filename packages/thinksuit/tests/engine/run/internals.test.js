@@ -4,7 +4,7 @@ import {
     loadMachineDefinition,
     formatFinalResult,
     withMcpLifecycle,
-    loadModuleWithConfig
+    selectModule
 } from '../../../engine/run/internals.js';
 
 import {
@@ -549,139 +549,105 @@ describe('run/internals', () => {
         });
     });
 
-    describe('loadModuleWithConfig', () => {
-        beforeEach(() => {
-            vi.resetModules();
+    describe('selectModule', () => {
+        it('should throw when modules is not provided', () => {
+            expect(() => selectModule(null, 'test/module')).toThrow('modules is required');
+            expect(() => selectModule(undefined, 'test/module')).toThrow('modules is required');
         });
 
-        it('should load module from specified package', async () => {
-            // This test relies on the actual thinksuit-modules package
-            const config = {
-                module: 'thinksuit/mu',
-                modulesPackage: 'thinksuit-modules'
-            };
-
-            const module = await loadModuleWithConfig(config);
-
-            expect(module).toBeDefined();
-            expect(module.namespace).toBe('thinksuit');
-            expect(module.name).toBe('mu');
-            expect(module.version).toMatch(/^\d+\.\d+\.\d+$/);
-        });
-
-        it('should use default modules when none provided', async () => {
-            const config = {
-                module: 'thinksuit/mu'
-                // modules is intentionally missing - should use default thinksuit-modules
-            };
-
-            const module = await loadModuleWithConfig(config);
-
-            // Should successfully load from default thinksuit-modules
-            expect(module).toBeDefined();
-            expect(module.namespace).toBe('thinksuit');
-            expect(module.name).toBe('mu');
-        });
-
-        it('should throw when module not found', async () => {
-            const config = {
-                module: 'non.existent/module'
-            };
-
-            await expect(loadModuleWithConfig(config)).rejects.toThrow(
-                'Module \'non.existent/module\' not found in modules object'
-            );
-        });
-
-        it('should validate module structure', async () => {
-            const config = {
-                module: 'broken/module',
-                modules: {
-                    'broken/module': {
-                        name: 'broken'
-                    }
-                }
-            };
-
-            await expect(loadModuleWithConfig(config)).rejects.toThrow(
-                'Module \'broken/module\' has invalid structure'
-            );
-        });
-
-        it('should use pre-loaded modules object when provided', async () => {
+        it('should select module from provided modules object', () => {
             const mockModule = {
                 namespace: 'test',
-                name: 'preloaded',
+                name: 'example',
                 version: '1.0.0',
                 roles: [],
                 prompts: {},
                 rules: []
             };
 
-            const config = {
-                module: 'test/preloaded',
-                modules: {
-                    'test/preloaded': mockModule
-                }
+            const modules = {
+                'test/example': mockModule
             };
 
-            const module = await loadModuleWithConfig(config);
+            const module = selectModule(modules, 'test/example');
 
             expect(module).toBe(mockModule);
             expect(module.namespace).toBe('test');
-            expect(module.name).toBe('preloaded');
+            expect(module.name).toBe('example');
             expect(module.version).toBe('1.0.0');
         });
 
-        it('should throw when module not found in pre-loaded modules', async () => {
-            const config = {
-                module: 'test/missing',
-                modules: {
-                    'test/other': { namespace: 'test', name: 'other', version: '1.0.0' }
-                }
+        it('should throw when module not found in modules object', () => {
+            const modules = {
+                'test/other': { namespace: 'test', name: 'other', version: '1.0.0' }
             };
 
-            await expect(loadModuleWithConfig(config)).rejects.toThrow(
+            expect(() => selectModule(modules, 'test/missing')).toThrow(
                 'Module \'test/missing\' not found in modules object'
             );
         });
 
-        it('should validate pre-loaded module structure', async () => {
-            const config = {
-                module: 'test/invalid',
-                modules: {
-                    'test/invalid': {
-                        namespace: 'test'
-                    }
+        it('should validate module structure - missing namespace', () => {
+            const modules = {
+                'test/invalid': {
+                    name: 'invalid',
+                    version: '1.0.0'
                 }
             };
 
-            await expect(loadModuleWithConfig(config)).rejects.toThrow(
+            expect(() => selectModule(modules, 'test/invalid')).toThrow(
                 'Module \'test/invalid\' has invalid structure'
             );
         });
 
-        it('should use pre-loaded modules when provided', async () => {
-            const mockModule = {
-                namespace: 'preloaded',
-                name: 'priority',
-                version: '1.0.0',
-                roles: [],
-                prompts: {},
-                rules: []
-            };
-
-            const config = {
-                module: 'preloaded/priority',
-                modules: {
-                    'preloaded/priority': mockModule
+        it('should validate module structure - missing name', () => {
+            const modules = {
+                'test/invalid': {
+                    namespace: 'test',
+                    version: '1.0.0'
                 }
             };
 
-            const module = await loadModuleWithConfig(config);
+            expect(() => selectModule(modules, 'test/invalid')).toThrow(
+                'Module \'test/invalid\' has invalid structure'
+            );
+        });
 
-            expect(module).toBe(mockModule);
-            expect(module.namespace).toBe('preloaded');
+        it('should validate module structure - missing version', () => {
+            const modules = {
+                'test/invalid': {
+                    namespace: 'test',
+                    name: 'invalid'
+                }
+            };
+
+            expect(() => selectModule(modules, 'test/invalid')).toThrow(
+                'Module \'test/invalid\' has invalid structure'
+            );
+        });
+
+        it('should select from modules with multiple entries', () => {
+            const module1 = {
+                namespace: 'test',
+                name: 'first',
+                version: '1.0.0'
+            };
+
+            const module2 = {
+                namespace: 'test',
+                name: 'second',
+                version: '2.0.0'
+            };
+
+            const modules = {
+                'test/first': module1,
+                'test/second': module2
+            };
+
+            const selected = selectModule(modules, 'test/second');
+
+            expect(selected).toBe(module2);
+            expect(selected.name).toBe('second');
         });
     });
 });
