@@ -191,7 +191,8 @@ export async function aggregateFactsCore(input, machineContext) {
                 deduplicatedCount: facts.length,
                 configFactCount: configFacts.length,
                 totalFactCount: allFacts.length,
-                dimensionsPresent: [...new Set(facts.map((f) => f.dimension).filter(Boolean))]
+                dimensionsPresent: [...new Set(facts.map((f) => f.dimension).filter(Boolean))],
+                aggregatedFacts: allFacts // Include full facts array for UI display
             }
         },
         'Fact aggregation completed'

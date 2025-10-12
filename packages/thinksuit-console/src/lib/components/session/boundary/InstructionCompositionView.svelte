@@ -5,6 +5,7 @@
 
     const metadata = node.metadata || {};
     const completion = metadata.completion || {};
+    const instructions = completion.instructions || {};
 
     // Get length level badge variant
     function getLengthVariant(level) {
@@ -13,6 +14,12 @@
         if (level === 'comprehensive') return 'warning';
         return 'default';
     }
+
+    // Local state for expandable instruction sections
+    let showSystem = $state(false);
+    let showAdaptations = $state(false);
+    let showLengthGuidance = $state(false);
+    let showToolInstructions = $state(false);
 </script>
 
 <div class="space-y-3">
@@ -112,6 +119,101 @@
                     </span>
                 {/each}
             </div>
+        </div>
+    {/if}
+
+    <!-- Composed Instructions Detail -->
+    {#if instructions && Object.keys(instructions).length > 0}
+        <div class="space-y-2 pt-2 border-t border-gray-200">
+            <div class="text-xs font-semibold text-gray-700">Composed Instructions</div>
+
+            <!-- System Prompt -->
+            {#if instructions.system}
+                <div class="space-y-1">
+                    <button
+                        onclick={() => showSystem = !showSystem}
+                        class="flex items-center gap-2 text-xs text-gray-600 hover:text-gray-800 transition-colors w-full"
+                    >
+                        <svg class="w-3 h-3 transition-transform {showSystem ? 'rotate-90' : ''}" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M6 6L14 10L6 14V6Z" />
+                        </svg>
+                        <span class="font-medium">System Prompt</span>
+                    </button>
+                    {#if showSystem}
+                        <div class="ml-5 bg-gray-50 rounded p-2 text-xs text-gray-700 max-h-64 overflow-y-auto border border-gray-200">
+                            <pre class="whitespace-pre-wrap font-mono text-[10px]">{instructions.system}</pre>
+                        </div>
+                    {/if}
+                </div>
+            {/if}
+
+            <!-- Primary Instruction -->
+            {#if instructions.primary}
+                <div class="ml-0 bg-blue-50 rounded p-2 text-xs text-blue-800 border border-blue-200">
+                    <div class="font-medium text-blue-900 mb-1">Primary Instruction:</div>
+                    <pre class="whitespace-pre-wrap font-mono text-[10px]">{instructions.primary}</pre>
+                </div>
+            {/if}
+
+            <!-- Adaptations -->
+            {#if instructions.adaptations}
+                <div class="space-y-1">
+                    <button
+                        onclick={() => showAdaptations = !showAdaptations}
+                        class="flex items-center gap-2 text-xs text-gray-600 hover:text-gray-800 transition-colors w-full"
+                    >
+                        <svg class="w-3 h-3 transition-transform {showAdaptations ? 'rotate-90' : ''}" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M6 6L14 10L6 14V6Z" />
+                        </svg>
+                        <span class="font-medium">Adaptations</span>
+                    </button>
+                    {#if showAdaptations}
+                        <div class="ml-5 bg-purple-50 rounded p-2 text-xs text-purple-800 max-h-64 overflow-y-auto border border-purple-200">
+                            <pre class="whitespace-pre-wrap font-mono text-[10px]">{instructions.adaptations}</pre>
+                        </div>
+                    {/if}
+                </div>
+            {/if}
+
+            <!-- Length Guidance -->
+            {#if instructions.lengthGuidance}
+                <div class="space-y-1">
+                    <button
+                        onclick={() => showLengthGuidance = !showLengthGuidance}
+                        class="flex items-center gap-2 text-xs text-gray-600 hover:text-gray-800 transition-colors w-full"
+                    >
+                        <svg class="w-3 h-3 transition-transform {showLengthGuidance ? 'rotate-90' : ''}" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M6 6L14 10L6 14V6Z" />
+                        </svg>
+                        <span class="font-medium">Length Guidance</span>
+                    </button>
+                    {#if showLengthGuidance}
+                        <div class="ml-5 bg-amber-50 rounded p-2 text-xs text-amber-800 max-h-64 overflow-y-auto border border-amber-200">
+                            <pre class="whitespace-pre-wrap font-mono text-[10px]">{instructions.lengthGuidance}</pre>
+                        </div>
+                    {/if}
+                </div>
+            {/if}
+
+            <!-- Tool Instructions -->
+            {#if instructions.toolInstructions}
+                <div class="space-y-1">
+                    <button
+                        onclick={() => showToolInstructions = !showToolInstructions}
+                        class="flex items-center gap-2 text-xs text-gray-600 hover:text-gray-800 transition-colors w-full"
+                    >
+                        <svg class="w-3 h-3 transition-transform {showToolInstructions ? 'rotate-90' : ''}" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M6 6L14 10L6 14V6Z" />
+                        </svg>
+                        <span class="font-medium">Tool Instructions</span>
+                    </button>
+                    {#if showToolInstructions}
+                        <div class="ml-5 bg-teal-50 rounded p-2 text-xs text-teal-800 max-h-64 overflow-y-auto border border-teal-200">
+                            <pre class="whitespace-pre-wrap font-mono text-[10px]">{instructions.toolInstructions}</pre>
+                        </div>
+                    {/if}
+                </div>
+            {/if}
         </div>
     {/if}
 </div>

@@ -75,12 +75,21 @@ export async function composeInstructionsCore(input, machineContext) {
             data: {
                 stage: 'instruction_composition',
                 role: result.metadata.role,
+                baseTokens: result.metadata.baseTokens,
                 tokenMultiplier: result.metadata.tokenMultiplier,
                 maxTokens: result.maxTokens,
                 adaptationCount: result.metadata.adaptationCount,
                 adaptationKeys: result.metadata.adaptationKeys,
                 lengthLevel: result.metadata.lengthLevel,
-                toolsAvailable: plan.tools || []
+                toolsAvailable: plan.tools || [],
+                // Include actual composed instructions for UI display
+                instructions: {
+                    system: result.system,
+                    primary: result.primary,
+                    adaptations: result.adaptations,
+                    lengthGuidance: result.lengthGuidance,
+                    toolInstructions: result.toolInstructions
+                }
             }
         },
         'Instruction composition completed'

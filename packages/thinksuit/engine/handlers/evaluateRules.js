@@ -366,7 +366,8 @@ export async function evaluateRulesCore(input, machineContext) {
                                     (Array.isArray(factMap[k]) ? factMap[k].length > 0 : true)
                             ),
                             factMap: factMap,
-                            loopDetected: true
+                            loopDetected: true,
+                            hasError: true
                         }
                     },
                     'Rule evaluation completed with loop detection'
@@ -500,7 +501,8 @@ export async function evaluateRulesCore(input, machineContext) {
                         (k) =>
                             factMap[k] && (Array.isArray(factMap[k]) ? factMap[k].length > 0 : true)
                     ),
-                    factMap: factMap // Include the full factMap for detailed display
+                    factMap: factMap, // Include the full factMap for detailed display
+                    hasError: false
                 }
             },
             'Rule evaluation completed'
