@@ -60,8 +60,8 @@ describe('Configuration', () => {
         expect(config.policy.maxDepth).toBe(DEFAULT_POLICY.maxDepth);
         expect(config.policy.maxFanout).toBe(DEFAULT_POLICY.maxFanout);
         expect(config.policy.maxChildren).toBe(DEFAULT_POLICY.maxChildren);
-        expect(config.logging.silent).toBe(false);
-        expect(config.logging.verbose).toBe(false);
+        expect(config.logging.level).toBe('info');
+        expect(config.verbose).toBe(false);
         expect(config.trace).toBe(false);
     });
 
@@ -88,7 +88,7 @@ describe('Configuration', () => {
         expect(config.provider).toBe('anthropic');
         expect(config.model).toBe('claude-3');
         expect(config.policy.maxDepth).toBe(10);
-        expect(config.logging.verbose).toBe(true);
+        expect(config.verbose).toBe(true);
         expect(config.trace).toBe(true);
         expect(config.input).toBe('test input');
     });
@@ -134,7 +134,7 @@ describe('Configuration', () => {
         expect(config.provider).toBe('openai');
         expect(config.model).toBe('llama2');
         expect(config.policy.maxDepth).toBe(7);
-        expect(config.logging.verbose).toBe(true);
+        expect(config.verbose).toBe(true);
     });
 
     it('should prioritize CLI flags over config file', async () => {

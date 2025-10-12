@@ -46,9 +46,6 @@ export async function schedule(config) {
         }
         sessionId = forkResult.sessionId;
         isForked = true;
-        console.log(
-            `[SESSION] Forked from ${config.sourceSessionId} at event ${config.forkFromIndex}: ${sessionId}`
-        );
     } else if (!sessionId) {
         // Generate session ID if not provided and not forking
         sessionId = generateId();
@@ -75,16 +72,6 @@ export async function schedule(config) {
 
     // Determine if new or resuming based on thread content
     const isNew = !isForked && thread.length === 0;
-
-    if (isForked) {
-        console.log(
-            `[SESSION] Forked session ready: ${sessionId} with ${thread.length} messages from parent`
-        );
-    } else if (isNew) {
-        console.log(`[SESSION] Created new session: ${sessionId}`);
-    } else {
-        console.log(`[SESSION] Resuming session: ${sessionId} with ${thread.length} messages`);
-    }
 
     // Dynamically import run to avoid circular dependency
     const { run } = await import('./run.js');

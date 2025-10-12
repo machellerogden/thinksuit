@@ -16,7 +16,7 @@ const activeClients = new Map();
  * @param {string[]} allowedDirectories - Optional directories to expose via roots capability
  * @returns {Promise<Client>} - Connected MCP client
  */
-export async function startMCPServer(name, config, cwd, allowedDirectories = null) {
+export async function startMCPServer(name, config, cwd, allowedDirectories = null, verbose = false) {
     // Check if already running
     if (activeClients.has(name)) {
         return activeClients.get(name);
@@ -31,12 +31,13 @@ export async function startMCPServer(name, config, cwd, allowedDirectories = nul
     // Replace process.cwd() in args with the provided cwd
     const processedArgs = args.map(arg => arg === process.cwd() ? cwd : arg);
 
-    // Create transport using stdio
+    // Create transport using stdio, suppress stderr unless verbose
     const transport = new StdioClientTransport({
         command,
         args: processedArgs,
         env: { ...process.env, ...env },
-        cwd
+        cwd,
+        stderr: verbose ? 'inherit' : 'ignore'
     });
 
     // Create client with roots capability if allowedDirectories provided
@@ -79,9 +80,10 @@ export async function startMCPServer(name, config, cwd, allowedDirectories = nul
  * @param {Object} mcpServers - Server configurations from module
  * @param {string} cwd - Working directory for the MCP servers
  * @param {string[]} allowedDirectories - Optional directories to expose via roots capability
+ * @param {boolean} verbose - Whether to show MCP server stderr output
  * @returns {Promise<Map>} - Map of server name to client
  */
-export async function startMCPServers(mcpServers = {}, cwd, allowedDirectories = null) {
+export async function startMCPServers(mcpServers = {}, cwd, allowedDirectories = null, verbose = false) {
     if (!cwd) {
         throw new Error('cwd is required for MCP server initialization');
     }
@@ -90,7 +92,7 @@ export async function startMCPServers(mcpServers = {}, cwd, allowedDirectories =
 
     for (const [name, config] of Object.entries(mcpServers)) {
         try {
-            const client = await startMCPServer(name, config, cwd, allowedDirectories);
+            const client = await startMCPServer(name, config, cwd, allowedDirectories, verbose);
             clients.set(name, client);
         } catch (error) {
             console.error(`Failed to start MCP server ${name}:`, error);

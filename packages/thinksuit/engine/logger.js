@@ -85,32 +85,33 @@ function createPrettyTransport(level) {
  * Create a logger instance with appropriate transports
  * @param {Object} options - Configuration options
  * @param {string} options.level - Log level: 'error', 'warn', 'info', 'debug', 'trace' (default: 'info')
- * @param {boolean} options.silent - Whether to suppress stdout output (default: false)
+ * @param {boolean} options.verbose - Enable console output (default: false)
+ * @param {boolean} options.pretty - Use pretty formatting for console (default: true)
  * @param {boolean} options.trace - Whether to write trace files (default: false)
  * @param {boolean} options.session - Whether to write session files (default: false)
- * @param {string} options.format - Output format: 'pretty' or 'json' (default: 'pretty')
  * @returns {Object} Pino logger instance
  */
 export function createLogger(options = {}) {
     const {
         level = 'info',
-        silent = false,
+        verbose = false,
+        pretty = true,
         trace = false,
-        session = false,
-        format = 'pretty'
+        session = false
     } = options;
 
     const baseConfig = createBaseConfig(level);
 
-    if (trace || session || !silent) {
+    if (trace || session || verbose) {
         // Build transport targets
         const targets = [];
 
-        // Add console transport (unless silent)
-        if (!silent) {
-            if (format === 'pretty') {
+        // Add console transport if verbose
+        if (verbose) {
+            if (pretty) {
                 targets.push(createPrettyTransport(level));
             } else {
+                // Raw JSON to stdout
                 targets.push({
                     target: 'pino/file',
                     level,
@@ -144,7 +145,7 @@ export function createLogger(options = {}) {
         // Use trace level to capture everything when writing to file
         return pino({ ...baseConfig, level: trace || session ? 'trace' : level }, transport);
     } else {
-        // Silent mode with no file writing - return a silent logger
+        // No transports - return a silent logger
         return pino({ ...baseConfig, level: 'silent' });
     }
 }

@@ -72,9 +72,9 @@ export function normalizeConfig(config) {
             }
         },
         logging: {
-            level: config.logging?.level || DEFAULT_LOGGING.level,
-            silent: config.logging?.silent ?? DEFAULT_LOGGING.silent
+            level: config.logging?.level || 'info'
         },
+        verbose: config.verbose || false,
         trace: config.trace || false,
         sessionId: config.sessionId,
         cwd: config.cwd,
@@ -120,10 +120,8 @@ export function normalizeConfig(config) {
 export function buildLogger(finalConfig, providedLogger) {
     const logger = providedLogger || createLogger({
         level: finalConfig.logging.level,
-        silent: finalConfig.logging.silent,
         trace: finalConfig.trace,
-        session: true, // Always enable session logging
-        format: finalConfig.logging.format
+        session: true // Always enable session logging
     });
 
     // Create session-bound logger with traceId and trace status
@@ -147,8 +145,6 @@ export function selectModule(modules, modulePath) {
     }
 
     try {
-        console.log(`[MODULE] Selecting ${modulePath} from modules object`);
-
         if (!modules[modulePath]) {
             throw new Error(`Module '${modulePath}' not found in modules object`);
         }
@@ -201,7 +197,7 @@ export async function withMcpLifecycle(module, config, logger) {
         // System creates MCP servers from user config (not module)
         // Filesystem server is baked in and uses allowedDirectories
         const mcpServersConfig = createMcpServersFromConfig(config);
-        mcpClients = await startMCPServers(mcpServersConfig, config.cwd, config.allowedDirectories);
+        mcpClients = await startMCPServers(mcpServersConfig, config.cwd, config.allowedDirectories, config.verbose);
         const allDiscoveredTools = await discoverTools(mcpClients);
 
         // Apply tool policy filtering

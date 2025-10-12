@@ -31,7 +31,9 @@ export default [
             'import/no-duplicates': 'error',
             'import/newline-after-import': 'error',
             'import/no-unresolved': 'off',
-            'import/extensions': ['error', 'always', { ignorePackages: true }]
+            'import/extensions': ['error', 'always', { ignorePackages: true }],
+            // Disable navigation-without-resolve for custom routing
+            'svelte/no-navigation-without-resolve': 'off'
         }
     },
     {

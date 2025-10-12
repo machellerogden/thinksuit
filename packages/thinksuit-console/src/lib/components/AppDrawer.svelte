@@ -410,6 +410,8 @@
 
     <!-- Resize Handle - positioned first for bottom/right, hidden in fullscreen -->
     {#if ui.terminalOpen && !ui.terminalFullscreen && (ui.terminalPosition === 'bottom' || ui.terminalPosition === 'right')}
+        <!-- Keyboard resize available via ctrl+alt+shift+hjkl hotkeys -->
+        <!-- eslint-disable-next-line svelte/valid-compile -->
         <div
             class={resizeHandleClass}
             onmousedown={handleResizeStart}
@@ -432,6 +434,8 @@
 
     <!-- Resize Handle - positioned after for top/left, hidden in fullscreen -->
     {#if ui.terminalOpen && !ui.terminalFullscreen && (ui.terminalPosition === 'top' || ui.terminalPosition === 'left')}
+        <!-- Keyboard resize available via ctrl+alt+shift+hjkl hotkeys -->
+        <!-- eslint-disable-next-line svelte/valid-compile -->
         <div
             class={resizeHandleClass}
             onmousedown={handleResizeStart}

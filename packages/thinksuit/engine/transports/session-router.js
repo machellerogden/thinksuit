@@ -222,9 +222,6 @@ function getStream(sessionId) {
         streams.delete(sessionId);
     });
 
-    // Log where we're writing (once per session)
-    stderr.write(`[SESSION] Writing to: ${filePath}\n`);
-
     return stream;
 }
 
@@ -232,7 +229,6 @@ function getStream(sessionId) {
  * Main transport function
  */
 export default async function (_opts) {
-    stderr.write('[SESSION-ROUTER] Transport initialized\n');
     return build(
         async function (source) {
             for await (const obj of source) {

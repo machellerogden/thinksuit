@@ -10,6 +10,23 @@ import { loadModules } from './modules/loader.js';
 import { modules as defaultModules } from 'thinksuit-modules';
 
 /**
+ * Output message respecting CLI output mode
+ */
+function output(mode, message) {
+    switch (mode) {
+        case 'json':
+            console.log(JSON.stringify(message));
+            break;
+        case 'text':
+            console.log(message);
+            break;
+        case 'none':
+            // no output
+            break;
+    }
+}
+
+/**
  * Main entry point - contains all side effects
  */
 async function main() {
@@ -50,11 +67,11 @@ async function main() {
 
     // Create logger for CLI context
     const logger = createLogger({
-        level: config.logging.verbose ? 'trace' : 'info',
-        silent: config.logging.silent,
+        level: 'info',
+        verbose: config.verbose,
+        pretty: config.output !== 'json',
         trace: config.trace,
-        session: true, // Always enable session logging
-        format: 'pretty' // Use pretty formatting for CLI
+        session: true // Always enable session logging
     });
 
     // Determine modules
@@ -92,10 +109,6 @@ async function main() {
             maxFanout: config.policy.maxFanout,
             maxChildren: config.policy.maxChildren
         },
-        logging: {
-            level: config.logging.verbose ? 'trace' : 'info',
-            silent: config.logging.silent
-        },
         trace: config.trace,
         sessionId: config.sessionId,
         logger // Pass the pre-configured logger
@@ -110,28 +123,24 @@ async function main() {
             process.exit(1);
         }
 
-        // Display session ID if it's a new session
-        if (isNew) {
-            console.log(`[SESSION ID] ${sessionId}`);
-        }
+        // Session ID display removed - minimal output modes don't show session management
 
         // Set up SIGINT handler for clean interrupt and exit
         let interruptHandled = false;
         const handleSigInt = async () => {
             if (interruptHandled) {
                 // Force exit on second Ctrl+C
-                console.log('\n[EXIT] Force exit');
                 process.exit(1);
             }
             interruptHandled = true;
 
-            console.log('\n[INTERRUPT] Ctrl+C pressed, interrupting task...');
+            output(config.output, '\n[INTERRUPT] Ctrl+C pressed, interrupting task...');
             if (interrupt) {
                 const result = await interrupt('User pressed Ctrl+C');
                 if (result.success) {
-                    console.log('[INTERRUPT] Task interrupted.');
+                    output(config.output, '[INTERRUPT] Task interrupted.');
                 } else {
-                    console.error('[INTERRUPT] Failed to interrupt cleanly:', result.error);
+                    output(config.output, `[INTERRUPT] Failed to interrupt cleanly: ${result.error}`);
                 }
             }
             // Let the execution complete and exit naturally
@@ -142,26 +151,24 @@ async function main() {
         // Wait for execution to complete
         const result = await execution;
 
-        // Handle interrupted execution
-        if (result.interrupted) {
-            console.log('\n[INTERRUPTED]', result.response);
-            if (result.partialData) {
-                console.log('[PARTIAL DATA] Some data was gathered before interruption.');
-            }
-            console.log(`[SESSION] ${sessionId} - Ready for new input`);
+        // Format and display output based on mode
+        if (config.output === 'json') {
+            // JSON mode: output entire session.response event
+            output(config.output, result);
+        } else {
+            // Text mode: output just the response text
+            output(config.output, result.response);
         }
 
-        // Always display the response, even if it's an error message
-        console.log(result.response);
-
         if (result.error) {
-            console.error('Error:', result.error);
+            output(config.output, `Error: ${result.error}`);
             process.exit(1);
         }
     } catch (error) {
-        console.error('Execution failed:', error.message);
         if (config.debug) {
-            console.error('Stack trace:', error.stack);
+            output(config.output, `Execution failed: ${error.message}\n${error.stack}`);
+        } else {
+            output(config.output, `Execution failed: ${error.message}`);
         }
         process.exit(1);
     }

@@ -180,10 +180,7 @@
                     detail: { sessionId, type, msg, data }
                 }));
             },
-            (_error) => {
-                // Silently ignore SSE errors - they're often from browser reconnection attempts
-                // and don't affect functionality
-            }
+            (_error) => {} // Silently ignore SSE errors for now - they're usually from browser reconnection attempts
         );
     }
 

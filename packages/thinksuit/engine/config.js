@@ -38,9 +38,9 @@ function parseCLI(argv) {
       --allow-tools      Comma-separated list of tools to allow
       --allow-dir        Directory to allow access to (can be specified multiple times)
       --approval-timeout Tool approval timeout in ms (default: 12 hours, -1 to disable)
-      --trace            Enable execution tracing
-      --silent           Suppress all logging
-      --verbose, -v      Verbose logging
+      --output, -o       Output format: json|text|none (default: text)
+      --trace            Write detailed trace files (independent of console output)
+      --verbose, -v      Increase log detail level
       --config, -c       Path to config file
       --help             Show help
       --version          Show version
@@ -124,14 +124,15 @@ function parseCLI(argv) {
                     type: 'boolean',
                     default: false
                 },
-                silent: {
-                    type: 'boolean',
-                    default: false
-                },
                 verbose: {
                     type: 'boolean',
                     shortFlag: 'v',
                     default: false
+                },
+                output: {
+                    type: 'string',
+                    shortFlag: 'o',
+                    default: 'text'
                 },
                 config: {
                     type: 'string',
@@ -207,8 +208,7 @@ function buildConfig(options = {}) {
         model: DEFAULT_MODEL,
         policy: DEFAULT_POLICY,
         logging: {
-            silent: false,
-            verbose: false
+            level: 'info'
         },
         trace: false,
         approvalTimeout: DEFAULT_APPROVAL_TIMEOUT_MS
@@ -304,6 +304,15 @@ function buildConfig(options = {}) {
 
     // Build final config with proper priority: CLI > env > file > defaults
 
+    // Determine output mode
+    const outputMode = cli.flags.output || fileConfig.output || 'text';
+
+    // Validate output mode
+    const validOutputModes = ['json', 'text', 'none'];
+    if (!validOutputModes.includes(outputMode)) {
+        throw new Error(`Invalid output mode: "${outputMode}". Must be one of: ${validOutputModes.join(', ')}`);
+    }
+
     const config = {
         module:
             cli.flags.module !== undefined && cli.flags.module !== ''
@@ -329,9 +338,10 @@ function buildConfig(options = {}) {
                     ? cli.flags.maxChildren
                     : fileConfig.maxChildren || defaults.policy.maxChildren
         },
+        output: outputMode,
+        verbose: cli.flags.verbose || fileConfig.verbose || false,
         logging: {
-            silent: cli.flags.silent || fileConfig.silent || defaults.logging.silent,
-            verbose: cli.flags.verbose || fileConfig.verbose || defaults.logging.verbose
+            level: 'info'
         },
         trace: cli.flags.trace || fileConfig.trace || defaults.trace,
         sessionId: cli.flags.sessionId || fileConfig.sessionId,

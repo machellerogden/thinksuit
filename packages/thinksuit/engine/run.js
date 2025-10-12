@@ -111,7 +111,7 @@ export async function run(config) {
     );
 
     // Select module and load machine definition
-    const module = selectModule(finalConfig.modules, finalConfig.module);
+    const module = selectModule(finalConfig.modules, finalConfig.module, finalConfig);
     const machineDefinition = await loadMachineDefinition();
 
     // Initialize MCP servers and discover tools
@@ -144,8 +144,9 @@ export async function run(config) {
  * Load module from modules object
  * @param {string} modulePath - Module identifier (e.g., 'thinksuit/mu')
  * @param {Object} [modules] - Modules object (defaults to thinksuit-modules)
+ * @param {Object} [config] - Configuration object (optional, for output mode check)
  */
-export async function loadModule(modulePath, modules) {
+export async function loadModule(modulePath, modules, config) {
     const { modules: defaultModules } = await import('thinksuit-modules');
     const moduleSource = modules || defaultModules;
 
@@ -157,7 +158,6 @@ export async function loadModule(modulePath, modules) {
 
         const module = moduleSource[modulePath];
         const source = modules ? 'provided modules' : 'thinksuit-modules';
-        console.log(`[MODULE] Resolved from ${source}: ${modulePath}`);
 
         // Validate module structure
         if (!module || !module.namespace || !module.name || !module.version) {

@@ -231,7 +231,7 @@
                         <div class="flex-1">
                             <strong class="text-sm font-semibold text-orange-900">Configuration Validation Warnings</strong>
                             <ul class="mt-2 text-sm text-orange-800 space-y-1">
-                                {#each validationErrors as err}
+                                {#each validationErrors as err, i (i)}
                                     <li class="flex items-start gap-1">
                                         <span class="text-orange-600">•</span>
                                         <span>{err.property ? `${err.property}: ` : ''}{err.message}</span>
@@ -256,44 +256,59 @@
                         <h2 class="text-sm font-semibold mb-4 text-gray-700">Core Settings</h2>
                         <div class="space-y-3">
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Module</label>
-                                <Input
-                                    bind:value={module}
-                                    placeholder="thinksuit/mu"
-                                />
+                                <label for="module" class="block text-xs font-medium text-gray-600 mb-1">
+                                    Module
+                                    <Input
+                                        name="module"
+                                        bind:value={module}
+                                        placeholder="thinksuit/mu"
+                                    />
+                                </label>
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Modules Package</label>
-                                <Input
-                                    bind:value={modulesPackage}
-                                    placeholder="/path/to/custom/modules"
-                                />
+                                <label for="modules-package" class="block text-xs font-medium text-gray-600 mb-1">
+                                    Modules Package
+                                    <Input
+                                        name="modules-package"
+                                        bind:value={modulesPackage}
+                                        placeholder="/path/to/custom/modules"
+                                    />
+                                </label>
                                 <p class="text-xs text-gray-500 mt-1">
                                     Path to custom modules package directory (optional)
                                 </p>
                             </div>
                             <div class="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Provider</label>
-                                    <Input
-                                        bind:value={provider}
-                                        placeholder="openai"
-                                    />
+                                    <label for="provider" class="block text-xs font-medium text-gray-600 mb-1">
+                                        Provider
+                                        <Input
+                                            name="provider"
+                                            bind:value={provider}
+                                            placeholder="openai"
+                                        />
+                                    </label>
                                 </div>
                                 <div>
-                                    <label class="block text-xs font-medium text-gray-600 mb-1">Model</label>
-                                    <Input
-                                        bind:value={model}
-                                        placeholder="gpt-4o-mini"
-                                    />
+                                    <label for="model" class="block text-xs font-medium text-gray-600 mb-1">
+                                        Model
+                                        <Input
+                                            name="model"
+                                            bind:value={model}
+                                            placeholder="gpt-4o-mini"
+                                        />
+                                    </label>
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Working Directory</label>
-                                <Input
-                                    bind:value={cwd}
-                                    placeholder="/path/to/working/directory"
-                                />
+                                <label for="cwd" class="block text-xs font-medium text-gray-600 mb-1">
+                                    Working Directory
+                                    <Input
+                                        name="cwd"
+                                        bind:value={cwd}
+                                        placeholder="/path/to/working/directory"
+                                    />
+                                </label>
                             </div>
                         </div>
                     </div>
@@ -305,31 +320,40 @@
                         <h2 class="text-sm font-semibold mb-4 text-gray-700">Policy Settings</h2>
                         <div class="grid grid-cols-3 gap-3">
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Max Depth</label>
-                                <Input
-                                    type="number"
-                                    bind:value={maxDepth}
-                                    min="1"
-                                    max="20"
-                                />
+                                <label for="max-depth-input" class="block text-xs font-medium text-gray-600 mb-1">
+                                    Max Depth
+                                    <Input
+                                        name="max-depth-input"
+                                        type="number"
+                                        bind:value={maxDepth}
+                                        min="1"
+                                        max="20"
+                                    />
+                                </label>
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Max Fanout</label>
-                                <Input
-                                    type="number"
-                                    bind:value={maxFanout}
-                                    min="1"
-                                    max="10"
-                                />
+                                <label for="max-fanout-input" class="block text-xs font-medium text-gray-600 mb-1">
+                                    Max Fanout
+                                    <Input
+                                        name="max-fanout-input"
+                                        type="number"
+                                        bind:value={maxFanout}
+                                        min="1"
+                                        max="10"
+                                    />
+                                </label>
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-600 mb-1">Max Children</label>
-                                <Input
-                                    type="number"
-                                    bind:value={maxChildren}
-                                    min="1"
-                                    max="20"
-                                />
+                                <label for="max-children-input" class="block text-xs font-medium text-gray-600 mb-1">
+                                    Max Children
+                                    <Input
+                                        name="max-children-input"
+                                        type="number"
+                                        bind:value={maxChildren}
+                                        min="1"
+                                        max="20"
+                                    />
+                                </label>
                             </div>
                         </div>
                     </div>
@@ -361,13 +385,14 @@
                     <div class="p-4">
                         <h2 class="text-sm font-semibold mb-4 text-gray-700">Allowed Tools</h2>
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">
+                            <label for="allowed-tools-input" class="block text-xs font-medium text-gray-600 mb-1">
                                 Tool names (comma-separated)
+                                <Input
+                                    name="allowed-tools-input"
+                                    bind:value={allowedTools}
+                                    placeholder="read_file, list_directory, execute_command"
+                                />
                             </label>
-                            <Input
-                                bind:value={allowedTools}
-                                placeholder="read_file, list_directory, execute_command"
-                            />
                             <p class="text-xs text-gray-500 mt-1">
                                 Leave empty to allow all tools
                             </p>
@@ -380,15 +405,16 @@
                     <div class="p-4">
                         <h2 class="text-sm font-semibold mb-4 text-gray-700">Allowed Directories</h2>
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">
+                            <label for="allowed-directories-textarea" class="block text-xs font-medium text-gray-600 mb-1">
                                 Directory paths (one per line)
+                                <textarea
+                                    name="allowed-directories-textarea"
+                                    bind:value={allowedDirectories}
+                                    class="w-full px-3 py-2 border border-gray-300 rounded text-sm font-mono"
+                                    rows="4"
+                                    placeholder="/path/to/directory1&#10;/path/to/directory2"
+                                ></textarea>
                             </label>
-                            <textarea
-                                bind:value={allowedDirectories}
-                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm font-mono"
-                                rows="4"
-                                placeholder="/path/to/directory1&#10;/path/to/directory2"
-                            ></textarea>
                             <p class="text-xs text-gray-500 mt-1">
                                 Leave empty to allow current working directory
                             </p>
@@ -401,21 +427,22 @@
                     <div class="p-4">
                         <h2 class="text-sm font-semibold mb-4 text-gray-700">MCP Servers</h2>
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">
+                            <label for="mcp-servers-textarea" class="block text-xs font-medium text-gray-600 mb-1">
                                 Server configuration (JSON)
-                            </label>
-                            <textarea
-                                bind:value={mcpServersJson}
-                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm font-mono"
-                                rows="10"
-                                placeholder="{`{
+                                <textarea
+                                    name="mcp-servers-textarea"
+                                    bind:value={mcpServersJson}
+                                    class="w-full px-3 py-2 border border-gray-300 rounded text-sm font-mono"
+                                    rows="10"
+                                    placeholder="{`{
   "serverName": {
     "command": "npx",
     "args": ["-y", "package-name"],
     "env": {}
   }
 }`}"
-                            ></textarea>
+                                ></textarea>
+                            </label>
                             <p class="text-xs text-gray-500 mt-1">
                                 Must be valid JSON
                             </p>
@@ -428,14 +455,15 @@
                     <div class="p-4">
                         <h2 class="text-sm font-semibold mb-4 text-gray-700">Advanced Settings</h2>
                         <div>
-                            <label class="block text-xs font-medium text-gray-600 mb-1">
+                            <label for="approval-timeout-input" class="block text-xs font-medium text-gray-600 mb-1">
                                 Approval Timeout (milliseconds)
+                                <Input
+                                    name="approval-timeout-input"
+                                    type="number"
+                                    bind:value={approvalTimeout}
+                                    placeholder="43200000"
+                                />
                             </label>
-                            <Input
-                                type="number"
-                                bind:value={approvalTimeout}
-                                placeholder="43200000"
-                            />
                             <p class="text-xs text-gray-500 mt-1">
                                 Tool approval timeout in milliseconds. Default: 43200000 (12 hours). Set to -1 to disable.
                             </p>
