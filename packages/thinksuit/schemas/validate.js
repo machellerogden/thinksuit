@@ -1,17 +1,8 @@
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import factsSchema from './facts.v1.json' with { type: 'json' };
+import planSchema from './plan.v1.json' with { type: 'json' };
+import configSchema from './config.v1.json' with { type: 'json' };
 
 import { Validator } from 'jsonschema';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-// Load schemas
-const factsSchema = JSON.parse(readFileSync(join(__dirname, 'facts.v1.json'), 'utf-8'));
-
-const planSchema = JSON.parse(readFileSync(join(__dirname, 'plan.v1.json'), 'utf-8'));
-
-const configSchema = JSON.parse(readFileSync(join(__dirname, 'config.v1.json'), 'utf-8'));
 
 // Create validator instance
 const validator = new Validator();
