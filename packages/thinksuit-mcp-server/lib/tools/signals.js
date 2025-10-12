@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { detectSignalsCore, loadModule, createLogger } from 'thinksuit';
+import { detectSignals, loadModule, createLogger } from 'thinksuit';
 
 export function registerSignalsTool(server) {
     server.tool(
@@ -52,7 +52,7 @@ export function registerSignalsTool(server) {
                 const thread = [...conversation];
                 const context = {};
 
-                const result = await detectSignalsCore(
+                const result = await detectSignals(
                     {
                         thread,
                         context,

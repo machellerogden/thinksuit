@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { getSession, readSessionLinesFrom } from 'thinksuit';
+import { getSession, readSessionLinesFrom, deleteSession } from 'thinksuit';
 
 export async function GET({ params, url }) {
     try {
@@ -40,5 +40,21 @@ export async function GET({ params, url }) {
     } catch (error) {
         console.error('Error reading session:', error);
         return json({ error: 'Failed to read session' }, { status: 500 });
+    }
+}
+
+export async function DELETE({ params }) {
+    try {
+        const { id } = params;
+        const result = await deleteSession(id);
+
+        if (!result.success) {
+            return json({ error: result.error }, { status: result.error === 'Session not found' ? 404 : 500 });
+        }
+
+        return json({ success: true });
+    } catch (error) {
+        console.error('Error deleting session:', error);
+        return json({ error: 'Failed to delete session' }, { status: 500 });
     }
 }

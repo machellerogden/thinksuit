@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { evaluateRulesCore } from 'thinksuit';
+import { evaluateRules } from 'thinksuit';
 import moduleUnderTest from '../index.js';
 
 const noopLogger = { info() {}, debug() {}, warn() {}, error() {}, trace() {} };
@@ -11,7 +11,7 @@ async function evalWithSignals(signals) {
         execLogger: noopLogger
     };
     const input = { facts: signals, context: { traceId: 't-1' } };
-    const { factMap } = await evaluateRulesCore(input, machineContext);
+    const { factMap } = await evaluateRules(input, machineContext);
     return factMap;
 }
 

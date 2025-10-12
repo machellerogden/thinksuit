@@ -5,6 +5,7 @@ export { default as Checkbox } from './Checkbox.svelte';
 export { default as CodeView } from './CodeView.svelte';
 export { default as Copyable } from './Copyable.svelte';
 export { default as Drawer } from './Drawer.svelte';
+export { default as Dropdown } from './Dropdown.svelte';
 export { default as EmptyState } from './EmptyState.svelte';
 export { default as Input } from './Input.svelte';
 export { default as JSONView } from './JSONView.svelte';

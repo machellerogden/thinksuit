@@ -51,7 +51,7 @@ support/
 This package uses `thinksuit` as a **dependency**, importing from it like any external consumer:
 
 ```javascript
-import { schedule, detectSignalsCore, loadModule } from 'thinksuit';
+import { schedule, detectSignals, loadModule } from 'thinksuit';
 ```
 
 **Never** use relative paths to access thinksuit internals. Always import via the package.

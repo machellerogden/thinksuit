@@ -3,7 +3,7 @@
  * Provides high-level functions for querying and managing sessions
  */
 
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { readdir, readFile, writeFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import PQueue from 'p-queue';
 
@@ -546,6 +546,35 @@ export async function getSessionForks(sessionId) {
     }
 
     return result;
+}
+
+/**
+ * Delete a session and its metadata file
+ * @param {string} sessionId - The session to delete
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export async function deleteSession(sessionId) {
+    const sessionFilePath = getSessionFilePath(sessionId);
+    const metadataFilePath = getMetadataFilePath(sessionId);
+
+    try {
+        // Check if session exists
+        if (!(await exists(sessionFilePath))) {
+            return { success: false, error: 'Session not found' };
+        }
+
+        // Delete session file
+        await unlink(sessionFilePath);
+
+        // Delete metadata file if it exists
+        if (await exists(metadataFilePath)) {
+            await unlink(metadataFilePath);
+        }
+
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
 }
 
 /**

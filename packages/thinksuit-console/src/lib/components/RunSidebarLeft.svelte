@@ -7,6 +7,7 @@
     let { selectedSessionId = null, searchFilter = $bindable('') } = $props();
 
     let searchInput = $state();
+    let selectMode = $state(false);
 
     onMount(() => {
         const handleFocusSessionList = () => {
@@ -52,7 +53,7 @@
                 bind:value={searchFilter}
                 placeholder="Search sessions..."
                 class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                disabled={ui.leftSidebarCollapsed}
+                disabled={ui.leftSidebarCollapsed || selectMode}
             />
             <button
                 onclick={() => window.dispatchEvent(new CustomEvent('sessions-refresh'))}
@@ -74,6 +75,8 @@
         defaultView="thread"
         {searchFilter}
         collapsed={ui.leftSidebarCollapsed}
+        {selectMode}
+        onExitSelectMode={() => selectMode = false}
     />
 
     {#snippet collapsedContent()}
