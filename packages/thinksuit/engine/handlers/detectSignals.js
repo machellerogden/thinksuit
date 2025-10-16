@@ -45,13 +45,15 @@ export async function detectSignalsCore(input, machineContext) {
     // Generate unique boundary ID for this pipeline stage
     const boundaryId = `pipeline-signal_detection-${sessionId}-${Date.now()}`;
 
+    const parentBoundaryId = context?.parentBoundaryId || null;
+
     logger.info(
         {
             event: PIPELINE_EVENTS.SIGNAL_DETECTION_START,
             eventRole: 'boundary_start',
             boundaryType: 'pipeline',
             boundaryId,
-            parentBoundaryId: context?.parentBoundaryId || null,
+            parentBoundaryId,
             data: {
                 stage: 'signal_detection',
                 threadLength: thread?.length,
@@ -70,7 +72,9 @@ export async function detectSignalsCore(input, machineContext) {
         {
             event: PROCESSING_EVENTS.INPUT_RECEIVED,
             traceId,
-
+            boundaryType: 'pipeline',
+            boundaryId,
+            parentBoundaryId,
             data: {
                 handler: 'detectSignals',
                 thread,
@@ -104,7 +108,9 @@ export async function detectSignalsCore(input, machineContext) {
                             {
                                 traceId,
                                 event: SYSTEM_EVENTS.PERFORMANCE_WARNING,
-
+                                boundaryType: 'pipeline',
+                                boundaryId,
+                                parentBoundaryId,
                                 data: {
                                     component: 'classifier',
                                     dimension,
@@ -120,8 +126,11 @@ export async function detectSignalsCore(input, machineContext) {
                 } catch (error) {
                     logger.error(
                         {
+                            event: PROCESSING_EVENTS.CLASSIFIER_FAILED,
                             traceId,
-
+                            boundaryType: 'pipeline',
+                            boundaryId,
+                            parentBoundaryId,
                             data: {
                                 dimension,
                                 error: error.message
@@ -182,7 +191,7 @@ export async function detectSignalsCore(input, machineContext) {
                 eventRole: 'boundary_end',
                 boundaryType: 'pipeline',
                 boundaryId,
-                parentBoundaryId: context?.parentBoundaryId || null,
+                parentBoundaryId,
                 data: {
                     stage: 'signal_detection',
                     factCount: facts.length,
@@ -200,7 +209,9 @@ export async function detectSignalsCore(input, machineContext) {
             {
                 event: PROCESSING_EVENTS.OUTPUT_GENERATED,
                 traceId,
-
+                boundaryType: 'pipeline',
+                boundaryId,
+                parentBoundaryId,
                 data: {
                     handler: 'detectSignals',
                     facts,
@@ -215,7 +226,11 @@ export async function detectSignalsCore(input, machineContext) {
     } catch (error) {
         logger.error(
             {
+                event: PIPELINE_EVENTS.SIGNAL_DETECTION_FAILED,
                 traceId,
+                boundaryType: 'pipeline',
+                boundaryId,
+                parentBoundaryId,
                 data: {
                     error: error.message
                 }

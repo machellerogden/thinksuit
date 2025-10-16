@@ -63,7 +63,15 @@ export async function execDirectCore(input, machineContext) {
 
     // Use fallback instructions if none provided
     if (!instructions || (!instructions.system && !instructions.primary)) {
-        logger.warn({ traceId }, 'No instructions provided, using fallback');
+        logger.warn(
+            {
+                traceId,
+                boundaryType: BOUNDARY_TYPES.EXECUTION,
+                boundaryId: executionBoundaryId,
+                parentBoundaryId: context.parentBoundaryId || null
+            },
+            'No instructions provided, using fallback'
+        );
     }
 
     try {
@@ -183,6 +191,9 @@ export async function execDirectCore(input, machineContext) {
             logger.debug({
                 event: PROCESSING_EVENTS.PROVIDER_API_RAW_RESPONSE,
                 traceId,
+                boundaryType: BOUNDARY_TYPES.LLM_EXCHANGE,
+                boundaryId: llmBoundaryId,
+                parentBoundaryId: executionBoundaryId,
                 data: llmResponse.raw
             }, 'Raw API response structure');
         }
@@ -252,7 +263,9 @@ export async function execDirectCore(input, machineContext) {
         logger.error(
             {
                 traceId,
-
+                boundaryType: BOUNDARY_TYPES.EXECUTION,
+                boundaryId: executionBoundaryId,
+                parentBoundaryId: context.parentBoundaryId || null,
                 data: {
                     error: error.message,
                     code: error.code || 'E_UNKNOWN'

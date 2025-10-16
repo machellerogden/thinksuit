@@ -22,6 +22,7 @@ export async function composeInstructionsCore(input, machineContext) {
 
     // Generate unique boundary ID for this pipeline stage
     const boundaryId = `pipeline-instruction_composition-${sessionId}-${Date.now()}`;
+    const parentBoundaryId = input.context?.parentBoundaryId || null;
 
     logger.info(
         {
@@ -29,7 +30,7 @@ export async function composeInstructionsCore(input, machineContext) {
             eventRole: 'boundary_start',
             boundaryType: 'pipeline',
             boundaryId,
-            parentBoundaryId: input.context?.parentBoundaryId || null,
+            parentBoundaryId,
             traceId,
 
             data: {
@@ -46,7 +47,15 @@ export async function composeInstructionsCore(input, machineContext) {
 
     // Validate module has composition function
     if (!module?.composeInstructions) {
-        logger.warn({ traceId }, 'Module missing composeInstructions function, using defaults');
+        logger.warn(
+            {
+                traceId,
+                boundaryType: 'pipeline',
+                boundaryId,
+                parentBoundaryId
+            },
+            'Module missing composeInstructions function, using defaults'
+        );
         return DEFAULT_INSTRUCTIONS;
     }
 
@@ -69,7 +78,7 @@ export async function composeInstructionsCore(input, machineContext) {
             eventRole: 'boundary_end',
             boundaryType: 'pipeline',
             boundaryId,
-            parentBoundaryId: input.context?.parentBoundaryId || null,
+            parentBoundaryId,
             traceId,
 
             data: {

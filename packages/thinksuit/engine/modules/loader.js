@@ -14,7 +14,7 @@ export async function loadModules(modulesPackage) {
         // Convert to file:// URL for import()
         const fileUrl = pathToFileURL(absolutePath).href;
 
-        const imported = await import(fileUrl);
+        const imported = await import(/* @vite-ignore */ fileUrl);
         return imported.modules || imported;
     } catch (error) {
         throw new Error(`Failed to load modules from ${modulesPackage}: ${error.message}`);

@@ -149,6 +149,7 @@ export const PROCESSING_EVENTS = {
     // Classifier operations
     CLASSIFIER_START: 'processing.classifier.start',
     CLASSIFIER_COMPLETE: 'processing.classifier.complete',
+    CLASSIFIER_FAILED: 'processing.classifier.failed',
     CLASSIFIER_REGEX: 'processing.classifier.regex',
     CLASSIFIER_LLM: 'processing.classifier.llm',
 

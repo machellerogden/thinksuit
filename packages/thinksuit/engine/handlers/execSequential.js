@@ -267,7 +267,9 @@ export async function execSequentialCore(input, machineContext) {
                     {
                         event: EXECUTION_EVENTS.SEQUENTIAL_STEP_ERROR,
                         traceId,
-
+                        boundaryType: BOUNDARY_TYPES.STEP,
+                        boundaryId: stepBoundaryId,
+                        parentBoundaryId: executionBoundaryId,
                         data: {
                             role,
                             step: stepNumber,
@@ -291,7 +293,9 @@ export async function execSequentialCore(input, machineContext) {
                 {
                     event: EXECUTION_EVENTS.SEQUENTIAL_STEP_ERROR,
                     traceId,
-
+                    boundaryType: BOUNDARY_TYPES.STEP,
+                    boundaryId: stepBoundaryId,
+                    parentBoundaryId: executionBoundaryId,
                     data: {
                         role,
                         step: stepNumber,

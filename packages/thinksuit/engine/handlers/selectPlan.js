@@ -18,6 +18,7 @@ export async function selectPlanCore(input, machineContext) {
 
     // Generate unique boundary ID for this pipeline stage
     const boundaryId = `pipeline-plan_selection-${sessionId}-${Date.now()}`;
+    const parentBoundaryId = input.context?.parentBoundaryId || null;
 
     logger.info(
         {
@@ -25,7 +26,7 @@ export async function selectPlanCore(input, machineContext) {
             eventRole: 'boundary_start',
             boundaryType: 'pipeline',
             boundaryId,
-            parentBoundaryId: input.context?.parentBoundaryId || null,
+            parentBoundaryId,
             traceId,
             data: {
                 stage: 'plan_selection',
@@ -39,7 +40,15 @@ export async function selectPlanCore(input, machineContext) {
     const allSelectedPlanFacts = factMap.SelectedPlan || [];
 
     if (allSelectedPlanFacts.length === 0) {
-        logger.warn({ traceId }, 'No SelectedPlan facts available');
+        logger.warn(
+            {
+                traceId,
+                boundaryType: 'pipeline',
+                boundaryId,
+                parentBoundaryId
+            },
+            'No SelectedPlan facts available'
+        );
         return {
             plan: {
                 strategy: 'direct',
@@ -63,7 +72,7 @@ export async function selectPlanCore(input, machineContext) {
             eventRole: 'boundary_end',
             boundaryType: 'pipeline',
             boundaryId,
-            parentBoundaryId: input.context?.parentBoundaryId || null,
+            parentBoundaryId,
             traceId,
             data: {
                 stage: 'plan_selection',

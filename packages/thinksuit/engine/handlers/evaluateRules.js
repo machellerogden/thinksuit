@@ -107,6 +107,7 @@ export async function evaluateRulesCore(input, machineContext) {
 
     // Generate unique boundary ID for this pipeline stage
     const boundaryId = `pipeline-rule_evaluation-${sessionId}-${Date.now()}`;
+    const parentBoundaryId = context?.parentBoundaryId || null;
 
     logger.info(
         {
@@ -114,7 +115,7 @@ export async function evaluateRulesCore(input, machineContext) {
             eventRole: 'boundary_start',
             boundaryType: 'pipeline',
             boundaryId,
-            parentBoundaryId: context?.parentBoundaryId || null,
+            parentBoundaryId,
             traceId,
 
             data: {
@@ -134,7 +135,15 @@ export async function evaluateRulesCore(input, machineContext) {
 
     // If no rules provided, just return the initial facts as a factMap
     if (rules.length === 0) {
-        logger.debug({ traceId }, 'No rules provided, returning initial facts');
+        logger.debug(
+            {
+                traceId,
+                boundaryType: 'pipeline',
+                boundaryId,
+                parentBoundaryId
+            },
+            'No rules provided, returning initial facts'
+        );
         const factMap = createEmptyFactMap();
         factMap.Signal = initialFacts.filter((f) => f.type === 'Signal');
         return {
@@ -161,7 +170,9 @@ export async function evaluateRulesCore(input, machineContext) {
                 logger.warn(
                     {
                         traceId,
-
+                        boundaryType: 'pipeline',
+                        boundaryId,
+                        parentBoundaryId,
                         data: {
                             fact,
                             error: error.message
@@ -180,6 +191,9 @@ export async function evaluateRulesCore(input, machineContext) {
                     logger.warn(
                         {
                             traceId,
+                            boundaryType: 'pipeline',
+                            boundaryId,
+                            parentBoundaryId,
                             data: {
                                 ruleName: rule?.name
                             }
@@ -217,7 +231,9 @@ export async function evaluateRulesCore(input, machineContext) {
                 logger.error(
                     {
                         traceId,
-
+                        boundaryType: 'pipeline',
+                        boundaryId,
+                        parentBoundaryId,
                         data: {
                             ruleName: rule?.name,
                             error: error.message
@@ -235,7 +251,10 @@ export async function evaluateRulesCore(input, machineContext) {
             logger.debug(
                 {
                     event: PROCESSING_EVENTS.RULES_START,
-                    traceId
+                    traceId,
+                    boundaryType: 'pipeline',
+                    boundaryId,
+                    parentBoundaryId
                 },
                 'Starting rules engine'
             );
@@ -250,7 +269,9 @@ export async function evaluateRulesCore(input, machineContext) {
                         {
                             traceId,
                             event: PIPELINE_EVENTS.RULE_EXECUTION_TRACE,
-
+                            boundaryType: 'pipeline',
+                            boundaryId,
+                            parentBoundaryId,
                             data: {
                                 executionTrace,
                                 traceEntryCount: executionTrace.length
@@ -277,7 +298,9 @@ export async function evaluateRulesCore(input, machineContext) {
                 {
                     event: PROCESSING_EVENTS.RULES_COMPLETE,
                     traceId,
-
+                    boundaryType: 'pipeline',
+                    boundaryId,
+                    parentBoundaryId,
                     data: {
                         factCount: totalFactCount,
                         duration: Date.now() - startTime
@@ -294,7 +317,9 @@ export async function evaluateRulesCore(input, machineContext) {
                         {
                             traceId,
                             event: PIPELINE_EVENTS.RULE_EXECUTION_TRACE,
-
+                            boundaryType: 'pipeline',
+                            boundaryId,
+                            parentBoundaryId,
                             data: {
                                 executionTrace,
                                 traceEntryCount: executionTrace.length,
@@ -313,7 +338,15 @@ export async function evaluateRulesCore(input, machineContext) {
                 try {
                     factMap = querySystemFacts(engine);
                 } catch {
-                    logger.error({ traceId }, 'Failed to query facts after loop detection');
+                    logger.error(
+                        {
+                            traceId,
+                            boundaryType: 'pipeline',
+                            boundaryId,
+                            parentBoundaryId
+                        },
+                        'Failed to query facts after loop detection'
+                    );
                     factMap = createEmptyFactMap();
                     factMap.Signal = initialFacts.filter((f) => f.type === 'Signal');
                 }
@@ -321,6 +354,9 @@ export async function evaluateRulesCore(input, machineContext) {
                 logger.warn(
                     {
                         traceId,
+                        boundaryType: 'pipeline',
+                        boundaryId,
+                        parentBoundaryId,
                         data: {
                             error: error.message
                         }
@@ -349,7 +385,7 @@ export async function evaluateRulesCore(input, machineContext) {
                         eventRole: 'boundary_end',
                         boundaryType: 'pipeline',
                         boundaryId,
-                        parentBoundaryId: context?.parentBoundaryId || null,
+                        parentBoundaryId,
                         traceId,
                         data: {
                             stage: 'rule_evaluation',
@@ -379,7 +415,9 @@ export async function evaluateRulesCore(input, machineContext) {
                 logger.error(
                     {
                         traceId,
-
+                        boundaryType: 'pipeline',
+                        boundaryId,
+                        parentBoundaryId,
                         data: {
                             error: error.message,
                             stack: error.stack
@@ -417,7 +455,7 @@ export async function evaluateRulesCore(input, machineContext) {
                         eventRole: 'boundary_end',
                         boundaryType: 'pipeline',
                         boundaryId,
-                        parentBoundaryId: context?.parentBoundaryId || null,
+                        parentBoundaryId,
                         traceId,
                         data: {
                             stage: 'rule_evaluation',
@@ -460,7 +498,9 @@ export async function evaluateRulesCore(input, machineContext) {
             logger.warn(
                 {
                     traceId,
-
+                    boundaryType: 'pipeline',
+                    boundaryId,
+                    parentBoundaryId,
                     data: {
                         duration,
                         ruleCount: rules.length,
@@ -485,7 +525,7 @@ export async function evaluateRulesCore(input, machineContext) {
                 eventRole: 'boundary_end',
                 boundaryType: 'pipeline',
                 boundaryId,
-                parentBoundaryId: context?.parentBoundaryId || null,
+                parentBoundaryId,
                 traceId,
 
                 data: {
@@ -513,6 +553,9 @@ export async function evaluateRulesCore(input, machineContext) {
         logger.error(
             {
                 traceId,
+                boundaryType: 'pipeline',
+                boundaryId,
+                parentBoundaryId,
                 data: {
                     error: error.message,
                     stack: error.stack

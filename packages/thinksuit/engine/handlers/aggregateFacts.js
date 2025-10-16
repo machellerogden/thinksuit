@@ -49,6 +49,7 @@ export async function aggregateFactsCore(input, machineContext) {
 
     // Generate unique boundary ID for this pipeline stage
     const boundaryId = `pipeline-fact_aggregation-${sessionId}-${Date.now()}`;
+    const parentBoundaryId = context?.parentBoundaryId || null;
 
     logger.info(
         {
@@ -56,7 +57,7 @@ export async function aggregateFactsCore(input, machineContext) {
             eventRole: 'boundary_start',
             boundaryType: 'pipeline',
             boundaryId,
-            parentBoundaryId: context?.parentBoundaryId || null,
+            parentBoundaryId,
             traceId,
             data: {
                 stage: 'fact_aggregation',
@@ -78,6 +79,9 @@ export async function aggregateFactsCore(input, machineContext) {
             logger.debug(
                 {
                     traceId,
+                    boundaryType: 'pipeline',
+                    boundaryId,
+                    parentBoundaryId,
                     data: {
                         dimension: s.dimension,
                         signal: s.signal,
@@ -105,6 +109,9 @@ export async function aggregateFactsCore(input, machineContext) {
                 logger.trace(
                     {
                         traceId,
+                        boundaryType: 'pipeline',
+                        boundaryId,
+                        parentBoundaryId,
                         data: {
                             key: k,
                             previousConfidence: prev.confidence,
@@ -145,6 +152,9 @@ export async function aggregateFactsCore(input, machineContext) {
     logger.debug({
         event: 'debug.capability_check',
         traceId,
+        boundaryType: 'pipeline',
+        boundaryId,
+        parentBoundaryId,
         data: {
             hasProvider: !!config.provider,
             hasModel: !!config.model,
@@ -182,7 +192,7 @@ export async function aggregateFactsCore(input, machineContext) {
             eventRole: 'boundary_end',
             boundaryType: 'pipeline',
             boundaryId,
-            parentBoundaryId: context?.parentBoundaryId || null,
+            parentBoundaryId,
             traceId,
             data: {
                 stage: 'fact_aggregation',
@@ -203,6 +213,9 @@ export async function aggregateFactsCore(input, machineContext) {
         {
             event: PROCESSING_EVENTS.OUTPUT_GENERATED,
             traceId,
+            boundaryType: 'pipeline',
+            boundaryId,
+            parentBoundaryId,
             data: {
                 handler: 'aggregateFacts',
                 facts: allFacts,

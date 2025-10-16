@@ -45,6 +45,7 @@ export async function execTaskCore(input, machineContext) {
     };
 
     const executionBoundaryId = `exec-task-${context.sessionId}-${Date.now()}`;
+    const parentBoundaryId = context.parentBoundaryId || null;
 
     logger.info(
         {
@@ -52,7 +53,7 @@ export async function execTaskCore(input, machineContext) {
             eventRole: EVENT_ROLES.BOUNDARY_START,
             boundaryType: BOUNDARY_TYPES.EXECUTION,
             boundaryId: executionBoundaryId,
-            parentBoundaryId: context.parentBoundaryId || null,
+            parentBoundaryId,
             traceId,
             data: {
                 strategy: 'task',
@@ -95,6 +96,9 @@ export async function execTaskCore(input, machineContext) {
             logger.warn({
                 event: 'execution.task.timeout_reached',
                 traceId,
+                boundaryType: BOUNDARY_TYPES.EXECUTION,
+                boundaryId: executionBoundaryId,
+                parentBoundaryId,
                 cycleCount
             }, 'Task timeout reached');
             break;
@@ -108,6 +112,9 @@ export async function execTaskCore(input, machineContext) {
             logger.warn({
                 event: 'execution.task.tool_budget_exhausted',
                 traceId,
+                boundaryType: BOUNDARY_TYPES.EXECUTION,
+                boundaryId: executionBoundaryId,
+                parentBoundaryId,
                 cycleCount,
                 totalToolCalls
             }, 'Tool call budget exhausted');
@@ -185,6 +192,9 @@ export async function execTaskCore(input, machineContext) {
                     logger.warn({
                         event: 'execution.task.synthesis_budget_triggered',
                         traceId,
+                        boundaryType: BOUNDARY_TYPES.EXECUTION,
+                        boundaryId: executionBoundaryId,
+                        parentBoundaryId,
                         cycleCount,
                         totalTokens,
                         tokensReserved: SYNTHESIS_TOKEN_RESERVE
@@ -235,7 +245,15 @@ export async function execTaskCore(input, machineContext) {
                                 args: toolCall.function?.arguments || toolCall.arguments
                             };
                             if (!plan.tools.includes(request.tool)) {
-                                cycleLogger.warn({ traceId }, `Tool ${request.tool} not available in plan`);
+                                cycleLogger.warn(
+                                    {
+                                        traceId,
+                                        boundaryType: BOUNDARY_TYPES.CYCLE,
+                                        boundaryId: cycleBoundaryId,
+                                        parentBoundaryId: executionBoundaryId
+                                    },
+                                    `Tool ${request.tool} not available in plan`
+                                );
                                 continue;
                             }
 
@@ -470,6 +488,9 @@ export async function execTaskCore(input, machineContext) {
                 logger.error(
                     {
                         traceId,
+                        boundaryType: BOUNDARY_TYPES.EXECUTION,
+                        boundaryId: executionBoundaryId,
+                        parentBoundaryId,
                         cycleCount,
                         status,
                         error: result?.error
@@ -493,6 +514,9 @@ export async function execTaskCore(input, machineContext) {
             logger.error(
                 {
                     traceId,
+                    boundaryType: BOUNDARY_TYPES.EXECUTION,
+                    boundaryId: executionBoundaryId,
+                    parentBoundaryId,
                     cycleCount,
                     error: error.message
                 },
@@ -583,7 +607,16 @@ export async function execTaskCore(input, machineContext) {
                 'Synthesis cycle complete'
             );
         } catch (error) {
-            cycleLogger.error({ traceId, error: error.message }, 'Synthesis cycle failed');
+            cycleLogger.error(
+                {
+                    traceId,
+                    boundaryType: BOUNDARY_TYPES.EXECUTION,
+                    boundaryId: executionBoundaryId,
+                    parentBoundaryId,
+                    error: error.message
+                },
+                'Synthesis cycle failed'
+            );
         }
     }
 
@@ -611,7 +644,7 @@ export async function execTaskCore(input, machineContext) {
             eventRole: EVENT_ROLES.BOUNDARY_END,
             boundaryType: BOUNDARY_TYPES.EXECUTION,
             boundaryId: executionBoundaryId,
-            parentBoundaryId: context.parentBoundaryId || null,
+            parentBoundaryId,
             traceId,
             data: {
                 strategy: 'task',
