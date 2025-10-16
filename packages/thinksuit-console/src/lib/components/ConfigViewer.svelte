@@ -6,6 +6,33 @@
     let loading = $state(true);
     let error = $state(null);
 
+    /**
+     * Recursively walk an object and mask any field containing 'apikey' or 'token' in its name
+     */
+    function maskSensitiveFields(obj) {
+        if (obj === null || obj === undefined) return obj;
+        if (typeof obj !== 'object') return obj;
+        if (Array.isArray(obj)) return obj.map(maskSensitiveFields);
+
+        const result = {};
+        for (const [key, value] of Object.entries(obj)) {
+            const keyLower = key.toLowerCase();
+            if (keyLower.includes('apikey') || keyLower.includes('token')) {
+                // Mask the value if it exists
+                result[key] = value ? '***' : value;
+            } else if (typeof value === 'object' && value !== null) {
+                // Recurse into nested objects
+                result[key] = maskSensitiveFields(value);
+            } else {
+                result[key] = value;
+            }
+        }
+        return result;
+    }
+
+    // Masked version for display
+    let maskedConfig = $derived(config ? maskSensitiveFields(config) : null);
+
     onMount(async () => {
         try {
             const response = await fetch('/api/config');
@@ -221,7 +248,7 @@
                 <Card>
                     <div class="p-3">
                         <h2 class="text-sm font-semibold mb-3 text-gray-700">Raw Configuration</h2>
-                        <JSONView data={config} />
+                        <JSONView data={maskedConfig} />
                     </div>
                 </Card>
             </div>

@@ -262,7 +262,7 @@
             bind:searchFilter
         />
         <!-- Main Content Area -->
-        <div class="flex-1 flex flex-col bg-white">
+        <div class="flex-1 flex flex-col bg-linear-to-r/increasing from-indigo-500/2 to-violet-400/2">
             <!-- View Switcher -->
             {#if routeSessionId}
                 <div class="border-b border-gray-200 bg-white">

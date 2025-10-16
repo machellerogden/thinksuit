@@ -45,7 +45,7 @@
     }
 </script>
 
-<div class="border-t border-gray-200 bg-gradient-to-b from-white to-gray-50 p-4">
+<div class="border-1 rounded-lg border-indigo-800/16 bg-linear-to-r/decreasing from-indigo-500/3 to-violet-400/3 p-4 m-8">
     {#if session.isProcessing}
         <div class="mb-4 max-w-6xl mx-auto">
             <div class="flex items-center justify-between gap-4 p-3 bg-amber-50 border border-amber-200 rounded-lg shadow-sm">
@@ -74,10 +74,10 @@
     {/if}
 
     <form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="max-w-6xl mx-auto space-y-3">
-        <!-- Working Directory Input -->
         <div class="flex items-center gap-3">
-            <label for="cwd" class="text-sm font-medium text-gray-700 whitespace-nowrap min-w-fit">
-                Working Directory
+            <!-- Working Directory Input -->
+            <label for="cwd" class="text-xs font-medium font-mono text-gray-700 whitespace-nowrap min-w-fit">
+                CWD
             </label>
             <Input
                 id="cwd"
@@ -107,10 +107,12 @@
                 />
             </div>
 
-            <div class="flex items-center gap-3">
+            <div class="flex place-items-stretch gap-3">
+                <!-- Trace Checkbox -->
                 <Checkbox
                     bind:checked={trace}
-                    label="Trace"
+                    label="TRACE"
+                    class="text-xs font-mono"
                     disabled={isSubmitting}
                 />
                 <Button
