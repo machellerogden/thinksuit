@@ -27,6 +27,15 @@
             (session.firstInput && session.firstInput.toLowerCase().includes(search));
     }));
 
+    let allSelected = $derived(
+        filteredSessions.length > 0 &&
+        filteredSessions.every(session => selectedSessions.has(session.id))
+    );
+
+    let someSelected = $derived(
+        filteredSessions.some(session => selectedSessions.has(session.id)) && !allSelected
+    );
+
     // Clear selections when exiting select mode
     $effect(() => {
         if (!selectMode) {
@@ -99,6 +108,20 @@
             selectedSessions.delete(sessionId);
         } else {
             selectedSessions.add(sessionId);
+        }
+    }
+
+    function toggleSelectAll() {
+        if (allSelected) {
+            // Deselect all filtered sessions
+            filteredSessions.forEach(session => {
+                selectedSessions.delete(session.id);
+            });
+        } else {
+            // Select all filtered sessions
+            filteredSessions.forEach(session => {
+                selectedSessions.add(session.id);
+            });
         }
     }
 
@@ -261,16 +284,47 @@
 <!-- Fixed action bar for select mode -->
 <div class="sticky bottom-0 border-t border-gray-300 bg-white p-3">
     <div class="flex items-center justify-between gap-3">
-        <button
-            onclick={() => selectMode = !selectMode}
-            class="px-2 py-2 rounded-md transition-colors {selectMode ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}"
-            title={selectMode ? 'Cancel selection' : 'Select sessions'}
-            aria-label={selectMode ? 'Cancel selection' : 'Select sessions'}
-        >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
-            </svg>
-        </button>
+        {#if !confirmBulkDelete}
+            <div class="flex items-center gap-1">
+                <button
+                    onclick={() => selectMode = !selectMode}
+                    class="px-2 py-2 rounded-md transition-colors {selectMode ? 'bg-indigo-100 text-indigo-700' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}"
+                    title={selectMode ? 'Cancel selection' : 'Select sessions'}
+                    aria-label={selectMode ? 'Cancel selection' : 'Select sessions'}
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                    </svg>
+                </button>
+                {#if selectMode}
+                    <button
+                        onclick={toggleSelectAll}
+                        class="px-2 py-2 rounded-md transition-colors text-gray-600 hover:text-gray-800 hover:bg-gray-100"
+                        title={allSelected ? 'Deselect all' : 'Select all'}
+                        aria-label={allSelected ? 'Deselect all' : 'Select all'}
+                    >
+                        {#if allSelected}
+                            <!-- Checked checkbox -->
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <rect x="3" y="3" width="18" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M9 12l2 2l4-4" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        {:else if someSelected}
+                            <!-- Indeterminate checkbox -->
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <rect x="3" y="3" width="18" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M8 12h8" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        {:else}
+                            <!-- Empty checkbox -->
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <rect x="3" y="3" width="18" height="18" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        {/if}
+                    </button>
+                {/if}
+            </div>
+        {/if}
         {#if selectMode}
             {#if confirmBulkDelete}
             <!-- Confirmation state -->
@@ -297,7 +351,7 @@
                 </div>
             {:else}
             <!-- Normal state -->
-                <div class="text-sm text-gray-600">
+                <div class="text-xs text-gray-600">
                     {selectedSessions.size} selected
                 </div>
                 <Button
@@ -306,7 +360,7 @@
                     onclick={() => confirmBulkDelete = true}
                     disabled={selectedSessions.size === 0}
                 >
-                    Delete Selected
+                    Delete
                 </Button>
             {/if}
         {/if}
