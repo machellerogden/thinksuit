@@ -279,7 +279,7 @@
         left: '-right-3.5 bottom-5',
         right: '-left-3.5 bottom-5',
         top: '-bottom-3 left-1/2 -translate-x-1/2',
-        bottom: '-top-3 left-1/2 -translate-x-1/2'
+        bottom: '-top-3 right-5 -translate-x-1/2'
     }[ui.terminalPosition]);
 
     // Arrow rotation and path
@@ -448,7 +448,7 @@
 
     <!-- Collapsed Content -->
     {#if !ui.terminalOpen}
-        <div class="h-full w-full flex items-center justify-center pt-2">
+        <div class="h-full w-full flex items-center justify-center">
             <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
             </svg>

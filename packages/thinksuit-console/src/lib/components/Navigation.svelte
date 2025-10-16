@@ -66,7 +66,8 @@
         </div>
     {/if}
 
-    <!-- Toggle Button -->
+    <!-- Toggle Button - NB: temporarily hiding the toggle button until we have use for this section -->
+    <!--
     <button
         onclick={() => expanded = !expanded}
         class="absolute -bottom-3 left-1/2 -translate-x-1/2 z-20 w-7 h-7 bg-white border border-gray-300 rounded-full flex items-center justify-center hover:bg-gray-50 transition-colors"
@@ -77,4 +78,5 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
         </svg>
     </button>
+    -->
 </nav>
