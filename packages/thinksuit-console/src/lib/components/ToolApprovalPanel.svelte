@@ -87,7 +87,7 @@
                 >
                     <path d="M6 6L14 10L6 14V6Z" />
                 </svg>
-                <span class="text-sm font-semibold text-gray-700">Tool Approvals</span>
+                <span class="text-sm font-semibold text-gray-700">Approvals</span>
             </div>
             <Badge variant="warning" size="sm" bordered>{approvalQueue.length}</Badge>
         </button>

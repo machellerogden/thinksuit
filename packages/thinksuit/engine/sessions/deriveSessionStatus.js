@@ -25,7 +25,7 @@ export function deriveSessionStatus(entries) {
 
     // Check if ready (last event is in READY_EVENTS set)
     // READY_EVENTS includes SESSION_EVENTS.RESPONSE and SESSION_EVENTS.PENDING
-    if (READY_EVENTS.has(lastEntry.event)) {
+    if (lastEntry && READY_EVENTS.has(lastEntry.event)) {
         return SESSION_STATUS.READY;
     }
 

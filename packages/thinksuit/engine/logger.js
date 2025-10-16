@@ -142,8 +142,8 @@ export function createLogger(options = {}) {
 
         // Create logger with multistream transport
         const transport = pino.transport({ targets });
-        // Use trace level to capture everything when writing to file
-        return pino({ ...baseConfig, level: trace || session ? 'trace' : level }, transport);
+        // Use trace level to capture everything when writing to trace files
+        return pino({ ...baseConfig, level: trace ? 'trace' : level }, transport);
     } else {
         // No transports - return a silent logger
         return pino({ ...baseConfig, level: 'silent' });

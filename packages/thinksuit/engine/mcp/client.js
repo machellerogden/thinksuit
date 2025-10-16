@@ -17,9 +17,19 @@ const activeClients = new Map();
  * @returns {Promise<Client>} - Connected MCP client
  */
 export async function startMCPServer(name, config, cwd, allowedDirectories = null, verbose = false) {
-    // Check if already running
+    // Check if already running and still connected
     if (activeClients.has(name)) {
-        return activeClients.get(name);
+        const cached = activeClients.get(name);
+        // Verify client is still connected before reusing
+        try {
+            // Attempt a ping to verify connection is alive
+            await cached.client.ping();
+            return cached.client;
+        } catch (error) {
+            // Client is disconnected, remove from cache and create new one
+            console.warn(`Cached MCP client ${name} is disconnected, recreating...`);
+            activeClients.delete(name);
+        }
     }
 
     if (!cwd) {
