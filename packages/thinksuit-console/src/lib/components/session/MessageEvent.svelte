@@ -9,7 +9,7 @@
     } = $props();
 
     const content = $derived(role === 'user' ? node.data?.input : node.data?.response);
-    const variant = $derived(role === 'user' ? 'default' : 'secondary');
+    const variant = $derived(role === 'user' ? 'chat' : 'chat');
     const alignment = $derived(role === 'user' ? 'ml-auto' : 'mr-auto');
 </script>
 

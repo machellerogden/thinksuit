@@ -272,8 +272,8 @@
         const configs = {
             execution: {
                 borderColor: 'border-green-400',
-                bgColor: 'bg-green-50',
-                hoverColor: 'hover:bg-green-100',
+                bgColor: 'bg-green-100',
+                hoverColor: 'hover:bg-green-200',
                 textColor: 'text-green-700',
                 badgeVariant: 'success',
                 badgeText: `execution.${metadata.strategy || 'unknown'}`,
@@ -281,8 +281,8 @@
             },
             cycle: {
                 borderColor: 'border-amber-300',
-                bgColor: 'bg-amber-50',
-                hoverColor: 'hover:bg-amber-100',
+                bgColor: 'bg-amber-100',
+                hoverColor: 'hover:bg-amber-200',
                 textColor: 'text-amber-700',
                 badgeVariant: 'warning',
                 badgeText: `cycle ${metadata.cycle || metadata.cycleNumber || '?'}`,
@@ -290,8 +290,8 @@
             },
             step: {
                 borderColor: 'border-green-300',
-                bgColor: 'bg-green-50',
-                hoverColor: 'hover:bg-green-100',
+                bgColor: 'bg-green-100',
+                hoverColor: 'hover:bg-green-200',
                 textColor: 'text-green-700',
                 badgeVariant: 'success',
                 badgeText: `step ${metadata.step}/${metadata.totalSteps}`,
@@ -299,8 +299,8 @@
             },
             branch: {
                 borderColor: 'border-green-300',
-                bgColor: 'bg-green-50',
-                hoverColor: 'hover:bg-green-100',
+                bgColor: 'bg-green-100',
+                hoverColor: 'hover:bg-green-200',
                 textColor: 'text-green-700',
                 badgeVariant: 'success',
                 badgeText: 'branch',
@@ -308,8 +308,8 @@
             },
             orchestration: {
                 borderColor: 'border-slate-300',
-                bgColor: 'bg-slate-50',
-                hoverColor: 'hover:bg-slate-100',
+                bgColor: 'bg-slate-200',
+                hoverColor: 'hover:bg-slate-300',
                 textColor: 'text-slate-700',
                 badgeVariant: 'secondary',
                 badgeText: 'orchestration',
@@ -317,8 +317,8 @@
             },
             pipeline: {
                 borderColor: 'border-indigo-300',
-                bgColor: 'bg-indigo-50',
-                hoverColor: 'hover:bg-indigo-100',
+                bgColor: 'bg-indigo-100',
+                hoverColor: 'hover:bg-indigo-200',
                 textColor: 'text-indigo-700',
                 badgeVariant: 'info',
                 badgeText: 'pipeline',
@@ -326,8 +326,8 @@
             },
             tool: {
                 borderColor: 'border-teal-300',
-                bgColor: 'bg-teal-50',
-                hoverColor: 'hover:bg-teal-100',
+                bgColor: 'bg-teal-100',
+                hoverColor: 'hover:bg-teal-200',
                 textColor: 'text-teal-700',
                 badgeVariant: 'info',
                 badgeText: metadata.tool || 'tool',
@@ -335,8 +335,8 @@
             },
             llm_exchange: {
                 borderColor: 'border-cyan-300',
-                bgColor: 'bg-cyan-50',
-                hoverColor: 'hover:bg-cyan-100',
+                bgColor: 'bg-cyan-100',
+                hoverColor: 'hover:bg-cyan-200',
                 textColor: 'text-cyan-700',
                 badgeVariant: 'info',
                 badgeText: 'llm exchange',
@@ -618,7 +618,7 @@
         {:else}
             <div class="relative flex-1 overflow-hidden">
                 <div
-                    class="absolute inset-0 overflow-y-auto p-4 pr-22 space-y-4"
+                    class="absolute inset-0 overflow-y-auto p-8 pr-22 space-y-4"
                     bind:this={scrollContainer}
                     onscroll={handleScroll}
                 >

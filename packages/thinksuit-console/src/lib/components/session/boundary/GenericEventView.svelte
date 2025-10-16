@@ -10,7 +10,7 @@
 
 <div class="max-w-6xl mx-auto mb-1">
     <div class="flex items-stretch gap-1">
-        <div class="flex-1 px-2 py-1 bg-gray-50 text-gray-600 rounded text-xs">
+        <div class="flex-1 px-2 py-1 bg-gray-200 text-gray-600 rounded text-xs">
             <span class="font-mono opacity-70">
                 {node.eventType}
             </span>
