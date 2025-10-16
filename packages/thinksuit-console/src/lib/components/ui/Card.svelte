@@ -8,7 +8,7 @@
 
     const variants = {
         default: 'bg-white border border-gray-200',
-        chat: 'bg-linear-to-r/increasing from-indigo-500/2 to-teal-400/2 border border-gray-200',
+        chat: 'bg-linear-to-r/increasing from-indigo-500/2 to-teal-400/2 border rounded-lg border-indigo-800/16',
         elevated: 'bg-white border border-gray-200 shadow-md',
         ghost: 'bg-gray-50',
         error: 'bg-red-50 border border-red-200',

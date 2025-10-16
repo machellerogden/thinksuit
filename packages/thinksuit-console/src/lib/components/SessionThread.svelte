@@ -355,7 +355,7 @@
     {@const stage = node.metadata?.stage}
     {@const latestMsg = getLatestEventMsg(node)}
 
-    <div class="max-w-6xl mx-auto mb-2">
+    <div class="max-w-6xl mx-auto">
         <div class="border-l-1 {config.borderColor} pl-1">
             <div class="flex items-stretch gap-1 group">
                 <button
@@ -515,7 +515,7 @@
         {#if node.eventType === 'session.input'}
             {@const key = `event-${node.eventId}`}
             {@const showData = showRawData.has(key)}
-            <div class="max-w-6xl ml-auto mb-2">
+            <div class="max-w-6xl ml-auto mb-4">
                 <div class="flex items-stretch gap-1">
                     <div class="flex-1">
                         {#if showData}
@@ -544,7 +544,7 @@
         {:else if node.eventType === 'session.response'}
             {@const key = `event-${node.eventId}`}
             {@const showData = showRawData.has(key)}
-            <div class="max-w-6xl mr-auto mb-2">
+            <div class="max-w-6xl mr-auto mb-4">
                 <div class="flex items-stretch gap-1">
                     <div class="flex-1">
                         {#if showData}
