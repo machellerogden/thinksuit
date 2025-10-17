@@ -176,7 +176,8 @@
             <div class="relative group border-b border-gray-200 hover:bg-indigo-50 {selectedSessionId === session.id && !selectMode ? 'bg-gray-100' : ''}">
                 {#if selectMode}
                     <!-- Select mode: clickable area with checkbox -->
-                    <div
+                    <button
+                        type="button"
                         class="flex items-start gap-3 p-4 cursor-pointer"
                         onclick={() => toggleSessionSelection(session.id)}
                     >
@@ -198,7 +199,7 @@
                                 {session.lineCount} entries • {new Date(session.timestamp).toLocaleString()}
                             </div>
                         </div>
-                    </div>
+                    </button>
                 {:else}
                     <!-- Normal mode: link with dropdown -->
                     <a

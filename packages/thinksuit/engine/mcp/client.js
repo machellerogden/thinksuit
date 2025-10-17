@@ -25,7 +25,7 @@ export async function startMCPServer(name, config, cwd, allowedDirectories = nul
             // Attempt a ping to verify connection is alive
             await cached.client.ping();
             return cached.client;
-        } catch (error) {
+        } catch {
             // Client is disconnected, remove from cache and create new one
             console.warn(`Cached MCP client ${name} is disconnected, recreating...`);
             activeClients.delete(name);

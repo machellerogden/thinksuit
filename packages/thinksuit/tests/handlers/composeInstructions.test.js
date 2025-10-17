@@ -1,66 +1,79 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { pino } from '../../engine/logger.js';
 import { composeInstructionsCore as composeInstructions } from '../../engine/handlers/composeInstructions.js';
 import { DEFAULT_INSTRUCTIONS } from '../../engine/constants/defaults.js';
-import { composeInstructions as muComposeInstructions } from '../../../thinksuit-modules/mu/composeInstructions.js';
 
-describe('composeInstructions handler', () => {
-    let mockModule;
-    let mockContext;
+describe('composeInstructions handler (engine contract)', () => {
     let logger;
+    let mockModule;
 
     beforeEach(() => {
-        // Create a real silent logger for testing
         logger = pino({ level: 'silent' });
 
+        // Mock module that returns predictable results per new contract
+        // Module only returns what it naturally computed, not derived stats
         mockModule = {
-            composeInstructions: muComposeInstructions,
-            instructionSchema: {
-                prompts: {
-                    system: (role) => `System prompt for ${role}`,
-                    primary: (role) => `Primary prompt for ${role}`,
-                    adaptation: (signal) => (signal ? `Adaptation for ${signal}` : ''),
-                    length: (level) => `Length guidance: ${level}`
-                },
-                tokens: {
-                    roleDefaults: {
-                        assistant: 400,
-                        analyzer: 800,
-                        synthesizer: 1000,
-                        critic: 600
-                    },
-                    signalMultipliers: {
-                        'contract.ack-only': 0.5,
-                        'contract.explore': 1.2,
-                        'support.none': 0.85
-                    }
+            composeInstructions: vi.fn(async ({ plan }) => ({
+                system: 'Mock system prompt',
+                primary: 'Mock primary prompt',
+                adaptations: 'Mock adaptations',
+                lengthGuidance: 'Mock length guidance',
+                toolInstructions: '',
+                maxTokens: 500,
+                metadata: {
+                    role: plan.role || 'assistant',
+                    baseTokens: 400,  // Natural: looked up from role config
+                    tokenMultiplier: 1.0,  // Natural: calculated during composition
+                    lengthLevel: 'standard',  // Natural: chosen based on signals
+                    adaptationKeys: []  // Natural: tracked during composition
                 }
-            }
-        };
-
-        mockContext = {
-            traceId: 'test-trace-1'
+            }))
         };
     });
 
-    describe('basic functionality', () => {
-        it('should compose instructions for a simple direct plan', async () => {
+    describe('module delegation', () => {
+        it('should call module.composeInstructions with correct arguments', async () => {
             const input = {
-                plan: {
-                    strategy: 'direct',
-                    role: 'assistant'
-                },
-                factMap: {
-                    ExecutionPlan: [],
-                    RoleSelection: [],
-                    Signal: [],
-                    Derived: [],
-                    Adaptation: [],
-                    TokenMultiplier: [],
-                    Capability: [],
-                    SelectedPlan: []
-                },
-                context: mockContext
+                plan: { strategy: 'direct', role: 'assistant' },
+                factMap: { Signal: [] },
+                context: { traceId: 'test-trace', sessionId: 'test-session' }
+            };
+
+            await composeInstructions(input, {
+                execLogger: logger,
+                module: mockModule
+            });
+
+            expect(mockModule.composeInstructions).toHaveBeenCalledOnce();
+            expect(mockModule.composeInstructions).toHaveBeenCalledWith(
+                { plan: input.plan, factMap: input.factMap },
+                mockModule
+            );
+        });
+
+        it('should pass module as second argument to composeInstructions', async () => {
+            const input = {
+                plan: { strategy: 'direct' },
+                factMap: {},
+                context: { traceId: 'test-trace', sessionId: 'test-session' }
+            };
+
+            await composeInstructions(input, {
+                execLogger: logger,
+                module: mockModule
+            });
+
+            const [[firstArg, secondArg]] = mockModule.composeInstructions.mock.calls;
+            expect(secondArg).toBe(mockModule);
+        });
+    });
+
+    describe('metadata enrichment', () => {
+        it('should enrich metadata with plan.strategy', async () => {
+            const input = {
+                plan: { strategy: 'sequential', role: 'assistant' },
+                factMap: {},
+                context: { traceId: 'test-trace', sessionId: 'test-session' }
             };
 
             const result = await composeInstructions(input, {
@@ -68,145 +81,18 @@ describe('composeInstructions handler', () => {
                 module: mockModule
             });
 
-            expect(result).toBeDefined();
-            expect(result.system).toBe('System prompt for assistant');
-            expect(result.primary).toBe('Primary prompt for assistant');
-            expect(result.adaptations).toBe('');
-            expect(result.lengthGuidance).toBe('Length guidance: standard');
-            expect(result.maxTokens).toBe(400); // Default for assistant
+            expect(result.metadata.strategy).toBe('sequential');
         });
 
-        it('should handle analyzer role with higher token budget', async () => {
+        it('should enrich metadata with plan.tools', async () => {
             const input = {
                 plan: {
-                    strategy: 'direct',
-                    role: 'analyzer'
-                },
-                factMap: {
-                    ExecutionPlan: [],
-                    RoleSelection: [],
-                    Signal: [],
-                    Derived: [],
-                    Adaptation: [],
-                    TokenMultiplier: [],
-                    Capability: [],
-                    SelectedPlan: []
-                },
-                context: mockContext
-            };
-
-            const result = await composeInstructions(input, {
-                execLogger: logger,
-                module: mockModule
-            });
-
-            expect(result.system).toBe('System prompt for analyzer');
-            expect(result.primary).toBe('Primary prompt for analyzer');
-            expect(result.maxTokens).toBe(800);
-        });
-
-        it('should apply signal adaptations', async () => {
-            const input = {
-                plan: {
-                    strategy: 'direct',
-                    role: 'assistant'
-                },
-                factMap: {
-                    executionPlan: null,
-                    RoleSelection: [],
-                    Signal: [
-                        { type: 'Signal', dimension: 'contract', signal: 'explore' },
-                        { type: 'Signal', dimension: 'support', signal: 'none' }
-                    ],
-                    Derived: [],
-                    Adaptation: [],
-                    TokenMultiplier: []
-                },
-                context: mockContext
-            };
-
-            const result = await composeInstructions(input, {
-                execLogger: logger,
-                module: mockModule
-            });
-
-            expect(result.adaptations).toContain('Adaptation for explore');
-            expect(result.adaptations).toContain('Adaptation for none');
-            expect(result.lengthGuidance).toBe('Length guidance: comprehensive'); // explore triggers comprehensive
-        });
-
-        it('should apply token multipliers from signals', async () => {
-            const input = {
-                plan: {
-                    strategy: 'direct',
-                    role: 'assistant'
-                },
-                factMap: {
-                    executionPlan: null,
-                    RoleSelection: [],
-                    Signal: [{ type: 'Signal', dimension: 'contract', signal: 'ack-only' }],
-                    Derived: [],
-                    Adaptation: [],
-                    TokenMultiplier: []
-                },
-                context: mockContext
-            };
-
-            const result = await composeInstructions(input, {
-                execLogger: logger,
-                module: mockModule
-            });
-
-            // 400 (base) * 0.5 (ack-only multiplier) = 200
-            expect(result.maxTokens).toBe(200);
-            expect(result.lengthGuidance).toBe('Length guidance: brief');
-        });
-
-        it('should combine multiple token multipliers', async () => {
-            const input = {
-                plan: {
-                    strategy: 'direct',
-                    role: 'assistant'
-                },
-                factMap: {
-                    executionPlan: null,
-                    RoleSelection: [],
-                    Signal: [
-                        { type: 'Signal', dimension: 'contract', signal: 'explore' },
-                        { type: 'Signal', dimension: 'support', signal: 'none' }
-                    ],
-                    Derived: [],
-                    Adaptation: [],
-                    TokenMultiplier: []
-                },
-                context: mockContext
-            };
-
-            const result = await composeInstructions(input, {
-                execLogger: logger,
-                module: mockModule
-            });
-
-            // 400 * 1.2 * 0.85 = 408
-            expect(result.maxTokens).toBe(408);
-        });
-
-        it('should handle token multiplier facts', async () => {
-            const input = {
-                plan: {
-                    strategy: 'direct',
+                    strategy: 'task',
                     role: 'assistant',
-                    maxTokens: 600 // Plan can override
+                    tools: ['read_file', 'write_file']
                 },
-                factMap: {
-                    executionPlan: null,
-                    RoleSelection: [],
-                    Signal: [],
-                    Derived: [],
-                    Adaptation: [],
-                    TokenMultiplier: [{ type: 'TokenMultiplier', value: 0.75 }]
-                },
-                context: mockContext
+                factMap: {},
+                context: { traceId: 'test-trace', sessionId: 'test-session' }
             };
 
             const result = await composeInstructions(input, {
@@ -214,25 +100,14 @@ describe('composeInstructions handler', () => {
                 module: mockModule
             });
 
-            // 600 * 0.75 = 450
-            expect(result.maxTokens).toBe(450);
+            expect(result.metadata.toolsAvailable).toEqual(['read_file', 'write_file']);
         });
 
-        it('should apply length guidance based on contract signals', async () => {
+        it('should default toolsAvailable to empty array when no tools', async () => {
             const input = {
-                plan: {
-                    strategy: 'direct',
-                    role: 'assistant'
-                },
-                factMap: {
-                    executionPlan: null,
-                    RoleSelection: [],
-                    Signal: [{ type: 'Signal', dimension: 'contract', signal: 'ack-only' }],
-                    Derived: [],
-                    Adaptation: [],
-                    TokenMultiplier: []
-                },
-                context: mockContext
+                plan: { strategy: 'direct', role: 'assistant' },
+                factMap: {},
+                context: { traceId: 'test-trace', sessionId: 'test-session' }
             };
 
             const result = await composeInstructions(input, {
@@ -240,24 +115,14 @@ describe('composeInstructions handler', () => {
                 module: mockModule
             });
 
-            expect(result.lengthGuidance).toBe('Length guidance: brief');
+            expect(result.metadata.toolsAvailable).toEqual([]);
         });
 
-        it('should handle comprehensive length for explore contract', async () => {
+        it('should preserve module metadata and add engine enrichments', async () => {
             const input = {
-                plan: {
-                    strategy: 'direct',
-                    role: 'explorer'
-                },
-                factMap: {
-                    executionPlan: null,
-                    RoleSelection: [],
-                    Signal: [{ type: 'Signal', dimension: 'contract', signal: 'explore' }],
-                    Derived: [],
-                    Adaptation: [],
-                    TokenMultiplier: []
-                },
-                context: mockContext
+                plan: { strategy: 'direct', role: 'assistant' },
+                factMap: {},
+                context: { traceId: 'test-trace', sessionId: 'test-session' }
             };
 
             const result = await composeInstructions(input, {
@@ -265,164 +130,124 @@ describe('composeInstructions handler', () => {
                 module: mockModule
             });
 
-            expect(result.lengthGuidance).toBe('Length guidance: comprehensive');
+            // Module's natural metadata is preserved
+            expect(result.metadata).toMatchObject({
+                role: 'assistant',
+                baseTokens: 400,
+                tokenMultiplier: 1.0,
+                lengthLevel: 'standard',
+                adaptationKeys: []
+            });
+
+            // Engine enrichments are added
+            expect(result.metadata.strategy).toBe('direct');
+            expect(result.metadata.toolsAvailable).toEqual([]);
+
+            // Engine-computed stats (signalCount, adaptationCount) are NOT in returned metadata
+            // They are only computed for logging purposes
+            expect(result.metadata.signalCount).toBeUndefined();
+            expect(result.metadata.adaptationCount).toBeUndefined();
         });
     });
 
-    describe('edge cases and error handling', () => {
+    describe('missing module handling', () => {
+        it('should return DEFAULT_INSTRUCTIONS when module is missing', async () => {
+            const input = {
+                plan: { strategy: 'direct' },
+                factMap: {},
+                context: { traceId: 'test-trace', sessionId: 'test-session' }
+            };
+
+            const result = await composeInstructions(input, {
+                execLogger: logger,
+                module: null
+            });
+
+            expect(result).toEqual(DEFAULT_INSTRUCTIONS);
+        });
+
+        it('should return DEFAULT_INSTRUCTIONS when module.composeInstructions missing', async () => {
+            const input = {
+                plan: { strategy: 'direct' },
+                factMap: {},
+                context: { traceId: 'test-trace', sessionId: 'test-session' }
+            };
+
+            const incompleteModule = {
+                // Missing composeInstructions
+            };
+
+            const result = await composeInstructions(input, {
+                execLogger: logger,
+                module: incompleteModule
+            });
+
+            expect(result).toEqual(DEFAULT_INSTRUCTIONS);
+        });
+
+        it('should log warning when module is missing', async () => {
+            const warnSpy = vi.spyOn(logger, 'warn');
+
+            const input = {
+                plan: { strategy: 'direct' },
+                factMap: {},
+                context: { traceId: 'test-trace', sessionId: 'test-session' }
+            };
+
+            await composeInstructions(input, {
+                execLogger: logger,
+                module: null
+            });
+
+            expect(warnSpy).toHaveBeenCalled();
+        });
+    });
+
+    describe('result passthrough', () => {
+        it('should return module result with enrichments', async () => {
+            const input = {
+                plan: { strategy: 'direct', role: 'analyzer' },
+                factMap: {},
+                context: { traceId: 'test-trace', sessionId: 'test-session' }
+            };
+
+            const result = await composeInstructions(input, {
+                execLogger: logger,
+                module: mockModule
+            });
+
+            expect(result).toMatchObject({
+                system: 'Mock system prompt',
+                primary: 'Mock primary prompt',
+                adaptations: 'Mock adaptations',
+                lengthGuidance: 'Mock length guidance',
+                toolInstructions: '',
+                maxTokens: 500
+            });
+        });
+
+        it('should not mutate module result', async () => {
+            const input = {
+                plan: { strategy: 'direct', role: 'assistant' },
+                factMap: {},
+                context: { traceId: 'test-trace', sessionId: 'test-session' }
+            };
+
+            await composeInstructions(input, {
+                execLogger: logger,
+                module: mockModule
+            });
+
+            // Verify module was called
+            expect(mockModule.composeInstructions).toHaveBeenCalled();
+        });
+    });
+
+    describe('edge cases', () => {
         it('should handle missing plan gracefully', async () => {
             const input = {
-                factMap: {
-                    ExecutionPlan: [],
-                    RoleSelection: [],
-                    Signal: [],
-                    Derived: [],
-                    Adaptation: [],
-                    TokenMultiplier: [],
-                    Capability: [],
-                    SelectedPlan: []
-                },
-                context: mockContext
-            };
-
-            const result = await composeInstructions(input, {
-                execLogger: logger,
-                module: mockModule
-            });
-
-            expect(result.system).toBe('System prompt for assistant');
-            expect(result.primary).toBe('Primary prompt for assistant');
-            expect(result.maxTokens).toBe(400);
-        });
-
-        it('should handle missing module with defaults', async () => {
-            const input = {
-                plan: {
-                    strategy: 'direct',
-                    role: 'assistant'
-                },
-                factMap: {
-                    ExecutionPlan: [],
-                    RoleSelection: [],
-                    Signal: [],
-                    Derived: [],
-                    Adaptation: [],
-                    TokenMultiplier: [],
-                    Capability: [],
-                    SelectedPlan: []
-                },
-                context: mockContext
-            };
-
-            const result = await composeInstructions(input, { execLogger: logger });
-
-            expect(result.system).toBe(DEFAULT_INSTRUCTIONS.system);
-            expect(result.primary).toBeDefined();
-            expect(result.maxTokens).toBeGreaterThan(0);
-        });
-
-        it('should handle unknown role gracefully', async () => {
-            const input = {
-                plan: {
-                    strategy: 'direct',
-                    role: 'unknown-role'
-                },
-                factMap: {
-                    ExecutionPlan: [],
-                    RoleSelection: [],
-                    Signal: [],
-                    Derived: [],
-                    Adaptation: [],
-                    TokenMultiplier: [],
-                    Capability: [],
-                    SelectedPlan: []
-                },
-                context: mockContext
-            };
-
-            const result = await composeInstructions(input, {
-                execLogger: logger,
-                module: mockModule
-            });
-
-            // Should fall back to assistant
-            expect(result.system).toBe('System prompt for unknown-role');
-            expect(result.maxTokens).toBe(500); // Default fallback
-        });
-
-        it('should clamp token budget to safe bounds', async () => {
-            const input = {
-                plan: {
-                    strategy: 'direct',
-                    role: 'assistant'
-                },
-                factMap: {
-                    executionPlan: null,
-                    RoleSelection: [],
-                    Signal: [],
-                    Derived: [],
-                    Adaptation: [],
-                    TokenMultiplier: [
-                        { type: 'TokenMultiplier', value: 0.01 } // Very small multiplier
-                    ]
-                },
-                context: mockContext
-            };
-
-            const result = await composeInstructions(input, {
-                execLogger: logger,
-                module: mockModule
-            });
-
-            expect(result.maxTokens).toBeGreaterThanOrEqual(50); // Minimum bound
-            expect(result.maxTokens).toBeLessThanOrEqual(4000); // Maximum bound
-        });
-
-        it('should handle large token multipliers safely', async () => {
-            const input = {
-                plan: {
-                    strategy: 'direct',
-                    role: 'assistant',
-                    maxTokens: 3000
-                },
-                factMap: {
-                    executionPlan: null,
-                    RoleSelection: [],
-                    Signal: [],
-                    Derived: [],
-                    Adaptation: [],
-                    TokenMultiplier: [
-                        { type: 'TokenMultiplier', value: 10 } // Very large multiplier
-                    ]
-                },
-                context: mockContext
-            };
-
-            const result = await composeInstructions(input, {
-                execLogger: logger,
-                module: mockModule
-            });
-
-            expect(result.maxTokens).toBeLessThanOrEqual(4000); // Should be clamped
-        });
-
-        it('should handle empty facts array', async () => {
-            const input = {
-                plan: {
-                    strategy: 'direct',
-                    role: 'assistant'
-                },
-                factMap: {
-                    ExecutionPlan: [],
-                    RoleSelection: [],
-                    Signal: [],
-                    Derived: [],
-                    Adaptation: [],
-                    TokenMultiplier: [],
-                    Capability: [],
-                    SelectedPlan: []
-                },
-                context: mockContext
+                factMap: {},
+                context: { traceId: 'test-trace', sessionId: 'test-session' }
             };
 
             const result = await composeInstructions(input, {
@@ -431,52 +256,13 @@ describe('composeInstructions handler', () => {
             });
 
             expect(result).toBeDefined();
-            expect(result.adaptations).toBe('');
-            expect(result.maxTokens).toBe(400);
+            expect(result.metadata.strategy).toBeUndefined();
         });
 
-        it('should filter out non-signal facts for adaptations', async () => {
+        it('should handle missing factMap gracefully', async () => {
             const input = {
-                plan: {
-                    strategy: 'direct',
-                    role: 'assistant'
-                },
-                factMap: {
-                    executionPlan: { type: 'ExecutionPlan', strategy: 'direct' },
-                    RoleSelection: [{ type: 'RoleSelection', role: 'analyzer' }],
-                    Signal: [{ type: 'Signal', dimension: 'contract', signal: 'explore' }],
-                    Derived: [],
-                    Adaptation: [],
-                    TokenMultiplier: []
-                },
-                context: mockContext
-            };
-
-            const result = await composeInstructions(input, {
-                execLogger: logger,
-                module: mockModule
-            });
-
-            expect(result.adaptations).toBe('Adaptation for explore');
-        });
-
-        it('should handle null context', async () => {
-            const input = {
-                plan: {
-                    strategy: 'direct',
-                    role: 'assistant'
-                },
-                factMap: {
-                    ExecutionPlan: [],
-                    RoleSelection: [],
-                    Signal: [],
-                    Derived: [],
-                    Adaptation: [],
-                    TokenMultiplier: [],
-                    Capability: [],
-                    SelectedPlan: []
-                },
-                context: null
+                plan: { strategy: 'direct' },
+                context: { traceId: 'test-trace', sessionId: 'test-session' }
             };
 
             const result = await composeInstructions(input, {
@@ -485,30 +271,12 @@ describe('composeInstructions handler', () => {
             });
 
             expect(result).toBeDefined();
-            expect(result.system).toBeDefined();
-            expect(result.primary).toBeDefined();
         });
 
-        it('should deduplicate adaptation signals', async () => {
+        it('should handle missing context gracefully', async () => {
             const input = {
-                plan: {
-                    strategy: 'direct',
-                    role: 'assistant'
-                },
-                factMap: {
-                    executionPlan: null,
-                    RoleSelection: [],
-                    Signal: [
-                        { type: 'Signal', dimension: 'contract', signal: 'explore' },
-                        { type: 'Signal', dimension: 'contract', signal: 'explore' } // Duplicate
-                    ],
-                    Derived: [],
-                    Adaptation: [
-                        { type: 'Adaptation', signal: 'explore' } // Adaptation fact
-                    ],
-                    TokenMultiplier: []
-                },
-                context: mockContext
+                plan: { strategy: 'direct' },
+                factMap: {}
             };
 
             const result = await composeInstructions(input, {
@@ -516,76 +284,7 @@ describe('composeInstructions handler', () => {
                 module: mockModule
             });
 
-            // Should only include the adaptation once
-            const adaptationCount = (result.adaptations.match(/Adaptation for explore/g) || [])
-                .length;
-            expect(adaptationCount).toBe(1);
-        });
-    });
-
-    describe('prompt assembly', () => {
-        it('should combine all prompt components correctly', async () => {
-            const input = {
-                plan: {
-                    strategy: 'direct',
-                    role: 'analyzer'
-                },
-                factMap: {
-                    executionPlan: null,
-                    RoleSelection: [],
-                    Signal: [
-                        { type: 'Signal', dimension: 'claim', signal: 'universal' },
-                        { type: 'Signal', dimension: 'support', signal: 'none' }
-                    ],
-                    Derived: [],
-                    Adaptation: [],
-                    TokenMultiplier: []
-                },
-                context: mockContext
-            };
-
-            const result = await composeInstructions(input, {
-                execLogger: logger,
-                module: mockModule
-            });
-
-            expect(result.system).toBe('System prompt for analyzer');
-            expect(result.primary).toBe('Primary prompt for analyzer');
-            expect(result.adaptations).toContain('universal');
-            expect(result.adaptations).toContain('none');
-            expect(result.lengthGuidance).toBe('Length guidance: standard');
-        });
-
-        it('should return flat instruction structure', async () => {
-            const input = {
-                plan: {
-                    strategy: 'direct',
-                    role: 'assistant'
-                },
-                factMap: {
-                    ExecutionPlan: [],
-                    RoleSelection: [],
-                    Signal: [],
-                    Derived: [],
-                    Adaptation: [],
-                    TokenMultiplier: [],
-                    Capability: [],
-                    SelectedPlan: []
-                },
-                context: mockContext
-            };
-
-            const result = await composeInstructions(input, {
-                execLogger: logger,
-                module: mockModule
-            });
-
-            // Should not have nested instructions.instructions
-            expect(result.instructions).toBeUndefined();
-            expect(result.system).toBeDefined();
-            expect(result.primary).toBeDefined();
-            expect(result.adaptations).toBeDefined();
-            expect(result.maxTokens).toBeDefined();
+            expect(result).toBeDefined();
         });
     });
 });

@@ -3,27 +3,45 @@
  * Composes LLM instructions based on signals, plan, and module configuration
  */
 
-const DEFAULT_ROLE = 'assistant';
 const DEFAULT_MIN_TOKENS = 50;
 const DEFAULT_MAX_TOKENS = 4000;
 
 /**
+ * Find role configuration by name
+ * @param {Array} roles - Array of role objects
+ * @param {string} roleName - Name of role to find
+ * @returns {Object|null} Role configuration or null if not found
+ */
+function getRoleConfig(roles, roleName) {
+    return roles.find(r => r.name === roleName) || null;
+}
+
+/**
+ * Get default role from module
+ * @param {Object} module - Module with roles array
+ * @returns {Object} Default role configuration
+ */
+function getDefaultRole(module) {
+    return module.roles.find(r => r.isDefault) || module.roles[0];
+}
+
+/**
  * Compose instructions for the mu module
  * @param {Object} input - { plan, factMap }
- * @param {Object} module - The mu module with instructionSchema
+ * @param {Object} module - The mu module with new schema
  * @returns {Object} - { system, primary, adaptations, lengthGuidance, toolInstructions, maxTokens, metadata }
  */
 export async function composeInstructions({ plan = {}, factMap = {} }, module) {
-    const { instructionSchema } = module;
-    const { prompts: promptGetters, tokens: tokenConfig } = instructionSchema;
+    // Determine the role to compose instructions for
+    const roleConfig = plan.role
+        ? getRoleConfig(module.roles, plan.role) || getDefaultRole(module)
+        : getDefaultRole(module);
 
-    // Determine the role(s) to compose instructions for
-    const defaultRole = module?.defaultRole || DEFAULT_ROLE;
-    const role = plan.role || defaultRole;
+    const role = roleConfig.name;
 
-    // Get base prompts for the role
-    const systemPrompt = promptGetters.system(role) || '';
-    const primaryPrompt = promptGetters.primary(role) || '';
+    // Get base prompts for the role from role configuration
+    const systemPrompt = roleConfig.prompts.system || '';
+    const primaryPrompt = roleConfig.prompts.primary || '';
 
     // Collect adaptations based on detected signals
     const signals = factMap.Signal || [];
@@ -33,19 +51,20 @@ export async function composeInstructions({ plan = {}, factMap = {} }, module) {
 
     // First, check if plan has an explicit adaptationKey (for iteration-specific adaptations)
     if (plan.adaptationKey) {
-        const iterationAdaptation = promptGetters.adaptation(plan.adaptationKey);
+        const iterationAdaptation = module.adaptations[plan.adaptationKey];
         if (iterationAdaptation) {
             adaptations.push(iterationAdaptation);
             adaptationKeys.push(plan.adaptationKey);
         }
     }
 
+    // Add signal-based adaptations
     for (const signal of signals) {
         if (!addedSignals.has(signal.signal)) {
-            // Use just the signal name for adaptation lookup
-            const adaptation = promptGetters.adaptation(signal.signal);
-            if (adaptation) {
-                adaptations.push(adaptation);
+            // Look up signal configuration
+            const signalConfig = module.signals[signal.signal];
+            if (signalConfig?.adaptation) {
+                adaptations.push(signalConfig.adaptation);
                 adaptationKeys.push(signal.signal);
                 addedSignals.add(signal.signal);
             }
@@ -67,9 +86,9 @@ export async function composeInstructions({ plan = {}, factMap = {} }, module) {
         (f) => f.signal && !addedSignals.has(f.signal)
     );
     for (const fact of adaptationFacts) {
-        const adaptation = promptGetters.adaptation(fact.signal);
-        if (adaptation) {
-            adaptations.push(adaptation);
+        const signalConfig = module.signals[fact.signal];
+        if (signalConfig?.adaptation) {
+            adaptations.push(signalConfig.adaptation);
             adaptationKeys.push(fact.signal);
             addedSignals.add(fact.signal);
         }
@@ -90,18 +109,17 @@ export async function composeInstructions({ plan = {}, factMap = {} }, module) {
                 break;
         }
     }
-    const lengthGuidance = promptGetters.length(lengthLevel) || '';
+    const lengthGuidance = module.lengthGuidance[lengthLevel] || module.lengthGuidance.standard || '';
 
     // Calculate token budget
-    const baseTokens = plan.maxTokens || tokenConfig.roleDefaults[role] || 500;
+    const baseTokens = plan.maxTokens || roleConfig.baseTokens || 500;
     let tokenMultiplier = plan.tokenMultiplier || 1;
 
     // Apply signal-based multipliers
     for (const signal of signals) {
-        const signalKey = `${signal.dimension}.${signal.signal}`;
-        const signalMultiplier = tokenConfig.signalMultipliers[signalKey];
-        if (signalMultiplier) {
-            tokenMultiplier *= signalMultiplier;
+        const signalConfig = module.signals[signal.signal];
+        if (signalConfig?.tokenMultiplier) {
+            tokenMultiplier *= signalConfig.tokenMultiplier;
         }
     }
 
@@ -117,13 +135,13 @@ export async function composeInstructions({ plan = {}, factMap = {} }, module) {
     const rawTokens = Math.round(baseTokens * tokenMultiplier);
     const maxTokens = Math.max(DEFAULT_MIN_TOKENS, Math.min(DEFAULT_MAX_TOKENS, rawTokens));
 
-    // Build tool instructions using module prompts
+    // Build tool instructions using module adaptations
     let toolInstructions = '';
     const toolAdaptations = [];
 
     if (plan.tools && plan.tools.length > 0) {
         // Add general tools-available adaptation
-        const toolsAvailableAdapt = promptGetters.adaptation('tools-available');
+        const toolsAvailableAdapt = module.adaptations['tools-available'];
         if (toolsAvailableAdapt) {
             toolAdaptations.push(toolsAvailableAdapt);
             adaptationKeys.push('tools-available');
@@ -132,9 +150,9 @@ export async function composeInstructions({ plan = {}, factMap = {} }, module) {
         // Add task-aware instructions when in task mode
         if (plan.taskContext && plan.taskContext.isTask) {
             // Get task execution philosophy from module
-            const taskExecutionAdapt = promptGetters.adaptation('task-execution');
-            const taskToolAdapt = promptGetters.adaptation('task-tool-guidance');
-            const taskBudgetAdapt = promptGetters.adaptation('task-budget-awareness');
+            const taskExecutionAdapt = module.adaptations['task-execution'];
+            const taskToolAdapt = module.adaptations['task-tool-guidance'];
+            const taskBudgetAdapt = module.adaptations['task-budget-awareness'];
 
             // Combine task adaptations
             const taskAdaptations = [
@@ -156,6 +174,7 @@ export async function composeInstructions({ plan = {}, factMap = {} }, module) {
     const adaptationText = adaptations.filter(Boolean).join('\n\n');
 
     // Return instructions and composition metadata
+    // Module only returns what it naturally computed during composition
     return {
         system: systemPrompt,
         primary: primaryPrompt,
@@ -165,11 +184,10 @@ export async function composeInstructions({ plan = {}, factMap = {} }, module) {
         maxTokens,
         metadata: {
             role,
-            signalCount: signals.length,
-            adaptationCount: adaptations.length,
-            adaptationKeys,
+            baseTokens,
             tokenMultiplier: Math.round(tokenMultiplier * 100) / 100,
-            lengthLevel
+            lengthLevel,
+            adaptationKeys  // Useful for debugging which adaptations were applied
         }
     };
 }

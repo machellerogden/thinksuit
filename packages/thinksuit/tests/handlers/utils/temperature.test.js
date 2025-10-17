@@ -4,13 +4,10 @@ import { getTemperature } from '../../../engine/handlers/utils/temperature.js';
 describe('getTemperature', () => {
     it('returns role-specific temperature when available', () => {
         const module = {
-            instructionSchema: {
-                temperature: {
-                    assistant: 0.7,
-                    analyzer: 0.3,
-                    default: 0.5
-                }
-            }
+            roles: [
+                { name: 'assistant', temperature: 0.7, isDefault: false },
+                { name: 'analyzer', temperature: 0.3, isDefault: false }
+            ]
         };
 
         expect(getTemperature(module, 'assistant')).toBe(0.7);
@@ -19,25 +16,19 @@ describe('getTemperature', () => {
 
     it('returns default temperature when role not found', () => {
         const module = {
-            instructionSchema: {
-                temperature: {
-                    assistant: 0.7,
-                    default: 0.5
-                }
-            }
+            roles: [
+                { name: 'assistant', temperature: 0.7, isDefault: true }
+            ]
         };
 
-        expect(getTemperature(module, 'unknown')).toBe(0.5);
+        expect(getTemperature(module, 'unknown')).toBe(0.7);
     });
 
     it('returns fallback when no default or role temperature', () => {
         const module = {
-            instructionSchema: {
-                temperature: {
-                    assistant: 0.7
-                    // no default
-                }
-            }
+            roles: [
+                { name: 'assistant', temperature: 0.7, isDefault: false }
+            ]
         };
 
         expect(getTemperature(module, 'unknown')).toBe(0.7); // default fallback
@@ -50,26 +41,23 @@ describe('getTemperature', () => {
         expect(getTemperature({}, 'assistant')).toBe(0.7);
     });
 
-    it('handles missing instructionSchema gracefully', () => {
+    it('handles missing roles array gracefully', () => {
         const module = {};
         expect(getTemperature(module, 'assistant')).toBe(0.7);
     });
 
-    it('handles missing temperature config gracefully', () => {
+    it('handles empty roles array gracefully', () => {
         const module = {
-            instructionSchema: {}
+            roles: []
         };
         expect(getTemperature(module, 'assistant')).toBe(0.7);
     });
 
     it('respects explicit 0 temperature', () => {
         const module = {
-            instructionSchema: {
-                temperature: {
-                    assistant: 0,
-                    default: 0.5
-                }
-            }
+            roles: [
+                { name: 'assistant', temperature: 0, isDefault: true }
+            ]
         };
 
         expect(getTemperature(module, 'assistant')).toBe(0);
@@ -77,12 +65,9 @@ describe('getTemperature', () => {
 
     it('respects explicit 1.0 temperature', () => {
         const module = {
-            instructionSchema: {
-                temperature: {
-                    explorer: 1.0,
-                    default: 0.5
-                }
-            }
+            roles: [
+                { name: 'explorer', temperature: 1.0, isDefault: true }
+            ]
         };
 
         expect(getTemperature(module, 'explorer')).toBe(1.0);

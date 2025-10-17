@@ -14,30 +14,38 @@ describe('Iteration Contracts Integration', () => {
             namespace: 'test',
             name: 'iteration-test',
             version: 'v0',
-            defaultRole: 'assistant',
             composeInstructions: muComposeInstructions,
-            instructionSchema: {
-                prompts: {
-                    system: (role) => `You are a ${role}.`,
-                    primary: (role) => `Think as a ${role}.`,
-                    adaptation: (key) => {
-                        const adaptations = {
-                            outer_voice_opening: 'State your practical perspective.',
-                            inner_voice_response: 'Challenge with deeper insights.',
-                            convergence_synthesis: 'Synthesize both perspectives.'
-                        };
-                        return adaptations[key];
-                    },
-                    length: (level) => `Be ${level} in your response.`
+            roles: [
+                {
+                    name: 'assistant',
+                    isDefault: true,
+                    temperature: 0.7,
+                    baseTokens: 400,
+                    prompts: {
+                        system: 'You are a assistant.',
+                        primary: 'Think as a assistant.'
+                    }
                 },
-                tokens: {
-                    default: 400,
-                    multipliers: {},
-                    roleDefaults: {
-                        reflector: 400,
-                        assistant: 400
+                {
+                    name: 'reflector',
+                    temperature: 0.6,
+                    baseTokens: 400,
+                    prompts: {
+                        system: 'You are a reflector.',
+                        primary: 'Think as a reflector.'
                     }
                 }
+            ],
+            signals: {},
+            adaptations: {
+                'outer_voice_opening': 'State your practical perspective.',
+                'inner_voice_response': 'Challenge with deeper insights.',
+                'convergence_synthesis': 'Synthesize both perspectives.'
+            },
+            lengthGuidance: {
+                brief: 'Be brief in your response.',
+                standard: 'Be standard in your response.',
+                comprehensive: 'Be comprehensive in your response.'
             }
         };
 

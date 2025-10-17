@@ -9,7 +9,7 @@
             try {
                 await window.navigator.clipboard.write(data);
                 console.log('Copied to clipboard successfully!');
-            } catch (_err) {
+            } catch {
                 console.error('Unable to write to clipboard. :-(');
             }
             done(text);

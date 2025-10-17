@@ -229,8 +229,8 @@ describe('Inner-Outer Voice Debate Integration', () => {
                 ]
             },
             instructions: {
-                system: module.instructionSchema.prompts.system('reflector'),
-                primary: module.instructionSchema.prompts.primary('reflector')
+                system: module.roles.find(r => r.name === 'reflector').prompts.system,
+                primary: module.roles.find(r => r.name === 'reflector').prompts.primary
             },
             thread: [{ role: 'user', content: 'Help me explore this dilemma' }],
             context: { traceId: 'test-exec', depth: 0 },
@@ -305,8 +305,9 @@ describe('Inner-Outer Voice Debate Integration', () => {
             };
 
             const question = 'Should we always tell the truth, even when it might hurt someone?';
-            const reflectorSystem = module.instructionSchema.prompts.system('reflector');
-            const reflectorPrimary = module.instructionSchema.prompts.primary('reflector');
+            const reflectorRole = module.roles.find(r => r.name === 'reflector');
+            const reflectorSystem = reflectorRole.prompts.system;
+            const reflectorPrimary = reflectorRole.prompts.primary;
 
             const iterations = [];
             let currentThread = question;
@@ -314,7 +315,7 @@ describe('Inner-Outer Voice Debate Integration', () => {
             // Iteration 1: Outer voice opening
             const iter1Response = await callLLM(config, {
                 model: 'gpt-4o-mini',
-                system: reflectorSystem + '\n\n' + module.prompts['adapt.outer_voice_opening'],
+                system: reflectorSystem + '\n\n' + module.adaptations['outer_voice_opening'],
                 user: reflectorPrimary + '\n\nUser: ' + question,
                 maxTokens: 200,
                 temperature: 0.7
@@ -330,7 +331,7 @@ describe('Inner-Outer Voice Debate Integration', () => {
             // Iteration 2: Inner voice response
             const iter2Response = await callLLM(config, {
                 model: 'gpt-4o-mini',
-                system: reflectorSystem + '\n\n' + module.prompts['adapt.inner_voice_response'],
+                system: reflectorSystem + '\n\n' + module.adaptations['inner_voice_response'],
                 user:
                     'Previous voice said: ' + currentThread + '\n\nNow respond as the inner voice.',
                 maxTokens: 200,
@@ -347,7 +348,7 @@ describe('Inner-Outer Voice Debate Integration', () => {
             // Iteration 3: Outer voice challenge
             const iter3Response = await callLLM(config, {
                 model: 'gpt-4o-mini',
-                system: reflectorSystem + '\n\n' + module.prompts['adapt.outer_voice_challenge'],
+                system: reflectorSystem + '\n\n' + module.adaptations['outer_voice_challenge'],
                 user: 'Inner voice said: ' + currentThread + '\n\nNow respond as the outer voice.',
                 maxTokens: 200,
                 temperature: 0.7
@@ -362,7 +363,7 @@ describe('Inner-Outer Voice Debate Integration', () => {
             // Iteration 4: Convergence synthesis
             const iter4Response = await callLLM(config, {
                 model: 'gpt-4o-mini',
-                system: reflectorSystem + '\n\n' + module.prompts['adapt.convergence_synthesis'],
+                system: reflectorSystem + '\n\n' + module.adaptations['convergence_synthesis'],
                 user:
                     'After this debate about: ' +
                     question +

@@ -7,6 +7,7 @@ import { callLLM } from '../providers/io.js';
 import { DEFAULT_ROLE } from '../constants/defaults.js';
 import { PROCESSING_EVENTS, EXECUTION_EVENTS, EVENT_ROLES, BOUNDARY_TYPES } from '../constants/events.js';
 import { InterruptError } from '../errors/InterruptError.js';
+import { getDefaultRole, getRoleTemperature } from '../utils/module.js';
 
 /**
  * Core direct execution logic
@@ -21,7 +22,8 @@ export async function execDirectCore(input, machineContext) {
     const logger = machineContext.execLogger;
     const module = machineContext?.module;
     const abortSignal = machineContext?.abortSignal;
-    const defaultRole = module?.defaultRole || DEFAULT_ROLE;
+    const defaultRoleConfig = module ? getDefaultRole(module) : null;
+    const defaultRole = defaultRoleConfig?.name || DEFAULT_ROLE;
 
     // Check if IO config is available (provider-specific)
     const hasValidConfig =
@@ -128,9 +130,7 @@ export async function execDirectCore(input, machineContext) {
         }
 
         // Get temperature from module configuration
-        const roleTemperature = module?.instructionSchema?.temperature?.[plan.role];
-        const defaultTemperature = module?.instructionSchema?.temperature?.default || 0.7;
-        const temperature = roleTemperature !== undefined ? roleTemperature : defaultTemperature;
+        const temperature = module ? getRoleTemperature(module, plan.role, 0.7) : 0.7;
 
         // Call the LLM with config
         const startTime = Date.now();

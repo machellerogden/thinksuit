@@ -123,7 +123,7 @@ async function main() {
             process.exit(1);
         }
 
-        // Session ID display removed - minimal output modes don't show session management
+        console.log(`[SESSION] ${isNew ? 'Started new' : 'Resumed'} session ${sessionId}`);
 
         // Set up SIGINT handler for clean interrupt and exit
         let interruptHandled = false;

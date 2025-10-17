@@ -152,7 +152,7 @@ const transformRequest = (params) => {
                 };
 
                 // Remove $schema property if present
-                const { $schema, ...cleanParameters } = parameters;
+                const { /* eslint-disable no-unused-vars */ $schema, ...cleanParameters } = parameters;
 
                 return {
                     name: toolName,

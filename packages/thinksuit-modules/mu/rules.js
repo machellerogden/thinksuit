@@ -245,6 +245,7 @@ const rules = [
         },
         action: (facts, engine) => {
             engine.addFact(createFact.executionPlan('sequential', {
+                name: 'explore-high-quantifier',
                 sequence: [
                     { role: 'explorer', strategy: 'task', tools: ['list_directory', 'read_file', 'search'] },
                     { role: 'analyzer', strategy: 'direct' }

@@ -25,11 +25,16 @@ describe('Mu Module', () => {
             expect(module).toHaveProperty('roles');
             expect(module).toHaveProperty('classifiers');
             expect(module).toHaveProperty('rules');
-            expect(module).toHaveProperty('prompts');
-            expect(module).toHaveProperty('instructionSchema');
+            expect(module).toHaveProperty('signals');
+            expect(module).toHaveProperty('adaptations');
+            expect(module).toHaveProperty('lengthGuidance');
         });
 
         it('defines all 11 cognitive roles', () => {
+            expect(Array.isArray(module.roles)).toBe(true);
+            expect(module.roles.length).toBe(11);
+
+            const roleNames = module.roles.map(r => r.name);
             const expectedRoles = [
                 'assistant',
                 'analyzer',
@@ -43,23 +48,25 @@ describe('Mu Module', () => {
                 'outer_voice',
                 'inner_voice'
             ];
-            expect(module.roles).toEqual(expectedRoles);
+            expect(roleNames).toEqual(expectedRoles);
         });
 
         it('has prompts for every role', () => {
             module.roles.forEach((role) => {
-                // Check prompts exist in the prompts object with correct keys
-                expect(module.prompts[`system.${role}`]).toBeDefined();
-                expect(module.prompts[`primary.${role}`]).toBeDefined();
+                // Check prompts exist in role configuration
+                expect(role.prompts).toBeDefined();
+                expect(role.prompts.system).toBeDefined();
+                expect(role.prompts.primary).toBeDefined();
+                expect(typeof role.prompts.system).toBe('string');
+                expect(typeof role.prompts.primary).toBe('string');
             });
         });
 
         it('has temperature settings for every role', () => {
             module.roles.forEach((role) => {
-                const temp = module.instructionSchema.temperature[role];
-                expect(temp).toBeDefined();
-                expect(temp).toBeGreaterThanOrEqual(0);
-                expect(temp).toBeLessThanOrEqual(1);
+                expect(role.temperature).toBeDefined();
+                expect(role.temperature).toBeGreaterThanOrEqual(0);
+                expect(role.temperature).toBeLessThanOrEqual(1);
             });
         });
     });
@@ -211,68 +218,71 @@ describe('Mu Module', () => {
     describe('instruction composition', () => {
         it('assembles correct prompts for each role', () => {
             module.roles.forEach((role) => {
-                const systemPrompt = module.instructionSchema.prompts.system(role);
-                const primaryPrompt = module.instructionSchema.prompts.primary(role);
-
-                expect(systemPrompt).toBeDefined();
-                expect(primaryPrompt).toBeDefined();
-                expect(typeof systemPrompt).toBe('string');
-                expect(typeof primaryPrompt).toBe('string');
+                expect(role.prompts.system).toBeDefined();
+                expect(role.prompts.primary).toBeDefined();
+                expect(typeof role.prompts.system).toBe('string');
+                expect(typeof role.prompts.primary).toBe('string');
             });
         });
 
         it('calculates tokens based on role and signals', () => {
-            const { tokens } = module.instructionSchema;
-
-            // Role defaults
-            expect(tokens.roleDefaults.assistant).toBe(400);
-            expect(tokens.roleDefaults.analyzer).toBe(800);
+            // Role defaults (from role config)
+            const assistant = module.roles.find(r => r.name === 'assistant');
+            const analyzer = module.roles.find(r => r.name === 'analyzer');
+            expect(assistant.baseTokens).toBe(400);
+            expect(analyzer.baseTokens).toBe(800);
 
             // Signal multipliers
-            expect(tokens.signalMultipliers['support.none']).toBe(0.85);
-            expect(tokens.signalMultipliers['contract.analyze']).toBe(1.1);
+            expect(module.signals['none'].tokenMultiplier).toBe(0.85);
+            expect(module.signals['analyze'].tokenMultiplier).toBe(1.1);
 
             // Calculate example: analyzer with analyze signal
-            const baseTokens = tokens.roleDefaults.analyzer;
-            const multiplier = tokens.signalMultipliers['contract.analyze'];
+            const baseTokens = analyzer.baseTokens;
+            const multiplier = module.signals['analyze'].tokenMultiplier;
             const calculated = Math.floor(baseTokens * multiplier);
 
             expect(calculated).toBe(880);
         });
 
         it('includes adaptations for detected signals', () => {
-            // Check adaptation prompts exist with correct keys
+            // Check adaptation prompts exist
             const adaptSignals = ['source-cited', 'high-quantifier', 'normative', 'forecast'];
 
             adaptSignals.forEach((signal) => {
-                const adaptKey = `adapt.${signal}`;
-                expect(module.prompts[adaptKey]).toBeDefined();
-                expect(typeof module.prompts[adaptKey]).toBe('string');
-                expect(module.prompts[adaptKey].length).toBeGreaterThan(0);
+                expect(module.signals[signal]).toBeDefined();
+                expect(module.signals[signal].adaptation).toBeDefined();
+                expect(typeof module.signals[signal].adaptation).toBe('string');
+                expect(module.signals[signal].adaptation.length).toBeGreaterThan(0);
             });
         });
     });
 
     describe('module coherence', () => {
         it('has consistent role references across components', () => {
-            // Every role in module.roles should have:
-            // - prompts
+            // Every role should have:
+            // - prompts (system + primary)
             // - temperature
             // - base tokens
 
             module.roles.forEach((role) => {
-                expect(module.prompts[`system.${role}`]).toBeDefined();
-                expect(module.prompts[`primary.${role}`]).toBeDefined();
-                expect(module.instructionSchema.temperature[role]).toBeDefined();
-                expect(module.instructionSchema.tokens.roleDefaults[role]).toBeDefined();
+                expect(role.prompts).toBeDefined();
+                expect(role.prompts.system).toBeDefined();
+                expect(role.prompts.primary).toBeDefined();
+                expect(role.temperature).toBeDefined();
+                expect(role.baseTokens).toBeDefined();
             });
         });
 
+        it('all signals with multipliers have valid structure', () => {
+            // Check signals with multipliers
+            const signalsWithMultipliers = Object.entries(module.signals)
+                .filter(([_, config]) => config.tokenMultiplier !== undefined);
 
-        it('all signal multipliers reference valid signals', () => {
-            // Check the multiplier keys follow correct pattern
-            Object.keys(module.instructionSchema.tokens.signalMultipliers).forEach((key) => {
-                expect(key).toMatch(/^(claim|support|calibration|temporal|contract)\./);
+            expect(signalsWithMultipliers.length).toBeGreaterThan(0);
+
+            signalsWithMultipliers.forEach(([signalName, config]) => {
+                expect(typeof config.tokenMultiplier).toBe('number');
+                expect(config.tokenMultiplier).toBeGreaterThan(0);
             });
         });
     });

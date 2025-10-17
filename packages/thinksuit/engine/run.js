@@ -159,6 +159,10 @@ export async function loadModule(modulePath, modules, config) {
         const module = moduleSource[modulePath];
         const source = modules ? 'provided modules' : 'thinksuit-modules';
 
+        if (config?.debug) {
+            console.log(`[MODULE] Loaded module '${modulePath}' from ${source}`);
+        }
+
         // Validate module structure
         if (!module || !module.namespace || !module.name || !module.version) {
             throw new Error(`Module '${modulePath}' has invalid structure`);

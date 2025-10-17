@@ -72,7 +72,8 @@ export function normalizeConfig(config) {
             }
         },
         logging: {
-            level: config.logging?.level || 'info'
+            level: config.logging?.level || DEFAULT_LOGGING.level,
+            silent: config.logging?.silent || DEFAULT_LOGGING.silent
         },
         verbose: config.verbose || false,
         trace: config.trace || false,
@@ -81,7 +82,8 @@ export function normalizeConfig(config) {
         allowedDirectories,
         mcpServers: config.mcpServers,
         tools: config.tools,
-        autoApproveTools: config.autoApproveTools
+        autoApproveTools: config.autoApproveTools,
+        debug: config.debug || false
     };
 
     // Validate required fields

@@ -37,16 +37,29 @@ describe('execDirect handler', () => {
             }
         };
 
-        // Mock module with temperature settings
+        // Mock module with role settings
         mockModule = {
-            defaultRole: 'assistant',
-            instructionSchema: {
-                temperature: {
-                    assistant: 0.7,
-                    analyzer: 0.3,
-                    default: 0.7
+            roles: [
+                {
+                    name: 'assistant',
+                    isDefault: true,
+                    temperature: 0.7,
+                    baseTokens: 400,
+                    prompts: {
+                        system: 'You are a helpful assistant.',
+                        primary: 'Help the user with their request.'
+                    }
+                },
+                {
+                    name: 'analyzer',
+                    temperature: 0.3,
+                    baseTokens: 800,
+                    prompts: {
+                        system: 'You are an analyzer.',
+                        primary: 'Analyze the input.'
+                    }
                 }
-            }
+            ]
         };
 
         // Setup callLLM mock to return test response
@@ -241,13 +254,23 @@ describe('execDirect handler', () => {
 
     describe('temperature selection', () => {
         it('should use role-specific temperature from module', async () => {
-            // Update mock module with more role temperatures
-            mockModule.instructionSchema.temperature = {
-                assistant: 0.7,
-                analyzer: 0.3,
-                explorer: 0.9,
-                planner: 0.4,
-                default: 0.7
+            // Create a fresh module with additional roles for this test
+            const extendedModule = {
+                roles: [
+                    ...mockModule.roles,
+                    {
+                        name: 'explorer',
+                        temperature: 0.9,
+                        baseTokens: 1000,
+                        prompts: { system: 'You are an explorer.', primary: 'Explore.' }
+                    },
+                    {
+                        name: 'planner',
+                        temperature: 0.4,
+                        baseTokens: 800,
+                        prompts: { system: 'You are a planner.', primary: 'Plan.' }
+                    }
+                ]
             };
 
             const roles = [
@@ -274,12 +297,12 @@ describe('execDirect handler', () => {
 
                 await execDirect(input, {
                     config: mockConfig,
-                    module: mockModule,
+                    module: extendedModule,
                     execLogger: logger
                 });
 
                 expect(callLLM).toHaveBeenCalledWith(
-                    { config: mockConfig, module: mockModule, execLogger: logger },
+                    { config: mockConfig, module: extendedModule, execLogger: logger },
                     expect.objectContaining({
                         temperature: temp
                     }),
