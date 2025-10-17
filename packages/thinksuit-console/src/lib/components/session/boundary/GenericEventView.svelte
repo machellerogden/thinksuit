@@ -9,7 +9,7 @@
 </script>
 
 <div class="max-w-6xl mx-auto mb-1">
-    <div class="flex items-stretch gap-1">
+    <div class="flex items-stretch gap-1 group">
         <div class="flex-1 px-2 py-1 bg-gray-200 text-gray-600 rounded text-xs">
             <span class="font-mono opacity-70">
                 {node.eventType}
@@ -43,7 +43,7 @@
         {/if}
         <button
             onclick={() => toggleRawData(eventKey)}
-            class="px-2 py-1 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded text-xs transition-colors"
+            class="px-2 py-1 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded text-xs transition-all opacity-0 group-hover:opacity-100"
             title={showData ? 'Show normal view' : 'Show raw data'}
         >
             {#if showData}

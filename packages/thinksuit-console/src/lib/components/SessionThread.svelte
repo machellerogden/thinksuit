@@ -403,7 +403,7 @@
                 </button>
                 <button
                     onclick={() => toggleRawData(key)}
-                    class="px-2 py-1 {config.bgColor} {config.hoverColor} {config.textColor} rounded text-xs transition-colors"
+                    class="px-2 py-1 {config.bgColor} {config.hoverColor} {config.textColor} rounded text-xs transition-all opacity-0 group-hover:opacity-100"
                     title={showData ? 'Show normal view' : 'Show raw data'}
                 >
                     {#if showData}
@@ -526,7 +526,7 @@
                     </div>
                     <button
                         onclick={() => toggleRawData(key)}
-                        class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs transition-colors self-start"
+                        class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs transition-colors self-start transition-all opacity-0 hover:opacity-100"
                         title={showData ? 'Show normal view' : 'Show raw data'}
                     >
                         {#if showData}
@@ -545,7 +545,7 @@
             {@const key = `event-${node.eventId}`}
             {@const showData = showRawData.has(key)}
             <div class="max-w-6xl mr-auto mb-4">
-                <div class="flex items-stretch gap-1">
+                <div class="flex items-stretch gap-1 group">
                     <div class="flex-1">
                         {#if showData}
                             <JSONView data={node} />
@@ -555,7 +555,7 @@
                     </div>
                     <button
                         onclick={() => toggleRawData(key)}
-                        class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs transition-colors self-start"
+                        class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs transition-colors self-start transition-all opacity-0 group-hover:opacity-100"
                         title={showData ? 'Show normal view' : 'Show raw data'}
                     >
                         {#if showData}
