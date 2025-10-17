@@ -357,7 +357,7 @@
 
     <div class="max-w-6xl mx-auto">
         <div class="border-l-1 {config.borderColor} pl-1">
-            <div class="flex items-stretch gap-1 group">
+            <div class="flex items-stretch group">
                 <button
                     onclick={() => toggle(key)}
                     class="flex-1 text-left px-2 py-1 {config.bgColor} {config.hoverColor} {config.textColor} rounded text-xs transition-colors"
@@ -381,41 +381,43 @@
                         {/if}
                     </div>
                 </button>
-                <button
-                    onclick={(e) => { e.stopPropagation(); expandAll(node); }}
-                    class="px-2 py-1 {config.bgColor} {config.hoverColor} {config.textColor} rounded text-xs transition-all opacity-0 group-hover:opacity-100"
-                    title="Expand all"
-                    aria-label="Expand all"
-                >
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7l3-4 3 4M9 17l3 4 3-4M7 9l-4 3 4 3M17 9l4 3-4 3" />
-                    </svg>
-                </button>
-                <button
-                    onclick={(e) => { e.stopPropagation(); collapseAll(node); }}
-                    class="px-2 py-1 {config.bgColor} {config.hoverColor} {config.textColor} rounded text-xs transition-all opacity-0 group-hover:opacity-100"
-                    title="Collapse all"
-                    aria-label="Collapse all"
-                >
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4l3 4 3-4M9 20l3-4 3 4M4 9l4 3-4 3M20 9l-4 3 4 3" />
-                    </svg>
-                </button>
-                <button
-                    onclick={() => toggleRawData(key)}
-                    class="px-2 py-1 {config.bgColor} {config.hoverColor} {config.textColor} rounded text-xs transition-all opacity-0 group-hover:opacity-100"
-                    title={showData ? 'Show normal view' : 'Show raw data'}
-                >
-                    {#if showData}
+                <div class="flex items-stretch gap-1 transition-all w-0 opacity-0 overflow-hidden group-hover:w-auto group-hover:opacity-100 group-hover:ml-1 pointer-events-none group-hover:pointer-events-auto">
+                    <button
+                        onclick={(e) => { e.stopPropagation(); expandAll(node); }}
+                        class="px-2 py-1 {config.bgColor} {config.hoverColor} {config.textColor} rounded text-xs"
+                        title="Expand all"
+                        aria-label="Expand all"
+                    >
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7l3-4 3 4M9 17l3 4 3-4M7 9l-4 3 4 3M17 9l4 3-4 3" />
                         </svg>
-                    {:else}
+                    </button>
+                    <button
+                        onclick={(e) => { e.stopPropagation(); collapseAll(node); }}
+                        class="px-2 py-1 {config.bgColor} {config.hoverColor} {config.textColor} rounded text-xs"
+                        title="Collapse all"
+                        aria-label="Collapse all"
+                    >
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 4l3 4 3-4M9 20l3-4 3 4M4 9l4 3-4 3M20 9l-4 3 4 3" />
                         </svg>
-                    {/if}
-                </button>
+                    </button>
+                    <button
+                        onclick={() => toggleRawData(key)}
+                        class="px-2 py-1 {config.bgColor} {config.hoverColor} {config.textColor} rounded text-xs"
+                        title={showData ? 'Show normal view' : 'Show raw data'}
+                    >
+                        {#if showData}
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        {:else}
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                            </svg>
+                        {/if}
+                    </button>
+                </div>
             </div>
             {#if !isCollapsed}
                 {#if showData}
@@ -516,7 +518,7 @@
             {@const key = `event-${node.eventId}`}
             {@const showData = showRawData.has(key)}
             <div class="max-w-6xl ml-auto mb-4">
-                <div class="flex items-stretch gap-1">
+                <div class="flex items-stretch gap-1 group">
                     <div class="flex-1">
                         {#if showData}
                             <JSONView data={node} />
@@ -526,7 +528,7 @@
                     </div>
                     <button
                         onclick={() => toggleRawData(key)}
-                        class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs transition-colors self-start transition-all opacity-0 hover:opacity-100"
+                        class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs transition-colors self-start transition-all opacity-0 group-hover:opacity-100"
                         title={showData ? 'Show normal view' : 'Show raw data'}
                     >
                         {#if showData}
