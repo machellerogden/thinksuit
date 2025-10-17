@@ -262,11 +262,11 @@
             bind:searchFilter
         />
         <!-- Main Content Area -->
-        <div class="flex-1 flex flex-col bg-linear-to-r/increasing from-indigo-500/2 to-violet-400/2">
+        <div class="flex-1 flex flex-col">
             <!-- View Switcher -->
             {#if routeSessionId}
-                <div class="border-b border-gray-200 bg-white">
-                    <div class="flex gap-2 p-1.5">
+                <div class="-mb-4 pb-4 bg-gradient-to-b from-indigo-50 from-20% via-violet-50 via-80% to-transparent to-100% z-10">
+                    <div class="flex gap-2 px-1.5 pt-1.5">
                         <Button
                             variant="subtle"
                             size="xs"
@@ -288,7 +288,7 @@
             {/if}
 
             <!-- Content View -->
-            <div class="flex-1 overflow-y-auto">
+            <div class="flex-1 overflow-y-auto bg-gradient-to-t from-violet-50 to-indigo-50">
                 {#if routeSessionId}
                     {#if routeView === 'inspect'}
                         <SessionInspector sessionId={routeSessionId} />
@@ -312,16 +312,18 @@
             </div>
 
             <!-- Input Area at Bottom -->
-            <SessionControls
-                bind:this={sessionControlsComponent}
-                bind:input
-                bind:trace
-                bind:cwd
-                bind:isSubmitting
-                bind:isCancelling
-                onSubmit={handleSubmit}
-                onCancel={handleCancel}
-            />
+            <div class="relative p-8 -mt-4 pt-12 bg-transparent bg-gradient-to-t from-indigo-50 from-20% via-violet-50 via-95% to-transparent to-100%">
+                <SessionControls
+                    bind:this={sessionControlsComponent}
+                    bind:input
+                    bind:trace
+                    bind:cwd
+                    bind:isSubmitting
+                    bind:isCancelling
+                    onSubmit={handleSubmit}
+                    onCancel={handleCancel}
+                />
+            </div>
         </div>
 
         <!-- Right Sidebar: Tool Approvals -->

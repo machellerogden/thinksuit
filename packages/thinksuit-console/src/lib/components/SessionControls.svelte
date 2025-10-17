@@ -45,7 +45,7 @@
     }
 </script>
 
-<div class="border rounded-lg border-indigo-800/16 bg-linear-to-r/decreasing from-indigo-500/3 to-violet-400/3 p-4 m-8">
+<div class="border rounded-lg border-indigo-800/16 bg-linear-to-r/decreasing from-indigo-500/3 to-violet-400/3 p-4">
     {#if session.isProcessing}
         <div class="mb-4 max-w-6xl mx-auto">
             <div class="flex items-center justify-between gap-4 p-3 bg-amber-50 border border-amber-200 rounded-lg shadow-sm">
