@@ -7,6 +7,7 @@
   "exports": {
     ".": "./index.js",
     "./sessions/tree": "./engine/sessions/tree.js",
+    "./config": "./engine/config.js",
     "./sessions/deriveSessionStatus": "./engine/sessions/deriveSessionStatus.js",
     "./constants/events": "./engine/constants/events.js",
     "./schemas/validate": "./schemas/validate.js"
@@ -16,7 +17,7 @@
     "test": "tests"
   },
   "scripts": {
-    "cli": "node engine/cli.js",
+    "exec": "node engine/execute.js",
     "test": "vitest --config ../../vitest.config.js",
     "test:ui": "vitest --ui --config ../../vitest.config.js",
     "test:coverage": "vitest --coverage --config ../../vitest.config.js",

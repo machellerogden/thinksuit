@@ -7,7 +7,7 @@
 • • • • • • • • • • • • • • • • • • • • •
 • •    ╤    • • • • • • • • • • • • • • •
 • •  ╭─┴─╮  • ╺┳╸╻ ╻╻┏┓╻╻┏ ┏━┓╻ ╻╻╺┳  • •
-• • ╭│⚙·⚙│╯ •  ┃ ┣━┫┃┃┗┫┣┻┓┗━┓┃ ┃┃ ┃  • •
+• • ╭│◐ ◐│╯ •  ┃ ┣━┫┃┃┗┫┣┻┓┗━┓┃ ┃┃ ┃  • •
 • •  ╰┬─┬╯  •  ╹ ╹ ╹╹╹ ╹╹ ┗┗━┛┗━┛╹ ╹  • •
 • •   ╯ ╰   • • • • • • • • • • • • • • •
 • • • • • • • • • • • • • • • • • • • • •
@@ -46,6 +46,13 @@ This monorepo contains:
   - Real-time monitoring
   - Built with SvelteKit and Tailwind CSS v4
 
+- **[`packages/thinksuit-cli`](packages/thinksuit-cli/)** - Interactive REPL
+  - Rich terminal interface with commands
+  - Session management and command history
+  - Interactive tool approval workflow
+  - Context-aware interrupt handling
+  - Preserves terminal scrollback
+
 - **[`packages/thinksuit-mcp-tools`](packages/thinksuit-mcp-tools/)** - MCP tool integrations
   - Custom tools consumed BY ThinkSuit
   - Extensible tool system
@@ -54,18 +61,40 @@ This monorepo contains:
   - Exposes ThinkSuit TO external MCP clients (Claude Desktop, etc.)
   - Provides thinksuit, signals, session, and inspect tools
 
+## Installation
+
+```bash
+# Clone and install dependencies
+git clone https://github.com/machellerogden/thinksuit.git
+cd thinksuit
+npm install
+
+# Link the thinksuit command globally
+npm -w thinksuit-cli link
+```
+
 ## Quick Start
 
 ```bash
-# Install all dependencies
-npm install
+# Set your API key
+export OPENAI_API_KEY="your-key"
 
-# Run the CLI
-npm run cli "Your input here"
+# Start the interactive REPL
+thinksuit
 
+# Or from the monorepo
+npm run start
+```
+
+### Other Interfaces
+
+```bash
 # Run the web console (development)
 npm run tty       # First, start the tty service
 npm run console   # Then, the console
+
+# Run one-shot executor
+npm run exec "Your input here"
 
 # Run tests
 npm run test
@@ -91,11 +120,13 @@ This monorepo uses npm workspaces for package management. All dependencies are i
 # Run commands in specific packages
 npm -w thinksuit run test
 npm -w thinksuit-console run dev
+npm -w thinksuit-cli run start
 
 # Or use the shortcuts in root package.json
-npm run cli "input"     # runs thinksuit CLI
+npm run start           # runs interactive REPL
+npm run exec "input"    # runs one-shot executor
 npm run console         # runs console dev server
-npm run test           # runs thinksuit tests
+npm run test            # runs thinksuit tests
 ```
 
 ### Adding dependencies
@@ -111,6 +142,7 @@ npm install -D some-dev-tool
 
 ## Documentation
 
+- See [`packages/thinksuit-cli/README.md`](packages/thinksuit-cli/README.md) for interactive REPL documentation
 - See [`packages/thinksuit/README.md`](packages/thinksuit/README.md) for ThinkSuit engine documentation
 - See [`packages/thinksuit-console/README.md`](packages/thinksuit-console/README.md) for Console UI documentation
 

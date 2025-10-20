@@ -1,0 +1,43 @@
+{
+  "name": "thinksuit-cli",
+  "version": "0.0.3",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "scripts": {
+    "start": "node src/main.js",
+    "start:v2": "node src/main-v2.js",
+    "start:v3": "node src/main-v3.js"
+  },
+  "private": true,
+  "description": "ThinkSuit Terminal Command Line Interface & REPL",
+  "keywords": [],
+  "author": {
+    "name": "Mac Heller-Ogden",
+    "email": "mac@machellerogden.com"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/machellerogden/thinksuit.git",
+    "directory": "packages/thinksuit-cli"
+  },
+  "bugs": {
+    "url": "https://github.com/machellerogden/thinksuit/issues"
+  },
+  "homepage": "https://github.com/machellerogden/thinksuit/tree/main/packages/thinksuit-cli#readme",
+  "bin": {
+    "thinksuit": "./index.js"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "cli-width": "^4.1.0",
+    "mute-stream": "^2.0.0",
+    "slice-ansi": "^6.0.0",
+    "string-width": "^5.1.2",
+    "with-effects": "^0.7.4",
+    "wrap-ansi": "^9.0.0"
+  }
+}

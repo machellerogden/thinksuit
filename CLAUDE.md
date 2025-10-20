@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **ThinkSuit** - A modular AI orchestration system containing:
 - **`packages/thinksuit/`** - Core orchestration engine that executes modules
 - **`packages/thinksuit-modules/`** - Behavioral modules including the mu module
+- **`packages/thinksuit-cli/`** - Interactive REPL with commands and session management
 - **`packages/thinksuit-console/`** - Web-based debugging and development UI
 - **`packages/thinksuit-mcp-tools/`** - MCP tool integrations
 
@@ -24,14 +25,36 @@ See **CONTRIBUTING.md** for:
 
 ## CRITICAL: How to Actually Explore ThinkSuit
 
-### Step 1: Always Run with Trace and Capture Output
+### Interactive REPL (Recommended)
+
+For interactive exploration and debugging:
+
+```bash
+# Start the interactive REPL
+npm run start
+
+# Commands
+:help                    # Show available commands
+:session [id]            # Manage sessions (no args: clear, with ID: set)
+:status                  # Show current session and config
+:config key [value]      # View/set configuration
+:quit                    # Exit
+
+# Just type naturally to send input to ThinkSuit
+```
+
+See [`packages/thinksuit-cli/CLAUDE.md`](packages/thinksuit-cli/CLAUDE.md) for full REPL documentation.
+
+### One-Shot CLI (For Scripting)
+
+For single commands and trace analysis:
 
 ```bash
 # ALWAYS use this pattern - run with trace and tail to see sessionId/traceId
-npm run cli -- --trace "Your input here" 2>&1 | tail -20
+npm run exec -- --trace "Your input here" 2>&1 | tail -20
 
 # With tools enabled
-npm run cli -- --trace --allow-tool roll_dice "Roll a d20" 2>&1 | tail -20
+npm run exec -- --trace --allow-tool roll_dice "Roll a d20" 2>&1 | tail -20
 
 # The tail -20 shows you:
 # - The sessionId and traceId for further exploration

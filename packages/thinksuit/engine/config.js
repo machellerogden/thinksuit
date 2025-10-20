@@ -22,7 +22,7 @@ function parseCLI(argv) {
     return meow(
         `
     Usage
-      $ node engine/cli.js [input]
+      $ node engine/execute.js [input]
 
     Options
       --module, -m       Module to load (default: thinksuit/mu)
@@ -56,9 +56,9 @@ function parseCLI(argv) {
       Override with --config flag
 
     Examples
-      $ node engine/cli.js "Analyze this claim"
-      $ node engine/cli.js --module thinksuit/mu --model gpt-5
-      $ node engine/cli.js --config ~/.thinksuit.json
+      $ node engine/execute.js "Analyze this claim"
+      $ node engine/execute.js --module thinksuit/mu --model gpt-5
+      $ node engine/execute.js --config ~/.thinksuit.json
 `,
         {
             importMeta: import.meta,
