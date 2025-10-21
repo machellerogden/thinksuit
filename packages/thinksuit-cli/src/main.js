@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 
 import readline from 'node:readline';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import MuteStream from 'mute-stream';
 import chalk from 'chalk';
 import { buildConfig } from '../../thinksuit/engine/config.js';
@@ -17,8 +20,26 @@ async function main() {
     // Load base configuration using buildConfig
     const baseConfig = buildConfig();
 
-    // Command history
+    // Setup history file path
+    const historyDir = path.join(os.homedir(), '.thinksuit');
+    const historyPath = path.join(historyDir, 'history');
+
+    // Ensure .thinksuit directory exists
+    if (!fs.existsSync(historyDir)) {
+        fs.mkdirSync(historyDir, { recursive: true });
+    }
+
+    // Load command history from file
     const commandHistory = [];
+    if (fs.existsSync(historyPath)) {
+        try {
+            const historyContent = fs.readFileSync(historyPath, 'utf-8');
+            commandHistory.push(...historyContent.split('\n').filter(line => line.trim()));
+        } catch (error) {
+            // Ignore history load errors - we'll start fresh
+            console.error(chalk.dim.yellow(`Warning: Could not load history: ${error.message}`));
+        }
+    }
 
     // Execution state (shared between main and commands)
     const executionState = {
@@ -211,6 +232,12 @@ async function main() {
                 // Add display version to history (so user can navigate to it)
                 if (display.trim()) {
                     commandHistory.push(display);
+                    // Persist to history file
+                    try {
+                        fs.appendFileSync(historyPath, display + '\n', 'utf-8');
+                    } catch (error) {
+                        // Silently fail on history write errors
+                    }
                 }
 
                 // Use expanded version for command processing
