@@ -9,8 +9,10 @@
     // Constants
     const COLLAPSED_SIZE = 48;
     const MIN_SIZE = 100;
-    const MAX_SIZE = 800;
+    const SAFE_VIEWPORT_PERCENTAGE = 0.9;
     const DRAWER_Z_INDEX = 30;
+    const DEFAULT_SIZE_VERTICAL = 300;
+    const DEFAULT_SIZE_HORIZONTAL = 800;
 
     let terminalComponent = $state();
     // eslint-disable-next-line svelte/valid-compile
@@ -19,6 +21,31 @@
     let ttyToken = $state('');
     let ttyCwd = $state('');
     let stateBeforeFullscreen = $state({ open: false, position: 'bottom' });
+
+    // Viewport size tracking
+    let viewportWidth = $state(typeof window !== 'undefined' ? window.innerWidth : 1920);
+    let viewportHeight = $state(typeof window !== 'undefined' ? window.innerHeight : 1080);
+
+    // Calculate dynamic max sizes based on viewport
+    let maxHorizontalSize = $derived(Math.floor(viewportWidth * SAFE_VIEWPORT_PERCENTAGE));
+    let maxVerticalSize = $derived(Math.floor(viewportHeight * SAFE_VIEWPORT_PERCENTAGE));
+
+    // Validation function: resets to default if size exceeds available space
+    function validateAndClampSize(size, maxAllowed, defaultSize, isHorizontal) {
+        const clampedDefault = Math.min(defaultSize, maxAllowed);
+        if (size > maxAllowed) {
+            // Reset to default (or max available if default is too large)
+            const resetValue = clampedDefault;
+            // Update persisted state
+            if (isHorizontal) {
+                ui.terminalSizeHorizontal = resetValue;
+            } else {
+                ui.terminalSizeVertical = resetValue;
+            }
+            return resetValue;
+        }
+        return size;
+    }
 
     // State transition functions
     function collapseTerminal() {
@@ -79,6 +106,26 @@
 
     // Register hotkeys and fetch config on mount
     onMount(async () => {
+        // Validate persisted sizes on mount
+        validateAndClampSize(ui.terminalSizeHorizontal, maxHorizontalSize, DEFAULT_SIZE_HORIZONTAL, true);
+        validateAndClampSize(ui.terminalSizeVertical, maxVerticalSize, DEFAULT_SIZE_VERTICAL, false);
+
+        // Setup window resize listener with debouncing via RAF
+        let rafId = null;
+        const handleResize = () => {
+            if (rafId) cancelAnimationFrame(rafId);
+            rafId = requestAnimationFrame(() => {
+                viewportWidth = window.innerWidth;
+                viewportHeight = window.innerHeight;
+
+                // Validate current sizes against new viewport
+                validateAndClampSize(ui.terminalSizeHorizontal, maxHorizontalSize, DEFAULT_SIZE_HORIZONTAL, true);
+                validateAndClampSize(ui.terminalSizeVertical, maxVerticalSize, DEFAULT_SIZE_VERTICAL, false);
+            });
+        };
+
+        window.addEventListener('resize', handleResize);
+
         // Fetch TTY config (port, auth token, and cwd)
         try {
             const response = await fetch('/api/config');
@@ -195,7 +242,7 @@
                 if (!ui.terminalOpen) return;
                 const isHorizontal = ui.terminalPosition === 'left' || ui.terminalPosition === 'right';
                 if (!isHorizontal) {
-                    ui.terminalSizeVertical = Math.min(MAX_SIZE, ui.terminalSizeVertical + RESIZE_STEP);
+                    ui.terminalSizeVertical = Math.min(maxVerticalSize, ui.terminalSizeVertical + RESIZE_STEP);
                 }
             }, {
                 description: 'Increase terminal height (when top/bottom)',
@@ -219,7 +266,7 @@
                 if (!ui.terminalOpen) return;
                 const isHorizontal = ui.terminalPosition === 'left' || ui.terminalPosition === 'right';
                 if (isHorizontal) {
-                    ui.terminalSizeHorizontal = Math.min(MAX_SIZE, ui.terminalSizeHorizontal + RESIZE_STEP);
+                    ui.terminalSizeHorizontal = Math.min(maxHorizontalSize, ui.terminalSizeHorizontal + RESIZE_STEP);
                 }
             }, {
                 description: 'Increase terminal width (when left/right)',
@@ -229,6 +276,8 @@
         ];
 
         return () => {
+            window.removeEventListener('resize', handleResize);
+            if (rafId) cancelAnimationFrame(rafId);
             if (toggleCleanup) toggleCleanup();
             if (darkModeCleanup) darkModeCleanup();
             if (newSessionCleanup) newSessionCleanup();
@@ -329,7 +378,8 @@
         }
 
         const newSize = startSize + delta;
-        const clampedSize = Math.max(MIN_SIZE, Math.min(MAX_SIZE, newSize));
+        const maxSize = isHorizontal ? maxHorizontalSize : maxVerticalSize;
+        const clampedSize = Math.max(MIN_SIZE, Math.min(maxSize, newSize));
 
         if (isHorizontal) {
             ui.terminalSizeHorizontal = clampedSize;
@@ -373,7 +423,7 @@
 
     // Padding to make room for toggle button
     let buttonPadding = $derived.by(() => {
-        if (!ui.terminalOpen) return '';
+        if (!ui.terminalOpen || ui.terminalFullscreen) return '';
         const pos = ui.terminalPosition;
         if (pos === 'bottom') return 'pt-7';
         if (pos === 'top') return 'pb-7';
@@ -383,7 +433,7 @@
     });
 </script>
 
-<div class="relative bg-gray-100 {borderClass} border-gray-300 flex {isHorizontal ? 'flex-row' : 'flex-col'} {buttonPadding}" style={positionStyle}>
+<div class="relative flex {isHorizontal ? 'flex-row' : 'flex-col'} {ui.terminalFullscreen ? '' : 'bg-gray-100 border-gray-300 ' + borderClass} {buttonPadding}" style={positionStyle}>
     <!-- Toggle Button - hidden in fullscreen -->
     {#if !ui.terminalFullscreen}
         <button
