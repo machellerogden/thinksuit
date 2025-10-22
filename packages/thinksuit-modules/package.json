@@ -1,6 +1,6 @@
 {
   "name": "thinksuit-modules",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Behavioral modules for ThinkSuit - cognitive roles, classifiers, rules, and prompts including mu module",
   "type": "module",
   "main": "./index.js",

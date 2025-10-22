@@ -1,6 +1,6 @@
 {
   "name": "thinksuit-monorepo",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "ThinkSuit monorepo - AI orchestration system with modular cognitive architecture",
   "workspaces": [

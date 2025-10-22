@@ -1,6 +1,6 @@
 {
   "name": "thinksuit-mcp-server",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "MCP server that exposes ThinkSuit functionality to external MCP clients like Claude Desktop and IDEs",
   "type": "module",
