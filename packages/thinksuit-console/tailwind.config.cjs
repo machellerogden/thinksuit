@@ -7,7 +7,7 @@ module.exports = {
         extend: {
             fontFamily: {
                 sans: ['Inter', 'system-ui', 'sans-serif'],
-                serif: ['Merriweather', 'Georgia', 'serif'],
+                serif: ['Gentium Plus', 'Georgia', 'serif'],
                 mono: ['"Roboto Mono"', 'Menlo', 'Monaco', 'Courier New', 'monospace'],
             },
         },

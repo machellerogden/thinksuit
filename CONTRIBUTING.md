@@ -10,13 +10,16 @@ This guide is for developers contributing to ThinkSuit. For AI assistant guidanc
 # Install all dependencies (from root)
 npm install
 
-# Run ThinkSuit CLI
-npm run cli -- "Your input here"                  # Basic usage (creates new session)
-npm run cli -- --session-id 20250821T164513435Z-xXKTbcJ2 "Follow-up"   # Resume
-npm run cli -- --trace "Input"                    # Enable detailed tracing
-npm run cli -- --allow-tool read_file --allow-tool write_file "Input"  # Restrict tools
-npm run cli -- --allow-dir /path/to/project "Input"  # Restrict filesystem access
-npm run cli -- --help                             # Show help
+# Run ThinkSuit (Interactive REPL - Recommended for Development)
+npm run start                                     # Start interactive session with commands
+
+# Run ThinkSuit (One-Shot CLI - For Scripting and Trace Analysis)
+npm run exec -- "Your input here"                  # Basic usage (creates new session)
+npm run exec -- --session-id 20250821T164513435Z-xXKTbcJ2 "Follow-up"   # Resume
+npm run exec -- --trace "Input" 2>&1 | tail -20    # Enable detailed tracing (shows sessionId/traceId)
+npm run exec -- --allow-tool read_file --allow-tool write_file "Input"  # Restrict tools
+npm run exec -- --allow-dir /path/to/project "Input"  # Restrict filesystem access
+npm run exec -- --help                             # Show help
 
 # Run Console UI
 npm run console                                   # Development server on http://localhost:5173
@@ -94,7 +97,7 @@ cat ~/.thinksuit/sessions/streams/2025/09/10/17/*.jsonl | jq 'select(.event == "
 
 ```bash
 # Run with tracing and capture the traceId from output
-npm run cli:trace -- "Your input" 2>&1 | tail -20  # Look for traceId in output
+npm run exec -- --trace "Your input" 2>&1 | tail -20  # Look for traceId in output
 
 # Find and analyze the trace file
 find ~/.thinksuit -name '20250923T203121308Z-IiQUmQ5_.jsonl' | xargs cat | jq '.event' | sort -u  # List all events

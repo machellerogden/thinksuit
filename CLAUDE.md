@@ -23,31 +23,15 @@ See **CONTRIBUTING.md** for:
 - Configuration details
 - Code style guidelines
 
-## CRITICAL: How to Actually Explore ThinkSuit
+## CRITICAL: How Coding Agents Should Explore ThinkSuit
 
-### Interactive REPL (Recommended)
+**Note for Coding Agents**: You cannot use the interactive REPL (`npm run start`). Use the one-shot CLI pattern below for all execution and trace analysis.
 
-For interactive exploration and debugging:
+**Note for Human Developers**: The interactive REPL (`npm run start`) is recommended for development. See [`packages/thinksuit-cli/CLAUDE.md`](packages/thinksuit-cli/CLAUDE.md) for full REPL documentation.
 
-```bash
-# Start the interactive REPL
-npm run start
+### One-Shot CLI (Required for Coding Agents)
 
-# Commands
-:help                    # Show available commands
-:session [id]            # Manage sessions (no args: clear, with ID: set)
-:status                  # Show current session and config
-:config key [value]      # View/set configuration
-:quit                    # Exit
-
-# Just type naturally to send input to ThinkSuit
-```
-
-See [`packages/thinksuit-cli/CLAUDE.md`](packages/thinksuit-cli/CLAUDE.md) for full REPL documentation.
-
-### One-Shot CLI (For Scripting)
-
-For single commands and trace analysis:
+For execution and trace analysis:
 
 ```bash
 # ALWAYS use this pattern - run with trace and tail to see sessionId/traceId
@@ -96,7 +80,7 @@ find ~/.thinksuit/sessions -name '*8LtZ_xlY*' -type f
 
 ### Key Patterns to Remember
 
-1. **ALWAYS run with trace**: `npm run cli -- --trace "input" 2>&1 | rg 'sessionId|traceId' | tail -1`
+1. **ALWAYS run with trace**: `npm run exec -- --trace "input" 2>&1 | tail -20`
 2. **Use actual IDs**: Replace `{traceId}` with the actual ID from the output
 3. **Data is in .data field**: Most interesting data is in `.data`, not at top level
 4. **The -- is critical**: Always use `--` to pass arguments through npm workspace

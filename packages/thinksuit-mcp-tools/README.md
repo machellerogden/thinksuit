@@ -25,7 +25,7 @@ This MCP server is automatically registered in the mu module and the `roll_dice`
 
 ```bash
 # The assistant can use it during task execution:
-npm run cli "I need to make a decision about whether to use TypeScript or JavaScript. Can you roll for it?"
+npm run exec -- "I need to make a decision about whether to use TypeScript or JavaScript. Can you roll for it?"
 ```
 
 ## Adding New Tools

@@ -4,11 +4,17 @@ This document captures the intended evolution of ThinkSuit's user-facing interfa
 
 ## Current State
 
-### Built-in CLI (`packages/thinksuit/engine/cli.js`)
-- **Purpose**: One-shot testing tool for core engine development
-- **Module Support**: Uses default `thinksuit/mu` module only
-- **Usage**: `npm run cli "your input here"`
-- **Intended Audience**: ThinkSuit engine developers
+### One-Shot CLI (`packages/thinksuit/engine/execute.js`)
+- **Purpose**: One-shot execution for scripting and trace analysis
+- **Module Support**: Uses default `thinksuit/mu` module with configurable options
+- **Usage**: `npm run exec -- "your input here"`
+- **Intended Audience**: Developers, coding agents, scripting workflows
+
+### Interactive REPL (`packages/thinksuit-cli/`)
+- **Purpose**: Rich terminal interface with session management and commands
+- **Status**: Fully implemented with ControlDock UI, tool approval, and paste handling
+- **Usage**: `npm run start`
+- **Intended Audience**: Human developers doing interactive development
 
 ### Custom CLI Wrappers
 For custom modules, users create thin wrapper CLIs that handle module loading:

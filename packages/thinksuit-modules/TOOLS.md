@@ -32,13 +32,13 @@ These additional tools are discovered from the MCP filesystem server and can be 
 
 ```bash
 # Use default tools
-npm run cli "List the files in this directory"
+npm run exec -- "List the files in this directory"
 
 # Specify specific tools
-npm run cli -- --tools=read_file,list_directory "Show me what's here"
+npm run exec -- --tools=read_file,list_directory "Show me what's here"
 
 # Use all available tools
-npm run cli -- --tools=read_file,write_file,edit_file,list_directory,directory_tree,create_directory,move_file,search_files,read_text_file,read_media_file,read_multiple_files,list_directory_with_sizes,get_file_info,list_allowed_directories "Analyze this codebase"
+npm run exec -- --tools=read_file,write_file,edit_file,list_directory,directory_tree,create_directory,move_file,search_files,read_text_file,read_media_file,read_multiple_files,list_directory_with_sizes,get_file_info,list_allowed_directories "Analyze this codebase"
 ```
 
 ### Tool Discovery

@@ -297,9 +297,17 @@
                     {/if}
                 {:else}
                     <div class="h-full flex items-center justify-center p-8">
-                        <div class="text-center max-w-md">
-                            <img src="/favicon.svg" alt="ThinkSuit" class="w-16 h-16 mx-auto mb-4" />
-                            <h3 class="text-2xl font-extralight text-gray-800 mb-4">Welcome to <span class="font-serif font-semibold">ThinkSuit</span>.</h3>
+                        <div class="text-center max-w-md j">
+                            <div class="mb-4 flex justify-center">
+<div class="text-left text-gray-800 text-2xl leading-none font-mono whitespace-pre-wrap font-extralight">
+&nbsp;   ┯
+  ╭─┴─╮
+ ╭┤◐ ◐├╯
+  ╰┬─┬╯
+   ╯ ╰</div>
+
+                            </div>
+                            <h3 class="text-2xl font-light text-gray-800 mb-4">Welcome to <span class="font-bold text-violet-500">ThinkSuit</span>.</h3>
                             <p class="text-md text-gray-600 mb-4">
                                 Start a new conversation by entering a message below, or select an existing session from the sidebar.
                             </p>

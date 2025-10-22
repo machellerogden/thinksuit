@@ -177,13 +177,13 @@ export default {
 
 ```bash
 # Use default mu module
-npm run cli "Your input"
+npm run exec -- "Your input"
 
 # Use a specific module
-npm run cli -- --module custom/simple.v1 "Your input"
+npm run exec -- --module custom/simple.v1 "Your input"
 
 # Use a module from a different package
-npm run cli -- --modulesPackage my-modules --module my/module.v1 "Your input"
+npm run exec -- --modulesPackage my-modules --module my/module.v1 "Your input"
 ```
 
 ### Programmatically
