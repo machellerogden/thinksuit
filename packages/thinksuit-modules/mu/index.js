@@ -10,7 +10,7 @@ import { composeInstructions } from './composeInstructions.js';
 const mu = {
     namespace: 'thinksuit',
     name: 'mu',
-    version: '0.0.3',
+    version: '0.1.0',
 
     // Roles as cohesive behavioral profiles
     roles: [
