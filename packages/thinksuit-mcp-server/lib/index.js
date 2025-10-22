@@ -7,7 +7,7 @@ import { registerInspectTool } from './tools/inspect.js';
 export async function createMcpServer() {
     const server = new McpServer({
         name: 'ThinkSuit',
-        version: '0.1.0'
+        version: '0.1.1'
     });
 
     registerThinkSuitTool(server);

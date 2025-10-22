@@ -1,6 +1,6 @@
 {
 	"name": "thinksuit-console",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"private": true,
 	"description": "Web-based debugging and development UI for ThinkSuit - session inspection, timeline visualization, and real-time monitoring",
 	"type": "module",

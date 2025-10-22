@@ -1,6 +1,6 @@
 {
   "name": "thinksuit-tty",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Terminal component and TTY WebSocket server for ThinkSuit",
   "type": "module",
