@@ -31,8 +31,20 @@
                             "role": {
                                 "type": "string"
                             },
+                            "strategy": {
+                                "enum": ["direct", "task"],
+                                "description": "Execution strategy for this step"
+                            },
                             "adaptationKey": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Context-based prompt adaptation for this step"
+                            },
+                            "tools": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "description": "Tools available to this step"
                             }
                         },
                         "required": [
@@ -55,8 +67,20 @@
                             "role": {
                                 "type": "string"
                             },
+                            "strategy": {
+                                "enum": ["direct", "task"],
+                                "description": "Execution strategy for this role"
+                            },
                             "adaptationKey": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Context-based prompt adaptation for this role"
+                            },
+                            "tools": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "description": "Tools available to this role"
                             }
                         },
                         "required": [
@@ -67,7 +91,12 @@
             }
         },
         "role": {
-            "type": "string"
+            "type": "string",
+            "description": "Role to execute for direct/task strategies"
+        },
+        "adaptationKey": {
+            "type": "string",
+            "description": "Context-based prompt adaptation to apply (typically for direct strategy)"
         },
         "rationale": {
             "type": "string"

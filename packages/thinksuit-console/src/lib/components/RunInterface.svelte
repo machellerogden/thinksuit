@@ -20,6 +20,7 @@
     let input = $state('');
     let trace = $state(false);
     let cwd = $state('');  // Working directory for tools
+    let selectedPlan = $state('');  // Manual plan override (JSON string)
     let isSubmitting = $state(false);
     let searchFilter = $state('');
     let isCancelling = $state(false);
@@ -114,6 +115,19 @@
         }));
 
         try {
+            // Parse selectedPlan if provided
+            let parsedPlan;
+            if (selectedPlan.trim()) {
+                try {
+                    parsedPlan = JSON.parse(selectedPlan.trim());
+                } catch (error) {
+                    console.error('Invalid plan JSON:', error);
+                    alert('Invalid plan JSON: ' + error.message);
+                    isSubmitting = false;
+                    return;
+                }
+            }
+
             const response = await fetch('/api/run', {
                 method: 'POST',
                 headers: {
@@ -123,6 +137,7 @@
                     input: input.trim(),
                     trace,
                     cwd: cwd.trim() || undefined,  // Include working directory if provided
+                    selectedPlan: parsedPlan || undefined,  // Include plan override if provided
                     sessionId: targetSessionId || undefined
                 })
             });
@@ -326,6 +341,7 @@
                     bind:input
                     bind:trace
                     bind:cwd
+                    bind:selectedPlan
                     bind:isSubmitting
                     bind:isCancelling
                     onSubmit={handleSubmit}

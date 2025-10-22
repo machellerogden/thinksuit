@@ -1,11 +1,13 @@
 <script>
     import { Button, Input, Textarea, Checkbox } from '$lib/components/ui/index.js';
     import { getSession } from '$lib/stores/session.svelte.js';
+    import PlanBuilder from './PlanBuilder.svelte';
 
     let {
         input = $bindable(''),
         trace = $bindable(false),
         cwd = $bindable(''),
+        selectedPlan = $bindable(''),
         isSubmitting = $bindable(false),
         isCancelling = $bindable(false),
         onSubmit,
@@ -13,8 +15,22 @@
     } = $props();
 
     let textareaComponent = $state();
+    let planMode = $state('builder'); // 'builder' or 'json'
+    let usePlanOverride = $state(false); // Whether to use plan override
 
     const session = getSession();
+
+    // Handle plan changes from builder
+    function handlePlanBuilderChange(plan) {
+        selectedPlan = JSON.stringify(plan, null, 2);
+    }
+
+    // Clear plan when unchecking override
+    $effect(() => {
+        if (!usePlanOverride) {
+            selectedPlan = '';
+        }
+    });
 
     const latestMessage = $derived(
         session.entries.length > 0
@@ -86,6 +102,67 @@
                 placeholder="/path/to/project (optional)"
                 disabled={isSubmitting}
             />
+        </div>
+
+        <!-- Plan Override Section -->
+        <div class="space-y-3">
+            <!-- Checkbox to enable plan override -->
+            <div class="flex items-center gap-2">
+                <Checkbox
+                    bind:checked={usePlanOverride}
+                    label="Bypass automatic plan selection"
+                    class="text-xs font-mono"
+                    disabled={isSubmitting}
+                />
+            </div>
+
+            <!-- Plan builder/editor (only shown when checkbox is checked) -->
+            {#if usePlanOverride}
+                <div class="space-y-2 pl-6 border-l-2 border-indigo-200 pt-2">
+                    <!-- Mode Toggle -->
+                    <div class="flex gap-2">
+                        <button
+                            type="button"
+                            class="px-3 py-1 text-xs font-medium rounded border transition-colors
+                                {planMode === 'builder'
+                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                    : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-300'}"
+                            onclick={() => planMode = 'builder'}
+                            disabled={isSubmitting}
+                        >
+                            Build Custom Plan
+                        </button>
+                        <button
+                            type="button"
+                            class="px-3 py-1 text-xs font-medium rounded border transition-colors
+                                {planMode === 'json'
+                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                    : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-300'}"
+                            onclick={() => planMode = 'json'}
+                            disabled={isSubmitting}
+                        >
+                            Edit JSON
+                        </button>
+                    </div>
+
+                    <!-- Plan Builder or JSON Editor -->
+                    {#if planMode === 'builder'}
+                        <PlanBuilder onPlanChange={handlePlanBuilderChange} disabled={isSubmitting} />
+                    {:else}
+                        <Textarea
+                            id="selectedPlan"
+                            bind:value={selectedPlan}
+                            rows={6}
+                            placeholder={`{"strategy": "direct", "name": "my-plan", "role": "developer"}`}
+                            disabled={isSubmitting}
+                            class="font-mono text-xs"
+                        />
+                        <div class="mt-1 text-[10px] text-gray-500">
+                            Enter JSON plan object to override automatic plan selection
+                        </div>
+                    {/if}
+                </div>
+            {/if}
         </div>
 
         <!-- Message Input and Controls -->

@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { schedule, createLogger, buildConfig, loadModules } from 'thinksuit';
+import { validatePlan } from 'thinksuit/schemas/validate';
 import { modules as defaultModules } from 'thinksuit-modules';
 import { SESSION_STATUS } from 'thinksuit/constants/events';
 import { registerExecution, removeExecution } from '$lib/server/activeExecutions.js';
@@ -14,6 +15,7 @@ export async function POST({ request }) {
             mcpServers,
             sessionId: providedSessionId,
             modulesPackage,
+            selectedPlan,
             // Accept config overrides
             module,
             provider,
@@ -26,6 +28,17 @@ export async function POST({ request }) {
         
         if (!input || typeof input !== 'string') {
             return json({ error: 'Input is required and must be a string' }, { status: 400 });
+        }
+
+        // Validate selectedPlan if provided
+        if (selectedPlan) {
+            const validation = validatePlan(selectedPlan);
+            if (!validation.valid) {
+                return json({
+                    error: 'Invalid plan structure',
+                    validationErrors: validation.errors
+                }, { status: 400 });
+            }
         }
 
         // Load base config from filesystem
@@ -53,6 +66,7 @@ export async function POST({ request }) {
         const config = {
             input,
             sessionId: providedSessionId,  // May be undefined
+            selectedPlan: selectedPlan || undefined,  // Manual plan override
             module: module || baseConfig.module,
             modules,
             provider: provider || baseConfig.provider,

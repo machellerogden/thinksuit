@@ -113,6 +113,15 @@ const mu = {
                 system: prompts['system.inner_voice'],
                 primary: prompts['primary.inner_voice']
             }
+        },
+        {
+            name: 'developer',
+            temperature: 0.4,
+            baseTokens: 1200,
+            prompts: {
+                system: prompts['system.developer'],
+                primary: prompts['primary.developer']
+            }
         }
     ],
 
