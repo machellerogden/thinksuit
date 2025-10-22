@@ -107,11 +107,11 @@ async function main() {
 
     // Display welcome message
     console.log();
-    console.log(chalk.bold.magenta(`    ╤     ${chalk.reset.dim.gray(`╭─────────────────────────────────────────────╮`)}`));
-    console.log(chalk.bold.magenta(`  ╭─┴─╮   ${chalk.reset.dim.gray(`│`)} ${chalk.bold.cyan('ThinkSuit CLI')} ${chalk.reset.dim.cyan(pkg.version)}${' '.repeat(30 - pkg.version.length)}${chalk.reset.dim.gray(`│`)}`));
-    console.log(chalk.bold.magenta(` ╭│◐ ◐│╯  ${chalk.reset.dim.gray(`│`)} ${chalk.reset.dim.white(':help for commands')}                          ${chalk.reset.dim.gray(`│`)}`));
-    console.log(chalk.bold.magenta(`  ╰┬─┬╯   ${chalk.reset.dim.gray(`│`)} ${chalk.reset.dim.white('Press Ctrl-C twice, or type :quit to exit.')}  ${chalk.reset.dim.gray(`│`)}`));
-    console.log(chalk.bold.magenta(`   ╯ ╰    ${chalk.reset.dim.gray(`╰─────────────────────────────────────────────╯`)}`));
+    console.log(chalk.bold.magenta(`    ┯    ${chalk.reset.dim.gray(`╭─────────────────────╮`)}`));
+    console.log(chalk.bold.magenta(`  ╭─┴─╮  ${chalk.reset.dim.gray(`│`)} ${chalk.bold.cyan('ThinkSuit CLI')} ${chalk.reset.dim.cyan(pkg.version)}${' '.repeat(6 - pkg.version.length)}${chalk.reset.dim.gray(`│`)}`));
+    console.log(chalk.bold.magenta(` ╭┤◐ ◐├╯ ${chalk.reset.dim.gray(`│`)} ${chalk.reset.dim.white(':help for commands')}  ${chalk.reset.dim.gray(`│`)}`));
+    console.log(chalk.bold.magenta(`  ╰┬─┬╯  ${chalk.reset.dim.gray(`│`)} ${chalk.reset.dim.white(':quit to exit')}       ${chalk.reset.dim.gray(`│`)}`));
+    console.log(chalk.bold.magenta(`   ╯ ╰   ${chalk.reset.dim.gray(`╰─────────────────────╯`)}`));
     console.log();
 
     // Create CLI effects
