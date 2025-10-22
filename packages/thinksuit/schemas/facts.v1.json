@@ -79,8 +79,11 @@
                             "role": {
                                 "type": "string"
                             },
-                            "adaptationKey": {
-                                "type": "string"
+                            "adaptations": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
                             }
                         },
                         "required": [
@@ -103,8 +106,11 @@
                             "role": {
                                 "type": "string"
                             },
-                            "adaptationKey": {
-                                "type": "string"
+                            "adaptations": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
                             }
                         },
                         "required": [

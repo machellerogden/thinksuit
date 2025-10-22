@@ -105,9 +105,6 @@ describe('evaluateRules Handler', () => {
 
             const result = await evaluateRules(input, machineContext);
 
-            // Log the result to understand what's happening
-            console.log('Result from evaluateRules:', JSON.stringify(result, null, 2));
-
             // Should have both the signal and the derived RoleSelection
             expect(result.factMap.Signal).toHaveLength(1);
             expect(result.factMap.RoleSelection).toHaveLength(1);
@@ -750,7 +747,7 @@ describe('evaluateRules Handler', () => {
             };
 
             const result = await evaluateRules(input, machineContext);
-            
+
             // Check the RoleSelection fact has merged provenance
             const roleSelection = result.factMap.RoleSelection[0];
             expect(roleSelection.provenance).toBeDefined();

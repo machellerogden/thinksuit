@@ -35,9 +35,12 @@
                                 "enum": ["direct", "task"],
                                 "description": "Execution strategy for this step"
                             },
-                            "adaptationKey": {
-                                "type": "string",
-                                "description": "Context-based prompt adaptation for this step"
+                            "adaptations": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "description": "Adaptation keys for this step (looked up in module.adaptations, applied in order)"
                             },
                             "tools": {
                                 "type": "array",
@@ -45,6 +48,16 @@
                                     "type": "string"
                                 },
                                 "description": "Tools available to this step"
+                            },
+                            "resolution": {
+                                "type": "object",
+                                "properties": {
+                                    "maxCycles": {"type": "number"},
+                                    "maxTokens": {"type": "number"},
+                                    "maxToolCalls": {"type": "number"},
+                                    "timeoutMs": {"type": "number"}
+                                },
+                                "description": "Execution resolution contract for task strategy steps"
                             }
                         },
                         "required": [
@@ -71,16 +84,29 @@
                                 "enum": ["direct", "task"],
                                 "description": "Execution strategy for this role"
                             },
-                            "adaptationKey": {
-                                "type": "string",
-                                "description": "Context-based prompt adaptation for this role"
+                            "adaptations": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "description": "Adaptation keys for this branch (looked up in module.adaptations, applied in order)"
                             },
                             "tools": {
                                 "type": "array",
                                 "items": {
                                     "type": "string"
                                 },
-                                "description": "Tools available to this role"
+                                "description": "Tools available to this branch"
+                            },
+                            "resolution": {
+                                "type": "object",
+                                "properties": {
+                                    "maxCycles": {"type": "number"},
+                                    "maxTokens": {"type": "number"},
+                                    "maxToolCalls": {"type": "number"},
+                                    "timeoutMs": {"type": "number"}
+                                },
+                                "description": "Execution resolution contract for task strategy branches"
                             }
                         },
                         "required": [
@@ -94,9 +120,12 @@
             "type": "string",
             "description": "Role to execute for direct/task strategies"
         },
-        "adaptationKey": {
-            "type": "string",
-            "description": "Context-based prompt adaptation to apply (typically for direct strategy)"
+        "adaptations": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "description": "Adaptation keys to apply (looked up in module.adaptations, typically for direct/task strategies, applied in order)"
         },
         "rationale": {
             "type": "string"
@@ -153,6 +182,16 @@
                 "type": "string"
             },
             "description": "Signals or contracts this plan addresses (e.g., 'contract.explore', 'contract.analyze')"
+        },
+        "resolution": {
+            "type": "object",
+            "properties": {
+                "maxCycles": {"type": "number"},
+                "maxTokens": {"type": "number"},
+                "maxToolCalls": {"type": "number"},
+                "timeoutMs": {"type": "number"}
+            },
+            "description": "Execution resolution contract for task strategy"
         }
     },
     "additionalProperties": true

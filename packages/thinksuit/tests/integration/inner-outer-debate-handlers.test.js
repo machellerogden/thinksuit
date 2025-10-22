@@ -80,14 +80,14 @@ describe('Inner-Outer Voice Debate Integration', () => {
 
         // Verify adaptation sequence
         const sequence = plan.sequence;
-        expect(sequence[0]).toEqual({ role: 'outer_voice', adaptationKey: 'outer_voice_opening' });
-        expect(sequence[1]).toEqual({ role: 'inner_voice', adaptationKey: 'inner_voice_response' });
+        expect(sequence[0]).toEqual({ role: 'outer_voice', adaptations: ['outer_voice_opening'] });
+        expect(sequence[1]).toEqual({ role: 'inner_voice', adaptations: ['inner_voice_response'] });
         expect(sequence[2]).toEqual({
             role: 'outer_voice',
-            adaptationKey: 'outer_voice_challenge'
+            adaptations: ['outer_voice_challenge']
         });
-        expect(sequence[3]).toEqual({ role: 'reflector', adaptationKey: 'convergence_synthesis' });
-        expect(sequence[4]).toEqual({ role: 'planner', adaptationKey: 'planning_synthesis' });
+        expect(sequence[3]).toEqual({ role: 'reflector', adaptations: ['convergence_synthesis'] });
+        expect(sequence[4]).toEqual({ role: 'planner', adaptations: ['planning_synthesis'] });
     });
 
     it('should pass plan through to instruction composition with adaptations', async () => {
@@ -97,10 +97,10 @@ describe('Inner-Outer Voice Debate Integration', () => {
             buildThread: true,
             resultStrategy: 'last',
             sequence: [
-                { role: 'reflector', adaptationKey: 'outer_voice_opening' },
-                { role: 'reflector', adaptationKey: 'inner_voice_response' },
-                { role: 'reflector', adaptationKey: 'outer_voice_challenge' },
-                { role: 'reflector', adaptationKey: 'convergence_synthesis' }
+                { role: 'reflector', adaptations: ['outer_voice_opening'] },
+                { role: 'reflector', adaptations: ['inner_voice_response'] },
+                { role: 'reflector', adaptations: ['outer_voice_challenge'] },
+                { role: 'reflector', adaptations: ['convergence_synthesis'] }
             ]
         };
 
@@ -117,7 +117,7 @@ describe('Inner-Outer Voice Debate Integration', () => {
         const outerVoiceInput = {
             plan: {
                 role: 'reflector',
-                adaptationKey: 'outer_voice_opening'
+                adaptations: ['outer_voice_opening']
             },
             factMap: {
                 signals: []
@@ -134,7 +134,7 @@ describe('Inner-Outer Voice Debate Integration', () => {
         const innerVoiceInput = {
             plan: {
                 role: 'reflector',
-                adaptationKey: 'inner_voice_response'
+                adaptations: ['inner_voice_response']
             },
             factMap: {
                 signals: []
@@ -151,7 +151,7 @@ describe('Inner-Outer Voice Debate Integration', () => {
         const convergenceInput = {
             plan: {
                 role: 'reflector',
-                adaptationKey: 'convergence_synthesis'
+                adaptations: ['convergence_synthesis']
             },
             factMap: {
                 signals: []
@@ -222,10 +222,10 @@ describe('Inner-Outer Voice Debate Integration', () => {
                 buildThread: true,
                 resultStrategy: 'last',
                 sequence: [
-                    { role: 'reflector', adaptationKey: 'outer_voice_opening' },
-                    { role: 'reflector', adaptationKey: 'inner_voice_response' },
-                    { role: 'reflector', adaptationKey: 'outer_voice_challenge' },
-                    { role: 'reflector', adaptationKey: 'convergence_synthesis' }
+                    { role: 'reflector', adaptations: ['outer_voice_opening'] },
+                    { role: 'reflector', adaptations: ['inner_voice_response'] },
+                    { role: 'reflector', adaptations: ['outer_voice_challenge'] },
+                    { role: 'reflector', adaptations: ['convergence_synthesis'] }
                 ]
             },
             instructions: {
@@ -247,21 +247,21 @@ describe('Inner-Outer Voice Debate Integration', () => {
             'Synthesis: We can honor both practical wisdom and creative exploration.'
         );
 
-        // Verify runCycle was called with correct adaptationKeys
+        // Verify runCycle was called with correct adaptations
         expect(runCycle).toHaveBeenCalledTimes(4); // All 4 steps use runCycle in sequential
 
-        // Check each step includes the correct adaptationKey
+        // Check each step includes the correct adaptations
         const step1Input = runCycle.mock.calls[0][0];
-        expect(step1Input.selectedPlan.adaptationKey).toBe('outer_voice_opening');
+        expect(step1Input.selectedPlan.adaptations).toEqual(['outer_voice_opening']);
 
         const step2Input = runCycle.mock.calls[1][0];
-        expect(step2Input.selectedPlan.adaptationKey).toBe('inner_voice_response');
+        expect(step2Input.selectedPlan.adaptations).toEqual(['inner_voice_response']);
 
         const step3Input = runCycle.mock.calls[2][0];
-        expect(step3Input.selectedPlan.adaptationKey).toBe('outer_voice_challenge');
+        expect(step3Input.selectedPlan.adaptations).toEqual(['outer_voice_challenge']);
 
         const step4Input = runCycle.mock.calls[3][0];
-        expect(step4Input.selectedPlan.adaptationKey).toBe('convergence_synthesis');
+        expect(step4Input.selectedPlan.adaptations).toEqual(['convergence_synthesis']);
     });
 
     it('should not trigger inner-outer debate without required signals', async () => {

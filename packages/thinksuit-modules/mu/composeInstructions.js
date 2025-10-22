@@ -49,12 +49,14 @@ export async function composeInstructions({ plan = {}, factMap = {} }, module) {
     const adaptationKeys = []; // Track which keys were used
     const addedSignals = new Set(); // Track to avoid duplicates
 
-    // First, check if plan has an explicit adaptationKey (for iteration-specific adaptations)
-    if (plan.adaptationKey) {
-        const iterationAdaptation = module.adaptations[plan.adaptationKey];
-        if (iterationAdaptation) {
-            adaptations.push(iterationAdaptation);
-            adaptationKeys.push(plan.adaptationKey);
+    // First, check if plan has explicit adaptations (keys for iteration-specific adaptation prompts)
+    if (plan.adaptations && Array.isArray(plan.adaptations)) {
+        for (const key of plan.adaptations) {
+            const adaptationPrompt = module.adaptations[key];
+            if (adaptationPrompt) {
+                adaptations.push(adaptationPrompt);
+                adaptationKeys.push(key);
+            }
         }
     }
 
@@ -187,7 +189,7 @@ export async function composeInstructions({ plan = {}, factMap = {} }, module) {
             baseTokens,
             tokenMultiplier: Math.round(tokenMultiplier * 100) / 100,
             lengthLevel,
-            adaptationKeys  // Useful for debugging which adaptations were applied
+            adaptations: adaptationKeys  // Array of adaptation keys that were applied
         }
     };
 }

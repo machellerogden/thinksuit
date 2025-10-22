@@ -76,7 +76,7 @@ describe('mu composeInstructions', () => {
             );
 
             expect(result.adaptations).toContain('exploration is signaled');
-            expect(result.metadata.adaptationKeys).toContain('explore');
+            expect(result.metadata.adaptations).toContain('explore');
         });
 
         it('should apply none signal adaptation', async () => {
@@ -93,7 +93,7 @@ describe('mu composeInstructions', () => {
             );
 
             expect(result.adaptations).toContain('no supporting evidence');
-            expect(result.metadata.adaptationKeys).toContain('none');
+            expect(result.metadata.adaptations).toContain('none');
         });
 
         it('should apply multiple signal adaptations', async () => {
@@ -112,8 +112,8 @@ describe('mu composeInstructions', () => {
 
             expect(result.adaptations).toContain('exploration is signaled');
             expect(result.adaptations).toContain('no supporting evidence');
-            expect(result.metadata.adaptationKeys).toContain('explore');
-            expect(result.metadata.adaptationKeys).toContain('none');
+            expect(result.metadata.adaptations).toContain('explore');
+            expect(result.metadata.adaptations).toContain('none');
         });
 
         it('should deduplicate signal adaptations', async () => {
@@ -328,23 +328,23 @@ describe('mu composeInstructions', () => {
     });
 
     describe('adaptation key handling', () => {
-        it('should use plan adaptationKey for iteration-specific adaptations', async () => {
+        it('should use plan adaptations for iteration-specific adaptations', async () => {
             const result = await composeInstructions(
                 {
-                    plan: { role: 'assistant', adaptationKey: 'outer_voice_opening' },
+                    plan: { role: 'assistant', adaptations: ['outer_voice_opening'] },
                     factMap: { Signal: [] }
                 },
                 mu
             );
 
             expect(result.adaptations).toContain('Constraints Lens');
-            expect(result.metadata.adaptationKeys).toContain('outer_voice_opening');
+            expect(result.metadata.adaptations).toContain('outer_voice_opening');
         });
 
-        it('should combine plan adaptationKey with signal adaptations', async () => {
+        it('should combine plan adaptations with signal adaptations', async () => {
             const result = await composeInstructions(
                 {
-                    plan: { role: 'assistant', adaptationKey: 'outer_voice_opening' },
+                    plan: { role: 'assistant', adaptations: ['outer_voice_opening'] },
                     factMap: {
                         Signal: [
                             { signal: 'explore', dimension: 'contract', confidence: 0.9 }
@@ -375,7 +375,7 @@ describe('mu composeInstructions', () => {
             );
 
             expect(result.adaptations).toContain('Test derived directive');
-            expect(result.metadata.adaptationKeys).toContain('derived');
+            expect(result.metadata.adaptations).toContain('derived');
         });
     });
 
@@ -402,7 +402,7 @@ describe('mu composeInstructions', () => {
             );
 
             expect(result.toolInstructions).toContain('tools available');
-            expect(result.metadata.adaptationKeys).toContain('tools-available');
+            expect(result.metadata.adaptations).toContain('tools-available');
         });
 
         it('should include task adaptations for task context', async () => {
@@ -420,7 +420,7 @@ describe('mu composeInstructions', () => {
 
             expect(result.toolInstructions).toContain('tools available');
             expect(result.toolInstructions).toContain('multi-cycle tasks');
-            expect(result.metadata.adaptationKeys).toContain('task-execution');
+            expect(result.metadata.adaptations).toContain('task-execution');
         });
     });
 
@@ -443,7 +443,7 @@ describe('mu composeInstructions', () => {
                 role: 'analyzer',
                 baseTokens: 800,  // analyzer's baseTokens from role config
                 lengthLevel: 'comprehensive',  // chosen based on explore signal
-                adaptationKeys: ['explore']  // tracked during composition
+                adaptations: ['explore']  // tracked during composition
             });
             expect(result.metadata.tokenMultiplier).toBeCloseTo(1.2);  // explore multiplier
 

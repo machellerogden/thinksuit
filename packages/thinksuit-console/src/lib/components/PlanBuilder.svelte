@@ -1,23 +1,41 @@
 <script>
     import { Button, Input } from '$lib/components/ui/index.js';
+    import Modal from '$lib/components/ui/Modal.svelte';
     import { onMount } from 'svelte';
+    import { flip } from 'svelte/animate';
 
     let { onPlanChange, disabled = false } = $props();
+
+    // Preview state
+    let showPreview = $state(false);
+    let previewData = $state(null);
+    let isLoadingPreview = $state(false);
+    let previewError = $state(null);
 
     // Plan state
     let strategy = $state('direct');
     let name = $state('direct-plan');
     let role = $state('');
-    let adaptationKey = $state('');
+    let adaptations = $state([]); // Array of adaptation keys
     let tools = $state([]);
     let toolsStr = $state('');
     let rationale = $state('Direct execution with single role');
+    let resultStrategy = $state('last');
+    let buildThread = $state(false);
+
+    // Resolution contract (for task strategy)
+    let resolution = $state({
+        maxCycles: '',
+        maxTokens: '',
+        maxToolCalls: '',
+        timeoutMs: ''
+    });
 
     // Sequence for sequential strategy
     let sequenceItems = $state([]);
 
-    // Roles for parallel strategy
-    let parallelRoles = $state([]);
+    // Branches for parallel strategy
+    let parallelBranches = $state([]);
 
     // Module metadata
     let availableRoles = $state([]);
@@ -51,9 +69,9 @@
             plan.role = role.trim();
         }
 
-        // Add adaptationKey for direct/task strategies (top-level)
-        if ((strategy === 'direct' || strategy === 'task') && adaptationKey.trim()) {
-            plan.adaptationKey = adaptationKey.trim();
+        // Add adaptations for direct/task strategies (top-level)
+        if ((strategy === 'direct' || strategy === 'task') && adaptations.length > 0) {
+            plan.adaptations = adaptations;
         }
 
         // Add tools for task strategy (top-level)
@@ -70,30 +88,68 @@
                         role: item.role.trim(),
                         strategy: item.strategy
                     };
-                    if (item.adaptationKey?.trim()) {
-                        step.adaptationKey = item.adaptationKey.trim();
+                    if (item.adaptations && item.adaptations.length > 0) {
+                        step.adaptations = item.adaptations;
                     }
                     if (item.tools?.length > 0) {
                         step.tools = item.tools.filter(t => t.trim()).map(t => t.trim());
+                    }
+                    // Add resolution if step strategy is task and any resolution fields are set
+                    if (item.strategy === 'task' && item.resolution) {
+                        const res = {};
+                        if (item.resolution.maxCycles && !isNaN(parseInt(item.resolution.maxCycles))) {
+                            res.maxCycles = parseInt(item.resolution.maxCycles);
+                        }
+                        if (item.resolution.maxTokens && !isNaN(parseInt(item.resolution.maxTokens))) {
+                            res.maxTokens = parseInt(item.resolution.maxTokens);
+                        }
+                        if (item.resolution.maxToolCalls && !isNaN(parseInt(item.resolution.maxToolCalls))) {
+                            res.maxToolCalls = parseInt(item.resolution.maxToolCalls);
+                        }
+                        if (item.resolution.timeoutMs && !isNaN(parseInt(item.resolution.timeoutMs))) {
+                            res.timeoutMs = parseInt(item.resolution.timeoutMs);
+                        }
+                        if (Object.keys(res).length > 0) {
+                            step.resolution = res;
+                        }
                     }
                     return step;
                 });
         }
 
-        // Add roles for parallel strategy
-        if (strategy === 'parallel' && parallelRoles.length > 0) {
-            plan.roles = parallelRoles
+        // Add branches for parallel strategy
+        if (strategy === 'parallel' && parallelBranches.length > 0) {
+            plan.roles = parallelBranches
                 .filter(item => item.role.trim())
                 .map(item => {
                     const step = {
                         role: item.role.trim(),
                         strategy: item.strategy
                     };
-                    if (item.adaptationKey?.trim()) {
-                        step.adaptationKey = item.adaptationKey.trim();
+                    if (item.adaptations && item.adaptations.length > 0) {
+                        step.adaptations = item.adaptations;
                     }
                     if (item.tools?.length > 0) {
                         step.tools = item.tools.filter(t => t.trim()).map(t => t.trim());
+                    }
+                    // Add resolution if branch strategy is task and any resolution fields are set
+                    if (item.strategy === 'task' && item.resolution) {
+                        const res = {};
+                        if (item.resolution.maxCycles && !isNaN(parseInt(item.resolution.maxCycles))) {
+                            res.maxCycles = parseInt(item.resolution.maxCycles);
+                        }
+                        if (item.resolution.maxTokens && !isNaN(parseInt(item.resolution.maxTokens))) {
+                            res.maxTokens = parseInt(item.resolution.maxTokens);
+                        }
+                        if (item.resolution.maxToolCalls && !isNaN(parseInt(item.resolution.maxToolCalls))) {
+                            res.maxToolCalls = parseInt(item.resolution.maxToolCalls);
+                        }
+                        if (item.resolution.timeoutMs && !isNaN(parseInt(item.resolution.timeoutMs))) {
+                            res.timeoutMs = parseInt(item.resolution.timeoutMs);
+                        }
+                        if (Object.keys(res).length > 0) {
+                            step.resolution = res;
+                        }
                     }
                     return step;
                 });
@@ -104,7 +160,178 @@
             plan.rationale = rationale.trim();
         }
 
+        // Add resultStrategy for sequential/parallel strategies
+        if (strategy === 'sequential' || strategy === 'parallel') {
+            plan.resultStrategy = resultStrategy;
+        }
+
+        // Add buildThread for sequential strategy
+        if (strategy === 'sequential' && buildThread) {
+            plan.buildThread = buildThread;
+        }
+
+        // Add resolution for task strategy
+        if (strategy === 'task') {
+            const res = {};
+            if (resolution.maxCycles && !isNaN(parseInt(resolution.maxCycles))) {
+                res.maxCycles = parseInt(resolution.maxCycles);
+            }
+            if (resolution.maxTokens && !isNaN(parseInt(resolution.maxTokens))) {
+                res.maxTokens = parseInt(resolution.maxTokens);
+            }
+            if (resolution.maxToolCalls && !isNaN(parseInt(resolution.maxToolCalls))) {
+                res.maxToolCalls = parseInt(resolution.maxToolCalls);
+            }
+            if (resolution.timeoutMs && !isNaN(parseInt(resolution.timeoutMs))) {
+                res.timeoutMs = parseInt(resolution.timeoutMs);
+            }
+            if (Object.keys(res).length > 0) {
+                plan.resolution = res;
+            }
+        }
+
         onPlanChange?.(plan);
+    }
+
+    // Preview instructions
+    async function previewInstructions() {
+        isLoadingPreview = true;
+        previewError = null;
+
+        try {
+            // Build the current plan
+            const plan = {
+                strategy,
+                name: name.trim() || `${strategy}-plan`
+            };
+
+            // Add all plan fields (same logic as buildPlan)
+            if ((strategy === 'direct' || strategy === 'task') && role.trim()) {
+                plan.role = role.trim();
+            }
+            if ((strategy === 'direct' || strategy === 'task') && adaptations.length > 0) {
+                plan.adaptations = adaptations;
+            }
+            if (strategy === 'task' && tools.length > 0) {
+                plan.tools = tools.filter(t => t.trim()).map(t => t.trim());
+            }
+            if (strategy === 'sequential' && sequenceItems.length > 0) {
+                plan.sequence = sequenceItems
+                    .filter(item => item.role.trim())
+                    .map(item => {
+                        const step = {
+                            role: item.role.trim(),
+                            strategy: item.strategy
+                        };
+                        if (item.adaptations && item.adaptations.length > 0) {
+                            step.adaptations = item.adaptations;
+                        }
+                        if (item.tools?.length > 0) {
+                            step.tools = item.tools.filter(t => t.trim()).map(t => t.trim());
+                        }
+                        if (item.strategy === 'task' && item.resolution) {
+                            const res = {};
+                            if (item.resolution.maxCycles && !isNaN(parseInt(item.resolution.maxCycles))) {
+                                res.maxCycles = parseInt(item.resolution.maxCycles);
+                            }
+                            if (item.resolution.maxTokens && !isNaN(parseInt(item.resolution.maxTokens))) {
+                                res.maxTokens = parseInt(item.resolution.maxTokens);
+                            }
+                            if (item.resolution.maxToolCalls && !isNaN(parseInt(item.resolution.maxToolCalls))) {
+                                res.maxToolCalls = parseInt(item.resolution.maxToolCalls);
+                            }
+                            if (item.resolution.timeoutMs && !isNaN(parseInt(item.resolution.timeoutMs))) {
+                                res.timeoutMs = parseInt(item.resolution.timeoutMs);
+                            }
+                            if (Object.keys(res).length > 0) {
+                                step.resolution = res;
+                            }
+                        }
+                        return step;
+                    });
+            }
+            if (strategy === 'parallel' && parallelBranches.length > 0) {
+                plan.roles = parallelBranches
+                    .filter(item => item.role.trim())
+                    .map(item => {
+                        const step = {
+                            role: item.role.trim(),
+                            strategy: item.strategy
+                        };
+                        if (item.adaptations && item.adaptations.length > 0) {
+                            step.adaptations = item.adaptations;
+                        }
+                        if (item.tools?.length > 0) {
+                            step.tools = item.tools.filter(t => t.trim()).map(t => t.trim());
+                        }
+                        if (item.strategy === 'task' && item.resolution) {
+                            const res = {};
+                            if (item.resolution.maxCycles && !isNaN(parseInt(item.resolution.maxCycles))) {
+                                res.maxCycles = parseInt(item.resolution.maxCycles);
+                            }
+                            if (item.resolution.maxTokens && !isNaN(parseInt(item.resolution.maxTokens))) {
+                                res.maxTokens = parseInt(item.resolution.maxTokens);
+                            }
+                            if (item.resolution.maxToolCalls && !isNaN(parseInt(item.resolution.maxToolCalls))) {
+                                res.maxToolCalls = parseInt(item.resolution.maxToolCalls);
+                            }
+                            if (item.resolution.timeoutMs && !isNaN(parseInt(item.resolution.timeoutMs))) {
+                                res.timeoutMs = parseInt(item.resolution.timeoutMs);
+                            }
+                            if (Object.keys(res).length > 0) {
+                                step.resolution = res;
+                            }
+                        }
+                        return step;
+                    });
+            }
+            if (rationale.trim()) {
+                plan.rationale = rationale.trim();
+            }
+            if (strategy === 'sequential' || strategy === 'parallel') {
+                plan.resultStrategy = resultStrategy;
+            }
+            if (strategy === 'sequential' && buildThread) {
+                plan.buildThread = buildThread;
+            }
+            if (strategy === 'task') {
+                const res = {};
+                if (resolution.maxCycles && !isNaN(parseInt(resolution.maxCycles))) {
+                    res.maxCycles = parseInt(resolution.maxCycles);
+                }
+                if (resolution.maxTokens && !isNaN(parseInt(resolution.maxTokens))) {
+                    res.maxTokens = parseInt(resolution.maxTokens);
+                }
+                if (resolution.maxToolCalls && !isNaN(parseInt(resolution.maxToolCalls))) {
+                    res.maxToolCalls = parseInt(resolution.maxToolCalls);
+                }
+                if (resolution.timeoutMs && !isNaN(parseInt(resolution.timeoutMs))) {
+                    res.timeoutMs = parseInt(resolution.timeoutMs);
+                }
+                if (Object.keys(res).length > 0) {
+                    plan.resolution = res;
+                }
+            }
+
+            const response = await fetch('/api/module/preview-instructions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plan })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to preview instructions');
+            }
+
+            previewData = await response.json();
+            showPreview = true;
+        } catch (error) {
+            previewError = error.message;
+            console.error('Preview error:', error);
+        } finally {
+            isLoadingPreview = false;
+        }
     }
 
     // Watch for changes and rebuild plan
@@ -113,29 +340,87 @@
         strategy;
         name;
         role;
-        adaptationKey;
+        adaptations.length;
         tools.length;
         rationale;
+        resultStrategy;
+        buildThread;
+        maxTokens;
         sequenceItems.length;
-        parallelRoles.length;
+        parallelBranches.length;
 
         buildPlan();
     });
 
     function addSequenceItem() {
-        sequenceItems = [...sequenceItems, { role: '', strategy: 'direct', adaptationKey: '', tools: [], toolsStr: '' }];
+        sequenceItems = [...sequenceItems, {
+            role: '',
+            strategy: 'direct',
+            adaptations: [],
+            tools: [],
+            toolsStr: '',
+            resolution: { maxCycles: '', maxTokens: '', maxToolCalls: '', timeoutMs: '' }
+        }];
     }
 
     function removeSequenceItem(index) {
         sequenceItems = sequenceItems.filter((_, i) => i !== index);
     }
 
-    function addParallelRole() {
-        parallelRoles = [...parallelRoles, { role: '', strategy: 'direct', adaptationKey: '', tools: [], toolsStr: '' }];
+    function addParallelBranch() {
+        parallelBranches = [...parallelBranches, {
+            role: '',
+            strategy: 'direct',
+            adaptations: [],
+            tools: [],
+            toolsStr: '',
+            resolution: { maxCycles: '', maxTokens: '', maxToolCalls: '', timeoutMs: '' }
+        }];
     }
 
-    function removeParallelRole(index) {
-        parallelRoles = parallelRoles.filter((_, i) => i !== index);
+    function removeParallelBranch(index) {
+        parallelBranches = parallelBranches.filter((_, i) => i !== index);
+    }
+
+    // Drag and drop state
+    let draggedIndex = $state(null);
+    let draggedItemIndex = $state(null);
+
+    function handleDragStart(index, event) {
+        draggedIndex = index;
+        event.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleDragOver(event) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+    }
+
+    function handleDrop(targetIndex, event) {
+        event.preventDefault();
+        if (draggedIndex === null || draggedIndex === targetIndex) return;
+
+        const newAdaptations = [...adaptations];
+        const [draggedItem] = newAdaptations.splice(draggedIndex, 1);
+        newAdaptations.splice(targetIndex, 0, draggedItem);
+        adaptations = newAdaptations;
+        draggedIndex = null;
+    }
+
+    function handleItemDragStart(itemAdaptations, index, event) {
+        draggedItemIndex = index;
+        event.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleItemDrop(item, targetIndex, event) {
+        event.preventDefault();
+        if (draggedItemIndex === null || draggedItemIndex === targetIndex) return;
+
+        const newAdaptations = [...item.adaptations];
+        const [draggedItem] = newAdaptations.splice(draggedItemIndex, 1);
+        newAdaptations.splice(targetIndex, 0, draggedItem);
+        item.adaptations = newAdaptations;
+        draggedItemIndex = null;
     }
 
     // Update name and rationale when strategy changes
@@ -143,19 +428,27 @@
         const defaults = {
             'direct': {
                 name: 'direct-plan',
-                rationale: 'Direct execution with single role'
+                rationale: 'Direct execution with single role',
+                resultStrategy: 'last',
+                buildThread: false
             },
             'task': {
                 name: 'task-plan',
-                rationale: 'Task-based execution with tool usage and iterative refinement'
+                rationale: 'Task-based execution with tool usage and iterative refinement',
+                resultStrategy: 'last',
+                buildThread: false
             },
             'sequential': {
                 name: 'sequential-plan',
-                rationale: 'Sequential execution through multiple roles'
+                rationale: 'Sequential execution through multiple roles',
+                resultStrategy: 'last',
+                buildThread: false
             },
             'parallel': {
                 name: 'parallel-plan',
-                rationale: 'Parallel execution across multiple roles'
+                rationale: 'Parallel execution across multiple roles',
+                resultStrategy: 'concat',
+                buildThread: false
             }
         };
 
@@ -163,6 +456,8 @@
         if (strategyDefaults) {
             name = strategyDefaults.name;
             rationale = strategyDefaults.rationale;
+            resultStrategy = strategyDefaults.resultStrategy;
+            buildThread = strategyDefaults.buildThread;
         }
     }
 </script>
@@ -224,20 +519,50 @@
         </div>
     {/if}
 
-    <!-- Adaptation (for direct/task strategies) -->
+    <!-- Adaptations (for direct/task strategies) -->
     {#if strategy === 'direct' || strategy === 'task'}
-        <div class="space-y-4">
-            <label for="plan-adaptation" class="text-xs font-medium text-gray-700">
-                Adaptation <span class="text-gray-500">(optional)</span>
+        <div class="space-y-2">
+            <label class="text-xs font-medium text-gray-700">
+                Adaptations <span class="text-gray-500">(optional)</span>
             </label>
+            <!-- Selected adaptations as tags (draggable) -->
+            {#if adaptations.length > 0}
+                <div class="flex flex-wrap gap-1 p-2 bg-gray-50 rounded border border-gray-200">
+                    {#each adaptations as adaptation, index (adaptation)}
+                        <span
+                            draggable={!disabled}
+                            ondragstart={(e) => handleDragStart(index, e)}
+                            ondragover={handleDragOver}
+                            ondrop={(e) => handleDrop(index, e)}
+                            animate:flip={{ duration: 200 }}
+                            class="inline-flex items-center gap-1 px-2 py-1 bg-indigo-100 text-indigo-800 rounded text-xs cursor-move hover:bg-indigo-200 transition-colors"
+                            class:opacity-50={draggedIndex === index}
+                        >
+                            <span class="text-[10px] text-indigo-600">⋮⋮</span>
+                            {adaptation}
+                            <button
+                                type="button"
+                                onclick={() => adaptations = adaptations.filter((_, i) => i !== index)}
+                                class="hover:text-indigo-900"
+                                {disabled}
+                            >×</button>
+                        </span>
+                    {/each}
+                </div>
+            {/if}
+            <!-- Dropdown to add adaptations -->
             <select
-                id="plan-adaptation"
-                bind:value={adaptationKey}
+                onchange={(e) => {
+                    if (e.target.value && !adaptations.includes(e.target.value)) {
+                        adaptations = [...adaptations, e.target.value];
+                        e.target.value = '';
+                    }
+                }}
                 class="text-xs border border-gray-300 rounded px-2 py-1 w-full"
                 {disabled}
             >
-                <option value="">No adaptation</option>
-                {#each availableAdaptations as adaptation}
+                <option value="">+ Add adaptation...</option>
+                {#each availableAdaptations.filter(a => !adaptations.includes(a)) as adaptation}
                     <option value={adaptation}>{adaptation}</option>
                 {/each}
             </select>
@@ -319,13 +644,43 @@
                                 </button>
                             </div>
                             <div class="ml-8 space-y-2">
+                                <!-- Adaptations for this step (draggable) -->
+                                {#if item.adaptations && item.adaptations.length > 0}
+                                    <div class="flex flex-wrap gap-1 p-1.5 bg-gray-50 rounded border border-gray-200">
+                                        {#each item.adaptations as adaptation, adaptIndex (adaptation)}
+                                            <span
+                                                draggable={!disabled}
+                                                ondragstart={(e) => handleItemDragStart(item.adaptations, adaptIndex, e)}
+                                                ondragover={handleDragOver}
+                                                ondrop={(e) => handleItemDrop(item, adaptIndex, e)}
+                                                animate:flip={{ duration: 200 }}
+                                                class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-100 text-indigo-800 rounded text-[10px] cursor-move hover:bg-indigo-200 transition-colors"
+                                                class:opacity-50={draggedItemIndex === adaptIndex}
+                                            >
+                                                <span class="text-[8px] text-indigo-600">⋮⋮</span>
+                                                {adaptation}
+                                                <button
+                                                    type="button"
+                                                    onclick={() => item.adaptations = item.adaptations.filter((_, i) => i !== adaptIndex)}
+                                                    class="hover:text-indigo-900"
+                                                    {disabled}
+                                                >×</button>
+                                            </span>
+                                        {/each}
+                                    </div>
+                                {/if}
                                 <select
-                                    bind:value={item.adaptationKey}
+                                    onchange={(e) => {
+                                        if (e.target.value && !item.adaptations.includes(e.target.value)) {
+                                            item.adaptations = [...item.adaptations, e.target.value];
+                                            e.target.value = '';
+                                        }
+                                    }}
                                     class="text-xs border border-gray-300 rounded px-2 py-1 w-full"
                                     {disabled}
                                 >
-                                    <option value="">No adaptation</option>
-                                    {#each availableAdaptations as adaptation}
+                                    <option value="">+ Add adaptation...</option>
+                                    {#each availableAdaptations.filter(a => !item.adaptations.includes(a)) as adaptation}
                                         <option value={adaptation}>{adaptation}</option>
                                     {/each}
                                 </select>
@@ -339,6 +694,47 @@
                                         item.tools = e.target.value.split(',').map(t => t.trim()).filter(Boolean);
                                     }}
                                 />
+                                <!-- Resolution Contract (only for task strategy steps) -->
+                                {#if item.strategy === 'task'}
+                                    <div class="pt-1 space-y-1">
+                                        <div class="text-[10px] font-medium text-gray-600">Resolution (optional)</div>
+                                        <div class="grid grid-cols-2 gap-1">
+                                            <Input
+                                                bind:value={item.resolution.maxCycles}
+                                                size="sm"
+                                                type="number"
+                                                placeholder="Max cycles"
+                                                {disabled}
+                                                class="text-xs"
+                                            />
+                                            <Input
+                                                bind:value={item.resolution.maxTokens}
+                                                size="sm"
+                                                type="number"
+                                                placeholder="Max tokens"
+                                                {disabled}
+                                                class="text-xs"
+                                            />
+                                            <Input
+                                                bind:value={item.resolution.maxToolCalls}
+                                                size="sm"
+                                                type="number"
+                                                placeholder="Max tool calls"
+                                                {disabled}
+                                                class="text-xs"
+                                            />
+                                            <Input
+                                                bind:value={item.resolution.timeoutMs}
+                                                size="sm"
+                                                type="number"
+                                                step="1000"
+                                                placeholder="Timeout (ms)"
+                                                {disabled}
+                                                class="text-xs"
+                                            />
+                                        </div>
+                                    </div>
+                                {/if}
                             </div>
                         </div>
                     {/each}
@@ -347,27 +743,27 @@
         </div>
     {/if}
 
-    <!-- Parallel Roles (for parallel strategy) -->
+    <!-- Parallel Branches (for parallel strategy) -->
     {#if strategy === 'parallel'}
         <div class="space-y-4">
             <div class="flex items-center justify-between">
-                <label class="text-xs font-medium text-gray-700">Parallel Roles</label>
+                <label class="text-xs font-medium text-gray-700">Parallel Branches</label>
                 <Button
                     size="xs"
                     variant="subtle"
-                    onclick={addParallelRole}
+                    onclick={addParallelBranch}
                     {disabled}
                 >
-                    + Add Role
+                    + Add Branch
                 </Button>
             </div>
-            {#if parallelRoles.length === 0}
+            {#if parallelBranches.length === 0}
                 <div class="text-xs text-gray-500 italic p-2 bg-gray-100 rounded">
-                    No roles defined. Click "Add Role" to create parallel execution.
+                    No branches defined. Click "Add Branch" to create parallel execution.
                 </div>
             {:else}
                 <div class="space-y-3">
-                    {#each parallelRoles as item, index}
+                    {#each parallelBranches as item, index}
                         <div class="bg-white p-3 rounded border border-gray-200 space-y-2">
                             <div class="flex gap-2 items-center">
                                 <select
@@ -390,7 +786,7 @@
                                 </select>
                                 <button
                                     type="button"
-                                    onclick={() => removeParallelRole(index)}
+                                    onclick={() => removeParallelBranch(index)}
                                     class="text-red-600 hover:text-red-800 text-xs px-2"
                                     {disabled}
                                 >
@@ -398,13 +794,43 @@
                                 </button>
                             </div>
                             <div class="ml-2 space-y-2">
+                                <!-- Adaptations for this branch (draggable) -->
+                                {#if item.adaptations && item.adaptations.length > 0}
+                                    <div class="flex flex-wrap gap-1 p-1.5 bg-gray-50 rounded border border-gray-200">
+                                        {#each item.adaptations as adaptation, adaptIndex (adaptation)}
+                                            <span
+                                                draggable={!disabled}
+                                                ondragstart={(e) => handleItemDragStart(item.adaptations, adaptIndex, e)}
+                                                ondragover={handleDragOver}
+                                                ondrop={(e) => handleItemDrop(item, adaptIndex, e)}
+                                                animate:flip={{ duration: 200 }}
+                                                class="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-100 text-indigo-800 rounded text-[10px] cursor-move hover:bg-indigo-200 transition-colors"
+                                                class:opacity-50={draggedItemIndex === adaptIndex}
+                                            >
+                                                <span class="text-[8px] text-indigo-600">⋮⋮</span>
+                                                {adaptation}
+                                                <button
+                                                    type="button"
+                                                    onclick={() => item.adaptations = item.adaptations.filter((_, i) => i !== adaptIndex)}
+                                                    class="hover:text-indigo-900"
+                                                    {disabled}
+                                                >×</button>
+                                            </span>
+                                        {/each}
+                                    </div>
+                                {/if}
                                 <select
-                                    bind:value={item.adaptationKey}
+                                    onchange={(e) => {
+                                        if (e.target.value && !item.adaptations.includes(e.target.value)) {
+                                            item.adaptations = [...item.adaptations, e.target.value];
+                                            e.target.value = '';
+                                        }
+                                    }}
                                     class="text-xs border border-gray-300 rounded px-2 py-1 w-full"
                                     {disabled}
                                 >
-                                    <option value="">No adaptation</option>
-                                    {#each availableAdaptations as adaptation}
+                                    <option value="">+ Add adaptation...</option>
+                                    {#each availableAdaptations.filter(a => !item.adaptations.includes(a)) as adaptation}
                                         <option value={adaptation}>{adaptation}</option>
                                     {/each}
                                 </select>
@@ -418,6 +844,47 @@
                                         item.tools = e.target.value.split(',').map(t => t.trim()).filter(Boolean);
                                     }}
                                 />
+                                <!-- Resolution Contract (only for task strategy branches) -->
+                                {#if item.strategy === 'task'}
+                                    <div class="pt-1 space-y-1">
+                                        <div class="text-[10px] font-medium text-gray-600">Resolution (optional)</div>
+                                        <div class="grid grid-cols-2 gap-1">
+                                            <Input
+                                                bind:value={item.resolution.maxCycles}
+                                                size="sm"
+                                                type="number"
+                                                placeholder="Max cycles"
+                                                {disabled}
+                                                class="text-xs"
+                                            />
+                                            <Input
+                                                bind:value={item.resolution.maxTokens}
+                                                size="sm"
+                                                type="number"
+                                                placeholder="Max tokens"
+                                                {disabled}
+                                                class="text-xs"
+                                            />
+                                            <Input
+                                                bind:value={item.resolution.maxToolCalls}
+                                                size="sm"
+                                                type="number"
+                                                placeholder="Max tool calls"
+                                                {disabled}
+                                                class="text-xs"
+                                            />
+                                            <Input
+                                                bind:value={item.resolution.timeoutMs}
+                                                size="sm"
+                                                type="number"
+                                                step="1000"
+                                                placeholder="Timeout (ms)"
+                                                {disabled}
+                                                class="text-xs"
+                                            />
+                                        </div>
+                                    </div>
+                                {/if}
                             </div>
                         </div>
                     {/each}
@@ -426,8 +893,101 @@
         </div>
     {/if}
 
+    <!-- Result Strategy (for sequential/parallel) -->
+    {#if strategy === 'sequential' || strategy === 'parallel'}
+        <div class="space-y-2">
+            <label for="result-strategy" class="text-xs font-medium text-gray-700">
+                Result Strategy
+            </label>
+            <select
+                id="result-strategy"
+                bind:value={resultStrategy}
+                class="text-xs border border-gray-300 rounded px-2 py-1 w-full"
+                {disabled}
+            >
+                <option value="last">last - Return final output only</option>
+                <option value="concat">concat - Merge all outputs</option>
+                <option value="label">label - Include role labels</option>
+                <option value="formatted">formatted - Use module formatter</option>
+            </select>
+            <div class="text-[10px] text-gray-500">
+                How to combine results from multiple steps/roles
+            </div>
+        </div>
+    {/if}
+
+    <!-- Build Thread (for sequential only) -->
+    {#if strategy === 'sequential'}
+        <div class="space-y-2">
+            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 cursor-pointer">
+                <input
+                    type="checkbox"
+                    bind:checked={buildThread}
+                    class="rounded border-gray-300"
+                    {disabled}
+                />
+                Build Thread
+            </label>
+            <div class="text-[10px] text-gray-500 ml-5">
+                Pass conversation history between sequential steps
+            </div>
+        </div>
+    {/if}
+
+    <!-- Resolution Contract (for task strategy only) -->
+    {#if strategy === 'task'}
+        <div class="space-y-2">
+            <label class="text-xs font-medium text-gray-700">
+                Resolution Contract <span class="text-gray-500">(optional)</span>
+            </label>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <Input
+                        bind:value={resolution.maxCycles}
+                        size="sm"
+                        type="number"
+                        placeholder="Max cycles (e.g., 3)"
+                        {disabled}
+                    />
+                    <div class="text-[10px] text-gray-500 mt-0.5">Max execution cycles</div>
+                </div>
+                <div>
+                    <Input
+                        bind:value={resolution.maxTokens}
+                        size="sm"
+                        type="number"
+                        placeholder="Max tokens (e.g., 8000)"
+                        {disabled}
+                    />
+                    <div class="text-[10px] text-gray-500 mt-0.5">Token limit per cycle</div>
+                </div>
+                <div>
+                    <Input
+                        bind:value={resolution.maxToolCalls}
+                        size="sm"
+                        type="number"
+                        placeholder="Max tool calls (e.g., 5)"
+                        {disabled}
+                    />
+                    <div class="text-[10px] text-gray-500 mt-0.5">Tool calls per cycle</div>
+                </div>
+                <div>
+                    <Input
+                        bind:value={resolution.timeoutMs}
+                        size="sm"
+                        type="number"
+                        step="1000"
+                        placeholder="Timeout (e.g., 60000)"
+                        {disabled}
+                    />
+                    <div class="text-[10px] text-gray-500 mt-0.5">Timeout in milliseconds</div>
+                </div>
+            </div>
+        </div>
+    {/if}
+
     <!-- Rationale (optional) -->
-    <div class="space-y-4">
+    <div class="space-y-2">
         <label for="plan-rationale" class="text-xs font-medium text-gray-700">
             Rationale <span class="text-gray-500">(optional)</span>
         </label>
@@ -439,4 +999,141 @@
             {disabled}
         />
     </div>
+
+    <!-- Preview Instructions Button -->
+    <div class="pt-4 border-t border-gray-200">
+        <Button
+            variant="outline"
+            size="sm"
+            onclick={previewInstructions}
+            disabled={disabled || isLoadingPreview}
+            class="w-full"
+        >
+            {isLoadingPreview ? 'Loading Preview...' : '🔍 Preview Instructions'}
+        </Button>
+        {#if previewError}
+            <div class="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">
+                {previewError}
+            </div>
+        {/if}
+    </div>
 </div>
+
+<!-- Preview Modal -->
+<Modal
+    bind:open={showPreview}
+    title={previewData ? `Instruction Preview: ${previewData.plan.name} (${previewData.plan.strategy})` : 'Instruction Preview'}
+>
+    {#snippet children()}
+        {#if previewData}
+            <div class="space-y-6">
+                    {#each previewData.results as result, index}
+                        <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                            <div class="flex items-center gap-2 mb-3">
+                                {#if result.type === 'step'}
+                                    <span class="text-xs font-mono bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                        Step {result.index}
+                                    </span>
+                                {:else if result.type === 'branch'}
+                                    <span class="text-xs font-mono bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                                        Branch {result.index}
+                                    </span>
+                                {:else}
+                                    <span class="text-xs font-mono bg-green-100 text-green-800 px-2 py-1 rounded">
+                                        {result.type}
+                                    </span>
+                                {/if}
+                                <span class="text-sm font-semibold text-gray-900">{result.role}</span>
+                                <span class="text-xs text-gray-500">({result.strategy})</span>
+                            </div>
+
+                            <div class="space-y-3">
+                                <!-- System Prompt -->
+                                <div>
+                                    <div class="text-xs font-semibold text-gray-700 mb-1">System</div>
+                                    <div class="text-xs bg-white p-2 rounded border border-gray-200 font-mono whitespace-pre-wrap">
+                                        {result.instructions.system}
+                                    </div>
+                                </div>
+
+                                <!-- Primary Prompt -->
+                                <div>
+                                    <div class="text-xs font-semibold text-gray-700 mb-1">Primary</div>
+                                    <div class="text-xs bg-white p-2 rounded border border-gray-200 font-mono whitespace-pre-wrap">
+                                        {result.instructions.primary}
+                                    </div>
+                                </div>
+
+                                <!-- Adaptations -->
+                                {#if result.instructions.adaptations}
+                                    <div>
+                                        <div class="text-xs font-semibold text-gray-700 mb-1">Adaptations</div>
+                                        <div class="text-xs bg-white p-2 rounded border border-gray-200 font-mono whitespace-pre-wrap">
+                                            {result.instructions.adaptations}
+                                        </div>
+                                    </div>
+                                {/if}
+
+                                <!-- Length Guidance -->
+                                {#if result.instructions.lengthGuidance}
+                                    <div>
+                                        <div class="text-xs font-semibold text-gray-700 mb-1">Length Guidance</div>
+                                        <div class="text-xs bg-white p-2 rounded border border-gray-200 font-mono whitespace-pre-wrap">
+                                            {result.instructions.lengthGuidance}
+                                        </div>
+                                    </div>
+                                {/if}
+
+                                <!-- Tool Instructions -->
+                                {#if result.instructions.toolInstructions}
+                                    <div>
+                                        <div class="text-xs font-semibold text-gray-700 mb-1">Tool Instructions</div>
+                                        <div class="text-xs bg-white p-2 rounded border border-gray-200 font-mono whitespace-pre-wrap">
+                                            {result.instructions.toolInstructions}
+                                        </div>
+                                    </div>
+                                {/if}
+
+                                <!-- Metadata -->
+                                <div>
+                                    <div class="text-xs font-semibold text-gray-700 mb-1">Metadata</div>
+                                    <div class="text-xs bg-white p-2 rounded border border-gray-200">
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <span class="text-gray-600">Max Tokens:</span>
+                                                <span class="font-mono ml-1">{result.instructions.maxTokens}</span>
+                                            </div>
+                                            {#if result.instructions.metadata?.baseTokens}
+                                                <div>
+                                                    <span class="text-gray-600">Base Tokens:</span>
+                                                    <span class="font-mono ml-1">{result.instructions.metadata.baseTokens}</span>
+                                                </div>
+                                            {/if}
+                                            {#if result.instructions.metadata?.tokenMultiplier}
+                                                <div>
+                                                    <span class="text-gray-600">Token Multiplier:</span>
+                                                    <span class="font-mono ml-1">{result.instructions.metadata.tokenMultiplier}</span>
+                                                </div>
+                                            {/if}
+                                            {#if result.instructions.metadata?.lengthLevel}
+                                                <div>
+                                                    <span class="text-gray-600">Length Level:</span>
+                                                    <span class="font-mono ml-1">{result.instructions.metadata.lengthLevel}</span>
+                                                </div>
+                                            {/if}
+                                            {#if result.instructions.metadata?.adaptations?.length > 0}
+                                                <div class="col-span-2">
+                                                    <span class="text-gray-600">Adaptations:</span>
+                                                    <span class="font-mono ml-1">{result.instructions.metadata.adaptations.join(', ')}</span>
+                                                </div>
+                                            {/if}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {/each}
+                </div>
+        {/if}
+    {/snippet}
+</Modal>

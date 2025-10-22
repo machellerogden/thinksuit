@@ -48,9 +48,9 @@ function validateInstructionsResult(result) {
         if (typeof result.metadata.lengthLevel !== 'string') {
             errors.push('metadata.lengthLevel must be a string');
         }
-        // adaptationKeys is optional but if present must be an array
-        if (result.metadata.adaptationKeys !== undefined && !Array.isArray(result.metadata.adaptationKeys)) {
-            errors.push('metadata.adaptationKeys must be an array if present');
+        // adaptations is optional but if present must be an array
+        if (result.metadata.adaptations !== undefined && !Array.isArray(result.metadata.adaptations)) {
+            errors.push('metadata.adaptations must be an array if present');
         }
     }
 
@@ -144,7 +144,7 @@ export async function composeInstructionsCore(input, machineContext) {
     // Engine computes derived stats for logging (not part of module's responsibility)
     const signals = factMap.Signal || [];
     const signalCount = signals.length;
-    const adaptationCount = result.metadata.adaptationKeys?.length || 0;
+    const adaptationCount = result.metadata.adaptations?.length || 0;
 
     logger.info(
         {
@@ -162,7 +162,7 @@ export async function composeInstructionsCore(input, machineContext) {
                 tokenMultiplier: result.metadata.tokenMultiplier,
                 maxTokens: result.maxTokens,
                 lengthLevel: result.metadata.lengthLevel,
-                adaptationKeys: result.metadata.adaptationKeys,
+                adaptations: result.metadata.adaptations,
                 // Engine-computed stats
                 signalCount,
                 adaptationCount,

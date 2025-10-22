@@ -140,23 +140,23 @@ describe('mu rule additions', () => {
         const sequence = plan.sequence;
         expect(sequence[0]).toEqual({
             role: 'outer_voice',
-            adaptationKey: 'outer_voice_opening'
+            adaptations: ['outer_voice_opening']
         });
         expect(sequence[1]).toEqual({
             role: 'inner_voice',
-            adaptationKey: 'inner_voice_response'
+            adaptations: ['inner_voice_response']
         });
         expect(sequence[2]).toEqual({
             role: 'outer_voice',
-            adaptationKey: 'outer_voice_challenge'
+            adaptations: ['outer_voice_challenge']
         });
         expect(sequence[3]).toEqual({
             role: 'reflector',
-            adaptationKey: 'convergence_synthesis'
+            adaptations: ['convergence_synthesis']
         });
         expect(sequence[4]).toEqual({
             role: 'planner',
-            adaptationKey: 'planning_synthesis'
+            adaptations: ['planning_synthesis']
         });
 
         // Check for increased token budget

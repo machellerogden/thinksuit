@@ -96,7 +96,7 @@ export async function execSequentialCore(input, machineContext) {
         // Support both string and object format
         const step = sequence[i];
         const role = typeof step === 'string' ? step : step.role;
-        const adaptationKey = typeof step === 'object' ? step.adaptationKey : null;
+        const adaptations = typeof step === 'object' ? (step.adaptations || []) : [];
         const stepStrategy = typeof step === 'object' ? step.strategy : null;
         const stepResolution = typeof step === 'object' ? step.resolution : null;
         const stepTools = typeof step === 'object' ? step.tools : null;
@@ -112,7 +112,7 @@ export async function execSequentialCore(input, machineContext) {
             step: stepNumber,
             totalSteps: sequence.length,
             branch,
-            adaptationKey,
+            adaptations,
             parentBoundaryId: executionBoundaryId
         });
 
@@ -150,7 +150,7 @@ export async function execSequentialCore(input, machineContext) {
 
                 // Add all previous conversation history with labels
                 conversationHistory.forEach((entry) => {
-                    const label = entry.adaptationKey || entry.role || 'speaker';
+                    const label = (entry.adaptations && entry.adaptations.length > 0 ? entry.adaptations.join(',') : null) || entry.role || 'speaker';
                     conversationText += `[${label}]: ${entry.output}\n\n`;
                 });
 
@@ -173,7 +173,7 @@ export async function execSequentialCore(input, machineContext) {
                 selectedPlan: {
                     strategy: stepStrategy || 'task',
                     role,
-                    adaptationKey,
+                    adaptations,
                     resolution: stepResolution, // Pass step-level resolution if provided
                     tools: stepTools, // Use step-specific tools
                     rationale: `Sequential step ${stepNumber}: ${role}`
@@ -224,7 +224,7 @@ export async function execSequentialCore(input, machineContext) {
                 results.push({
                     role,
                     step: stepNumber,
-                    adaptationKey,
+                    adaptations,
                     output: roleResponse.output,
                     usage: roleResponse.usage,
                     duration
@@ -241,7 +241,7 @@ export async function execSequentialCore(input, machineContext) {
                 if (buildThread) {
                     conversationHistory.push({
                         role,
-                        adaptationKey,
+                        adaptations,
                         output: roleResponse.output
                     });
                 }

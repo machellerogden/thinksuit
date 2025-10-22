@@ -17,6 +17,7 @@
     let textareaComponent = $state();
     let planMode = $state('builder'); // 'builder' or 'json'
     let usePlanOverride = $state(false); // Whether to use plan override
+    let planFormExpanded = $state(true); // Whether plan form is expanded or collapsed
 
     const session = getSession();
 
@@ -107,17 +108,48 @@
         <!-- Plan Override Section -->
         <div class="space-y-3">
             <!-- Checkbox to enable plan override -->
-            <div class="flex items-center gap-2">
+            <div class="flex items-center justify-between gap-2">
                 <Checkbox
                     bind:checked={usePlanOverride}
                     label="Bypass automatic plan selection"
                     class="text-xs font-mono"
                     disabled={isSubmitting}
                 />
+                {#if usePlanOverride}
+                    <button
+                        type="button"
+                        onclick={() => planFormExpanded = !planFormExpanded}
+                        class="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                        disabled={isSubmitting}
+                    >
+                        {planFormExpanded ? '▼ Collapse' : '▶ Expand'}
+                    </button>
+                {/if}
             </div>
 
             <!-- Plan builder/editor (only shown when checkbox is checked) -->
             {#if usePlanOverride}
+                <!-- Collapsed summary view -->
+                {#if !planFormExpanded}
+                    <div class="pl-6 border-l-2 border-indigo-200 py-2">
+                        <div class="text-xs text-gray-600 font-mono">
+                            {#if selectedPlan}
+                                {(() => {
+                                    try {
+                                        const plan = JSON.parse(selectedPlan);
+                                        return `Plan: ${plan.name || 'unnamed'} (${plan.strategy || 'unknown'})`;
+                                    } catch {
+                                        return 'Custom plan configured';
+                                    }
+                                })()}
+                            {:else}
+                                No plan configured
+                            {/if}
+                        </div>
+                    </div>
+                {/if}
+
+                {#if planFormExpanded}
                 <div class="space-y-2 pl-6 border-l-2 border-indigo-200 pt-2">
                     <!-- Mode Toggle -->
                     <div class="flex gap-2">
@@ -162,6 +194,7 @@
                         </div>
                     {/if}
                 </div>
+                {/if}
             {/if}
         </div>
 

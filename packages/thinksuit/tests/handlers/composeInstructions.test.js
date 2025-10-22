@@ -25,7 +25,7 @@ describe('composeInstructions handler (engine contract)', () => {
                     baseTokens: 400,  // Natural: looked up from role config
                     tokenMultiplier: 1.0,  // Natural: calculated during composition
                     lengthLevel: 'standard',  // Natural: chosen based on signals
-                    adaptationKeys: []  // Natural: tracked during composition
+                    adaptations: []  // Natural: tracked during composition
                 }
             }))
         };
@@ -136,7 +136,7 @@ describe('composeInstructions handler (engine contract)', () => {
                 baseTokens: 400,
                 tokenMultiplier: 1.0,
                 lengthLevel: 'standard',
-                adaptationKeys: []
+                adaptations: []
             });
 
             // Engine enrichments are added

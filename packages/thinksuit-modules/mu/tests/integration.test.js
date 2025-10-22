@@ -30,9 +30,9 @@ describe('Mu Module', () => {
             expect(module).toHaveProperty('lengthGuidance');
         });
 
-        it('defines all 11 cognitive roles', () => {
+        it('defines all 12 cognitive roles', () => {
             expect(Array.isArray(module.roles)).toBe(true);
-            expect(module.roles.length).toBe(11);
+            expect(module.roles.length).toBe(12);
 
             const roleNames = module.roles.map(r => r.name);
             const expectedRoles = [
@@ -46,7 +46,8 @@ describe('Mu Module', () => {
                 'optimizer',
                 'integrator',
                 'outer_voice',
-                'inner_voice'
+                'inner_voice',
+                'developer',
             ];
             expect(roleNames).toEqual(expectedRoles);
         });

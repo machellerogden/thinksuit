@@ -80,7 +80,7 @@ export async function execParallelCore(input, machineContext) {
     const rolePromises = roles.map(async (item, index) => {
         // Support both string and object format
         const role = typeof item === 'string' ? item : item.role;
-        const adaptationKey = typeof item === 'object' ? item.adaptationKey : null;
+        const adaptations = typeof item === 'object' ? (item.adaptations || []) : [];
         const stepStrategy = typeof item === 'object' ? item.strategy : null;
         const stepResolution = typeof item === 'object' ? item.resolution : null;
         const stepTools = typeof item === 'object' ? item.tools : null;
@@ -92,7 +92,7 @@ export async function execParallelCore(input, machineContext) {
             role,
             branch,
             index: `${index + 1}/${roles.length}`,
-            adaptationKey,
+            adaptations,
             parentBoundaryId: executionBoundaryId
         });
 
@@ -131,7 +131,7 @@ export async function execParallelCore(input, machineContext) {
                 selectedPlan: {
                     strategy: stepStrategy || 'task',
                     role,
-                    adaptationKey,
+                    adaptations,
                     resolution: stepResolution, // Pass step-level resolution if provided
                     tools: stepTools, // Use step-specific tools
                     rationale: `Parallel branch: ${role}`
@@ -255,7 +255,7 @@ export async function execParallelCore(input, machineContext) {
                     traceId,
                     data: {
                         role,
-                        adaptationKey,
+                        adaptations,
                         branch: index + 1,
                         totalBranches: roles.length,
                         error: error.message

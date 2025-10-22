@@ -645,7 +645,7 @@ const rules = [
         },
         action: (facts, engine) => {
             engine.addFact(createFact.executionPlan('sequential', { buildThread: true, sequence: [
-                    { role: 'analyzer', adaptationKey: 'initial_analysis' },
+                    { role: 'analyzer', adaptations: ['initial_analysis'] },
                     { role: 'explorer' },
                     { role: 'synthesizer' }
                 ], resultStrategy: 'last', rationale: 'Uncertain and unsupported input benefits from analyze→explore→synthesize' }));
@@ -910,11 +910,11 @@ const rules = [
                 name: 'inner-outer-to-plan',
                 buildThread: true,
                 sequence: [
-                    { role: 'outer_voice', adaptationKey: 'outer_voice_opening' },
-                    { role: 'inner_voice', adaptationKey: 'inner_voice_response' },
-                    { role: 'outer_voice', adaptationKey: 'outer_voice_challenge' },
-                    { role: 'reflector', adaptationKey: 'convergence_synthesis' },
-                    { role: 'planner', adaptationKey: 'planning_synthesis' }
+                    { role: 'outer_voice', adaptations: ['outer_voice_opening'] },
+                    { role: 'inner_voice', adaptations: ['inner_voice_response'] },
+                    { role: 'outer_voice', adaptations: ['outer_voice_challenge'] },
+                    { role: 'reflector', adaptations: ['convergence_synthesis'] },
+                    { role: 'planner', adaptations: ['planning_synthesis'] }
                 ],
                 resultStrategy: 'last',
                 rationale: 'Debate to surface tensions → reflect → turn into a concrete plan',
@@ -1119,10 +1119,10 @@ const rules = [
                 buildThread: true,
                 resultStrategy: 'last',
                 sequence: [
-                    { role: 'outer_voice', adaptationKey: 'outer_voice_opening' },
-                    { role: 'inner_voice', adaptationKey: 'inner_voice_response' },
-                    { role: 'outer_voice', adaptationKey: 'outer_voice_challenge' },
-                    { role: 'reflector', adaptationKey: 'convergence_synthesis' }
+                    { role: 'outer_voice', adaptations: ['outer_voice_opening'] },
+                    { role: 'inner_voice', adaptations: ['inner_voice_response'] },
+                    { role: 'outer_voice', adaptations: ['outer_voice_challenge'] },
+                    { role: 'reflector', adaptations: ['convergence_synthesis'] }
                 ],
                 rationale: 'Inner/outer dialogue to explore tensions in hedged universal claims'
             }));
@@ -1154,9 +1154,9 @@ const rules = [
                 buildThread: true,
                 resultStrategy: 'last',
                 sequence: [
-                    { role: 'analyzer', adaptationKey: 'initial_analysis' },
-                    { role: 'analyzer', adaptationKey: 'deeper_investigation' },
-                    { role: 'analyzer', adaptationKey: 'final_assessment' }
+                    { role: 'analyzer', adaptations: ['initial_analysis'] },
+                    { role: 'analyzer', adaptations: ['deeper_investigation'] },
+                    { role: 'analyzer', adaptations: ['final_assessment'] }
                 ],
                 rationale: 'Iterative analysis to compensate for lack of initial evidence'
             }));

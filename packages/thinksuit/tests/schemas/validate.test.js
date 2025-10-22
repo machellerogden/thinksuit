@@ -220,7 +220,7 @@ describe('validatePlan', () => {
             strategy: 'sequential',
             sequence: [
                 'explorer',
-                { role: 'reflector', adaptationKey: 'inner_voice' },
+                { role: 'reflector', adaptations: ['inner_voice'] },
                 'synthesizer'
             ]
         };

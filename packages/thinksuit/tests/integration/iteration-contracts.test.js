@@ -64,7 +64,7 @@ describe('Iteration Contracts Integration', () => {
             plan: {
                 strategy: 'direct',
                 role: 'reflector',
-                adaptationKey: 'inner_voice_response' // Simulating iteration 2
+                adaptations: ['inner_voice_response'] // Simulating iteration 2
             },
             factMap: {
                 executionPlans: [],
@@ -91,16 +91,16 @@ describe('Iteration Contracts Integration', () => {
             role: 'reflector',
             iterations: 2,
             iterationAdaptations: [
-                { from: 1, to: 1, adaptationKey: 'outer_voice_opening' },
-                { from: 2, to: 2, adaptationKey: 'inner_voice_response' }
+                { from: 1, to: 1, adaptations: ['outer_voice_opening'] },
+                { from: 2, to: 2, adaptations: ['inner_voice_response'] }
             ]
         };
 
         // The execSingle handler should:
-        // 1. Execute iteration 1 with no adaptationKey
-        // 2. Execute iteration 2 via runCycle with adaptationKey: 'inner_voice_response'
+        // 1. Execute iteration 1 with no adaptations
+        // 2. Execute iteration 2 via runCycle with adaptations: ['inner_voice_response']
 
         expect(plan.iterations).toBe(2);
-        expect(plan.iterationAdaptations[1].adaptationKey).toBe('inner_voice_response');
+        expect(plan.iterationAdaptations[1].adaptations).toEqual(['inner_voice_response']);
     });
 });
