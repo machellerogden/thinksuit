@@ -1,7 +1,0 @@
-./packages/thinksuit/README.md
-./packages/thinksuit/package.json
-./packages/thinksuit/index.js
-./packages/thinksuit/engine/*.js*
-./packages/thinksuit/engine/**/*.js*
-./packages/thinksuit-modules/*.js
-./packages/thinksuit/schemas/*.js*

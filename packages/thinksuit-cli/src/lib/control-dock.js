@@ -285,7 +285,7 @@ export class ControlDock {
             const argsLabel = chalk.bold('Arguments:');
             const argsContent = argsDisplay;
             const bottomBorder = chalk.dim.gray('─'.repeat(width));
-            const promptLine = chalk.dim('y = Approve | n = Deny | ESC = Deny\n');
+            const promptLine = chalk.dim('Enter = Approve | ESC = Deny\n');
 
             // Compose full content
             const content = [
@@ -307,12 +307,9 @@ export class ControlDock {
 
                 let decision = null;
 
-                if (key.name === 'y') {
+                if (key.name === 'return') {
                     decision = true;
-                } else if (key.name === 'n' || key.name === 'escape') {
-                    decision = false;
-                } else if (key.name === 'return') {
-                    // Default to deny (safe default)
+                } else if (key.name === 'escape') {
                     decision = false;
                 }
 

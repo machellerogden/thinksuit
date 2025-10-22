@@ -34,20 +34,20 @@ src/
 ├── main.js                      # Entry point, input loop, key handling, routing
 ├── lib/
 │   ├── ansi.js                  # ANSI escape sequences
+│   ├── bracketed-paste-filter.js # Transform stream for bracketed paste handling
+│   ├── control-dock.js          # ControlDock - dock UI using ScreenManager
 │   ├── screen-manager.js        # ScreenManager (ported from Inquirer.js)
 │   └── utils.js                 # Text wrapping with wrap-ansi
-├── repl/
-│   ├── effects.js               # Effect runner utilities
-│   ├── cli-effects.js           # Effect handlers: output, error, clear, status, clear-dock
-│   ├── commands.js              # Command generators: session, status, config, help, execute
-│   └── tui-logger-stream.js     # Pino stream capturing ThinkSuit events
-└── tui/
-    └── control-dock.js          # ControlDock - dock UI using ScreenManager
+└── repl/
+    ├── effects.js               # Effect runner utilities
+    ├── cli-effects.js           # Effect handlers: output, error, clear, status, clear-dock
+    ├── commands.js              # Command generators: session, status, config, help, execute
+    └── logger-stream.js         # Pino stream capturing ThinkSuit events
 ```
 
 ## Key Components
 
-### ControlDock (`tui/control-dock.js`)
+### ControlDock (`lib/control-dock.js`)
 
 **Purpose**: Manages the dock UI with status, input prompt, hints, and tool approval requests.
 
@@ -133,7 +133,7 @@ Loaded via `buildConfig()` from ThinkSuit engine. In-memory config managed via `
 - First execution creates sessionId
 - `:session` clears or sets sessionId
 - Session data stored in `~/.thinksuit/sessions/*.jsonl`
-- Event streaming through Pino with TuiLoggerStream
+- Event streaming through Pino with LoggerStream
 
 ## Common Patterns
 
@@ -170,7 +170,7 @@ The CLI now supports interactive tool approval:
 
 **Event Flow**:
 - ThinkSuit emits `execution.tool.approval-requested` event →
-- TuiLoggerStream forwards to handleEvent →
+- LoggerStream forwards to handleEvent →
 - Event added to approval queue →
 - Background processor detects queued approval →
 - ControlDock.getApproval() shows UI and waits →

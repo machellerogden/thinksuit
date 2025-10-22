@@ -9,7 +9,7 @@ import chalk from 'chalk';
 import { buildConfig } from '../../thinksuit/engine/config.js';
 import pkg from '../package.json' with { type: 'json' };
 
-import { ControlDock } from './tui/control-dock.js';
+import { ControlDock } from './lib/control-dock.js';
 import { runWithEffects } from './repl/effects.js';
 import { createCliEffects } from './repl/cli-effects.js';
 import { defaultCommands } from './repl/commands.js';
@@ -121,35 +121,103 @@ async function main() {
     });
 
     // Handle process termination
+    // Exit state - consolidated for clarity
+    const exitState = {
+        sigintCount: 0,
+        resetTimer: null
+    };
+
+    // Keep running and lastKeyWasEsc as-is (used elsewhere)
     let running = true;
-    let ctrlCPressed = false;
-    let ctrlCTimer = null;
     let lastKeyWasEsc = false;
 
-    // Handle SIGINT (Ctrl-C)
-    rl.on('SIGINT', () => {
-        if (ctrlCPressed) {
-            // Second Ctrl-C within timeout - exit immediately
-            if (ctrlCTimer) {
-                clearTimeout(ctrlCTimer);
-                ctrlCTimer = null;
-            }
-            exit();
-        } else {
-            // First Ctrl-C - show warning and start timer
-            ctrlCPressed = true;
+    // Handle SIGINT (Ctrl-C) at process level
+    // This always fires, even if readline/streams are blocked
+    process.on('SIGINT', () => {
+        // Clear any existing timeout FIRST, before anything else
+        if (exitState.resetTimer) {
+            clearTimeout(exitState.resetTimer);
+            exitState.resetTimer = null;
+        }
+
+        // Increment counter
+        exitState.sigintCount++;
+
+        if (exitState.sigintCount === 1) {
+            // First Ctrl-C - show hint via ControlDock
             controlDock.showTemporaryHint(chalk.dim.white('Press Ctrl-C again to exit'));
 
-            // Clear the flag and warning after 3 seconds
-            ctrlCTimer = setTimeout(() => {
-                ctrlCPressed = false;
-                ctrlCTimer = null;
+            // Set timeout to reset counter
+            exitState.resetTimer = setTimeout(() => {
+                exitState.sigintCount = 0;
+                exitState.resetTimer = null;
                 controlDock.clearTemporaryHint();
             }, 3000);
+
+        } else if (exitState.sigintCount === 2) {
+            // Second Ctrl-C - exit gracefully
+            controlDock.showTemporaryHint(chalk.dim.white('Press Ctrl-C once more to force exit'));
+            running = false;
+            rl.write('');
+            rl.emit('line', '');
+
+        } else {
+            // Third Ctrl-C - force exit immediately
+            forceExit();
         }
     });
 
-    // Handle ESC key and Ctrl-C hint clearing
+    // Graceful exit - cleanup and exit
+    function gracefulExit() {
+        running = false;
+
+        try {
+            controlDock.clearDock();
+        } catch (e) {
+            // ControlDock might be in bad state, continue anyway
+        }
+
+        if (process.stdin.isTTY) {
+            try {
+                // Disable bracketed paste mode before exit
+                process.stdout.write('\x1b[?2004l');
+                process.stdin.setRawMode(false);
+            } catch (e) {
+                // Terminal reset might fail, continue anyway
+            }
+        }
+
+        try {
+            rl.close();
+        } catch (e) {
+            // Readline might already be closed or in bad state
+        }
+
+        process.exit(0);
+    }
+
+    // Force exit - minimal cleanup, immediate exit
+    function forceExit() {
+        if (process.stdin.isTTY) {
+            try {
+                process.stdout.write('\x1b[?2004l');
+                process.stdin.setRawMode(false);
+            } catch (e) {
+                // Even if terminal reset fails, still exit
+            }
+        }
+        process.exit(130);  // Standard Unix exit code for SIGINT
+    }
+
+    // Listen for Ctrl-C directly on stdin (before it goes through pasteFilter)
+    process.stdin.on('data', (chunk) => {
+        // Check for Ctrl-C (\x03)
+        if (chunk.includes('\x03')) {
+            process.kill(process.pid, 'SIGINT');
+        }
+    });
+
+    // Handle keypress events - ESC and hint clearing
     pasteFilter.on('keypress', (char, key) => {
         if (key && key.name === 'escape') {
             // ESC interrupts execution if busy
@@ -180,12 +248,12 @@ async function main() {
                 controlDock.clearTemporaryHint();
             }
 
-            // Clear Ctrl-C hint if any other key is pressed
-            if (ctrlCPressed && !(key.ctrl && key.name === 'c')) {
-                ctrlCPressed = false;
-                if (ctrlCTimer) {
-                    clearTimeout(ctrlCTimer);
-                    ctrlCTimer = null;
+            // Clear Ctrl-C hint if any other key is pressed (but not Ctrl-C itself)
+            if (exitState.sigintCount > 0 && !(key.ctrl && key.name === 'c')) {
+                exitState.sigintCount = 0;
+                if (exitState.resetTimer) {
+                    clearTimeout(exitState.resetTimer);
+                    exitState.resetTimer = null;
                 }
                 controlDock.clearTemporaryHint();
             }
@@ -193,7 +261,8 @@ async function main() {
     });
 
     process.on('SIGTERM', () => {
-        exit();
+        rl.close();
+        gracefulExit();
     });
 
     // Handle uncaught errors gracefully
@@ -207,11 +276,11 @@ async function main() {
     async function inputLoop() {
         while (running) {
             try {
-                // Reset Ctrl-C flag and clear timer when showing new prompt
-                ctrlCPressed = false;
-                if (ctrlCTimer) {
-                    clearTimeout(ctrlCTimer);
-                    ctrlCTimer = null;
+                // Reset Ctrl-C state when showing new prompt
+                exitState.sigintCount = 0;
+                if (exitState.resetTimer) {
+                    clearTimeout(exitState.resetTimer);
+                    exitState.resetTimer = null;
                 }
                 // Reset ESC sequence
                 lastKeyWasEsc = false;
@@ -293,20 +362,11 @@ async function main() {
         }
     }
 
-    function exit() {
-        running = false;
-        controlDock.clearDock();
-        if (process.stdin.isTTY) {
-            // Disable bracketed paste mode before exit
-            process.stdout.write('\x1b[?2004l');
-            process.stdin.setRawMode(false);
-        }
-        rl.close();
-        process.exit(0);
-    }
-
     // Start the input loop
     await inputLoop();
+
+    // Input loop exited (running = false), cleanup and exit
+    gracefulExit();
 }
 
 // Start the application

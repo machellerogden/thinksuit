@@ -191,7 +191,7 @@ export async function* executeCommand(args, session) {
     const { createBaseConfig } = await import('../../../thinksuit/engine/logger.js');
     const { modules: defaultModules } = await import('thinksuit-modules');
     const { loadModules } = await import('../../../thinksuit/engine/modules/loader.js');
-    const { createTuiLoggerStream } = await import('./tui-logger-stream.js');
+    const { createLoggerStream } = await import('./logger-stream.js');
     const { resolveApproval } = await import('../../../thinksuit/index.js');
     const pino = (await import('pino')).default;
     const { join, dirname } = await import('node:path');
@@ -247,13 +247,13 @@ export async function* executeCommand(args, session) {
             }
         };
 
-        // Create custom TUI logger stream that captures events
-        const tuiStream = createTuiLoggerStream(null, null, handleEvent);
+        // Create custom logger stream that captures events
+        const eventStream = createLoggerStream(null, null, handleEvent);
 
-        // Create logger with both TUI stream and session file transport
+        // Create logger with both event stream and session file transport
         const baseConfig = createBaseConfig('info');
 
-        // Build multistream with TUI + session transport
+        // Build multistream with event stream + session transport
         const sessionTransportPath = join(__dirname, '../../../thinksuit/engine/transports/session-router.js');
         const transport = pino.transport({
             targets: [
@@ -265,9 +265,9 @@ export async function* executeCommand(args, session) {
             ]
         });
 
-        // Combine TUI stream with session transport using multistream
+        // Combine event stream with session transport using multistream
         const streams = [
-            { level: 'info', stream: tuiStream },
+            { level: 'info', stream: eventStream },
             { level: 'info', stream: transport }
         ];
 

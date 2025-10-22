@@ -1,12 +1,12 @@
 import { Writable } from 'node:stream';
 
 /**
- * Custom writable stream for capturing Pino log events and forwarding to TUI.
+ * Custom writable stream for capturing Pino log events.
  *
- * This stream receives JSON log lines from Pino and parses them to update
- * the TUI with progress information.
+ * This stream receives JSON log lines from Pino and parses them,
+ * forwarding events to a provided handler.
  */
-export class TuiLoggerStream extends Writable {
+export class LoggerStream extends Writable {
     constructor(options = {}) {
         super({ objectMode: false });
 
@@ -46,12 +46,12 @@ export class TuiLoggerStream extends Writable {
 }
 
 /**
- * Create a TUI logger stream instance
- * @param {Object} logPane - Log pane for output
- * @param {Object} screen - Screen manager
+ * Create a logger stream instance
+ * @param {Object} logPane - Log pane for output (optional)
+ * @param {Object} screen - Screen manager (optional)
  * @param {Function} onEvent - Event handler callback
- * @returns {TuiLoggerStream}
+ * @returns {LoggerStream}
  */
-export function createTuiLoggerStream(logPane, screen, onEvent) {
-    return new TuiLoggerStream({ logPane, screen, onEvent });
+export function createLoggerStream(logPane, screen, onEvent) {
+    return new LoggerStream({ logPane, screen, onEvent });
 }

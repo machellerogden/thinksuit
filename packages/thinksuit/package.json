@@ -4,6 +4,9 @@
   "description": "Core orchestration engine for ThinkSuit - state machine-based AI execution with signal detection and modular cognitive architecture",
   "type": "module",
   "main": "index.js",
+  "bin": {
+    "thinksuit-exec": "./engine/execute.js"
+  },
   "exports": {
     ".": "./index.js",
     "./sessions/tree": "./engine/sessions/tree.js",

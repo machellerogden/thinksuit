@@ -24,12 +24,21 @@ ThinkSuit is an orchestration engine that:
 - Provides provider abstraction for LLMs and tools
 - Executes via Trajectory runtime with ASL state machine definition
 
-## Quick Start
+## Installation
 
 ```bash
-# Install dependencies
-npm install
+# Install globally
+npm install -g thinksuit
 
+# Or install in your project
+npm install thinksuit
+```
+
+## Quick Start
+
+### One-Shot Command Line Usage
+
+```bash
 # Set up API key for OpenAI (if using OpenAI provider)
 export OPENAI_API_KEY="your-key"
 
@@ -38,13 +47,23 @@ gcloud auth application-default login
 export GOOGLE_CLOUD_PROJECT="your-project-id"
 # Optional: export GOOGLE_CLOUD_LOCATION="us-central1"  # Defaults to us-central1
 
-# Run the CLI
-npm run cli "What is quantum computing?"                                  # Basic usage (creates new session)
-npm run cli "Tell me more" -- --session-id 20250821T164513435Z-xXKTbcJ2  # Resume session
-npm run cli "Analyze this claim" --model gpt-4                            # Specify model (OpenAI)
-npm run cli "Analyze this claim" --provider vertex-ai --model gemini-2.5-pro  # Use Vertex AI
-npm run cli "Debug this" --trace                                          # Enable detailed tracing
-npm run cli --help                                                        # Show help
+# If installed globally or in node_modules/.bin
+thinksuit-exec "What is quantum computing?"                                  # Basic usage (creates new session)
+thinksuit-exec "Tell me more" --session-id 20250821T164513435Z-xXKTbcJ2     # Resume session
+thinksuit-exec "Analyze this claim" --model gpt-4                            # Specify model (OpenAI)
+thinksuit-exec "Analyze this claim" --provider vertex-ai --model gemini-2.5-pro  # Use Vertex AI
+thinksuit-exec "Debug this" --trace                                          # Enable detailed tracing
+thinksuit-exec --help                                                        # Show help
+
+# For local development in this repository
+npm run exec "What is quantum computing?"                                  # Basic usage (creates new session)
+npm run exec "Tell me more" -- --session-id 20250821T164513435Z-xXKTbcJ2  # Resume session
+npm run exec "Analyze this claim" -- --model gpt-4                         # Specify model (OpenAI)
+npm run exec "Analyze this claim" -- --provider vertex-ai --model gemini-2.5-pro  # Use Vertex AI
+npm run exec "Debug this" -- --trace                                       # Enable detailed tracing
+npm run exec -- --help                                                     # Show help
+
+# For interactive REPL, see the thinksuit-cli package
 
 # Programmatic usage
 import { schedule } from 'thinksuit';
@@ -143,7 +162,7 @@ engine/
   machine.json          # State machine definition
   runCycle.js           # Pure function for executing ThinkSuit cycles
   run.js                # Programmatic entry point
-  cli.js                # CLI entry point (delegates to run.js)
+  execute.js            # One-shot CLI entry point (thinksuit-exec bin)
   config.js             # Configuration management with meow
   logger.js             # Structured logging with pino
   constants/
