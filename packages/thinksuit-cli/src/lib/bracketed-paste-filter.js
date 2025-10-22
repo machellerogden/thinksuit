@@ -30,7 +30,16 @@ export class BracketedPasteFilter extends Transform {
     }
 
     _transform(chunk, encoding, callback) {
-        this.#buffer += chunk.toString();
+        const data = chunk.toString();
+
+        // Check for Ctrl-C and emit event instead of passing it through
+        if (data.includes('\x03')) {
+            this.emit('ctrl-c');
+            // Remove \x03 from the data before processing
+            this.#buffer += data.replace(/\x03/g, '');
+        } else {
+            this.#buffer += data;
+        }
 
         // Process buffer looking for bracketed paste markers
         while (this.#buffer.length > 0) {

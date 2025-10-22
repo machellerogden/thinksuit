@@ -1,5 +1,6 @@
 import { fx } from 'with-effects';
 import chalk from 'chalk';
+import { indentLines } from '../lib/utils.js';
 
 /**
  * :session [id] - Set or clear session ID
@@ -353,8 +354,11 @@ export async function* executeCommand(args, session) {
             yield fx('output', chalk.yellow('Execution interrupted'));
             yield fx('output', '');
         } else {
-            yield fx('output', chalk.bold.cyan('Response:'));
-            yield fx('output', result.response);
+            const [ first, ...rest ] = result.response.split('\n');
+            yield fx('output', `⏺ ${first}`);
+            for (const line of rest) {
+                yield fx('output', indentLines(line, 2));
+            }
             yield fx('output', '');
         }
 
@@ -368,6 +372,19 @@ export async function* executeCommand(args, session) {
     return true;
 }
 
+const LLM_PROCESSING_MESSAGES = [
+    'Doodling...',
+    'Contemplating the meaning of life...',
+    'Consulting the oracle...',
+    'Herding cats...',
+    'Searching for the perfect GIF...',
+    'Counting to infinity...',
+    'Polishing virtual apples...',
+    'Debugging the matrix...',
+    'Chasing butterflies...',
+    'Rearranging pixels...'
+];
+
 /**
  * Format event message for display
  */
@@ -380,9 +397,9 @@ function formatEventMessage(event) {
             return `${prefix} Session started...`;
         case 'execution.started':
             return `${prefix} Processing...`;
-        case 'llm.request':
-            return `${prefix} Calling LLM...`;
-        case 'llm.response':
+        case 'processing.llm.request':
+            return `${prefix} ${LLM_PROCESSING_MESSAGES[Math.floor(Math.random() * LLM_PROCESSING_MESSAGES.length)]}`;
+        case 'processing.llm.response':
             return `${prefix} Received response...`;
         case 'tool.execution':
             return `${prefix} Executing tool: ${event.tool || 'unknown'}...`;
@@ -396,7 +413,7 @@ function formatEventMessage(event) {
                     : event.msg;
                 return `${prefix} ${shortMsg}`;
             }
-            return null;
+            return; //`${prefix} ${event.event}`;
     }
 }
 

@@ -50,3 +50,17 @@ export function height(content) {
 export function lastLine(content) {
     return content.split('\n').pop() ?? '';
 }
+
+/**
+ * Indent each line of the given text by the specified number of spaces
+ * @param {string} text - The text to indent
+ * @param {number} spaces - Number of spaces to indent
+ * @returns {string}
+ */
+export function indentLines(text, spaces) {
+  const prefix = ' '.repeat(spaces);
+  return text
+    .split('\n')
+    .map(line => prefix + line)
+    .join('\n');
+}

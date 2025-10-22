@@ -209,11 +209,21 @@ async function main() {
         process.exit(130);  // Standard Unix exit code for SIGINT
     }
 
-    // Listen for Ctrl-C directly on stdin (before it goes through pasteFilter)
-    process.stdin.on('data', (chunk) => {
-        // Check for Ctrl-C (\x03)
-        if (chunk.includes('\x03')) {
-            process.kill(process.pid, 'SIGINT');
+    // Listen for Ctrl-C from pasteFilter (it filters out \x03 and emits this event)
+    pasteFilter.on('ctrl-c', () => {
+        process.kill(process.pid, 'SIGINT');
+    });
+
+    // Listen for any data on pasteFilter to cancel Ctrl-C confirmation state
+    pasteFilter.on('data', (chunk) => {
+        if (exitState.sigintCount > 0) {
+            // Any input cancels the Ctrl-C confirmation state
+            exitState.sigintCount = 0;
+            if (exitState.resetTimer) {
+                clearTimeout(exitState.resetTimer);
+                exitState.resetTimer = null;
+            }
+            controlDock.clearTemporaryHint();
         }
     });
 
@@ -245,16 +255,6 @@ async function main() {
             // Any other key resets the ESC sequence and clears hint
             if (lastKeyWasEsc) {
                 lastKeyWasEsc = false;
-                controlDock.clearTemporaryHint();
-            }
-
-            // Clear Ctrl-C hint if any other key is pressed (but not Ctrl-C itself)
-            if (exitState.sigintCount > 0 && !(key.ctrl && key.name === 'c')) {
-                exitState.sigintCount = 0;
-                if (exitState.resetTimer) {
-                    clearTimeout(exitState.resetTimer);
-                    exitState.resetTimer = null;
-                }
                 controlDock.clearTemporaryHint();
             }
         }

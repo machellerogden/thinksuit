@@ -163,7 +163,7 @@ export async function composeInstructions({ plan = {}, factMap = {} }, module) {
 
             if (taskAdaptations.length > 0) {
                 taskAdaptations.forEach(item => adaptationKeys.push(item.key));
-                toolAdaptations.push('\n' + taskAdaptations.map(item => item.adapt).join('\n\n'));
+                toolAdaptations.push('\n\n' + taskAdaptations.map(item => item.adapt).join('\n\n'));
             }
         }
 
