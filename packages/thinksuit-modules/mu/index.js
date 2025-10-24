@@ -252,7 +252,7 @@ const mu = {
     },
 
     description: 'Core thinking roles and signal-responsive adaptations.',
-    author: 'With Bots, LLC',
+    author: 'Mac Heller-Ogden',
     license: 'MIT'
 };
 
