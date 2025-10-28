@@ -153,9 +153,54 @@ export function selectModule(modules, modulePath) {
 
         const module = modules[modulePath];
 
-        // Validate module structure
-        if (!module || !module.namespace || !module.name || !module.version) {
-            throw new Error(`Module '${modulePath}' has invalid structure`);
+        // Validate required module properties
+        if (!module) {
+            throw new Error(`Module '${modulePath}' is null or undefined`);
+        }
+
+        if (!module.namespace || typeof module.namespace !== 'string') {
+            throw new Error(`Module '${modulePath}' missing required property: namespace`);
+        }
+
+        if (!module.name || typeof module.name !== 'string') {
+            throw new Error(`Module '${modulePath}' missing required property: name`);
+        }
+
+        if (!module.version || typeof module.version !== 'string') {
+            throw new Error(`Module '${modulePath}' missing required property: version`);
+        }
+
+        // Validate expected module components
+        if (module.classifiers && typeof module.classifiers !== 'object') {
+            throw new Error(`Module '${modulePath}' has invalid classifiers (must be object)`);
+        }
+
+        if (module.rules && !Array.isArray(module.rules)) {
+            throw new Error(`Module '${modulePath}' has invalid rules (must be array)`);
+        }
+
+        if (module.prompts && typeof module.prompts !== 'object') {
+            throw new Error(`Module '${modulePath}' has invalid prompts (must be object)`);
+        }
+
+        if (module.composeInstructions && typeof module.composeInstructions !== 'function') {
+            throw new Error(`Module '${modulePath}' has invalid composeInstructions (must be function)`);
+        }
+
+        // Validate prompt naming conventions if prompts exist
+        if (module.prompts) {
+            const promptKeys = Object.keys(module.prompts);
+            const validPrefixes = ['system.', 'primary.', 'adapt.', 'length.'];
+            const invalidKeys = promptKeys.filter(key =>
+                !validPrefixes.some(prefix => key.startsWith(prefix))
+            );
+
+            if (invalidKeys.length > 0) {
+                console.warn(
+                    `[MODULE] Warning: Module '${modulePath}' has prompts with non-standard naming: ${invalidKeys.join(', ')}\n` +
+                    `Expected prefixes: ${validPrefixes.join(', ')}`
+                );
+            }
         }
 
         return module;

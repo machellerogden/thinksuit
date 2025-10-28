@@ -38,8 +38,10 @@ export async function GET({ url }) {
                 typeof r === 'string' ? r : r.name
             ) || [],
             strategies: ['direct', 'task', 'sequential', 'parallel'],
-            signals: Object.keys(module.signals || {}),
-            adaptations: Object.keys(module.adaptations || {})
+            // Derive adaptations from prompts using adapt.* convention
+            adaptations: Object.keys(module.prompts || {})
+                .filter(key => key.startsWith('adapt.'))
+                .map(key => key.replace('adapt.', ''))
         };
 
         return json(metadata);

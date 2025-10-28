@@ -1,502 +1,175 @@
+/**
+ * composeInstructions Tests
+ * Tests instruction composition for the mu module
+ */
+
 import { describe, it, expect } from 'vitest';
 import { composeInstructions } from '../composeInstructions.js';
 import mu from '../index.js';
 
-describe('mu composeInstructions', () => {
-    describe('role selection', () => {
-        it('should compose instructions for assistant role', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant' },
-                    factMap: { Signal: [] }
-                },
-                mu
-            );
+describe('composeInstructions', () => {
+    describe('basic composition', () => {
+        it('should resolve prompt keys from module.prompts', async () => {
+            const plan = { role: 'capture' };
+            const result = await composeInstructions({ plan, factMap: {} }, mu);
 
-            expect(result.system).toContain('thinking companion');
-            expect(result.primary).toContain('Engage as a thinking companion');
-            expect(result.maxTokens).toBe(400);
-            expect(result.metadata.role).toBe('assistant');
+            expect(result.system).toBe(mu.prompts['system.capture']);
+            expect(result.primary).toBe(mu.prompts['primary.capture']);
         });
 
-        it('should compose instructions for analyzer role', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'analyzer' },
-                    factMap: { Signal: [] }
-                },
-                mu
-            );
+        it('should use default role when role not found', async () => {
+            const plan = { role: 'nonexistent' };
+            const result = await composeInstructions({ plan, factMap: {} }, mu);
 
-            expect(result.system).toContain('cognitive analyzer');
-            expect(result.primary).toContain('Analyze by decomposing');
-            expect(result.maxTokens).toBe(800);
-            expect(result.metadata.role).toBe('analyzer');
+            const defaultRole = mu.roles.find(r => r.isDefault);
+            expect(result.metadata.role).toBe(defaultRole.name);
         });
 
-        it('should fall back to default role when role not specified', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: {},
-                    factMap: { Signal: [] }
-                },
-                mu
-            );
+        it('should use first role as fallback if no default', async () => {
+            const moduleWithoutDefault = {
+                ...mu,
+                roles: mu.roles.map(r => ({ ...r, isDefault: false }))
+            };
+            const plan = {};
+            const result = await composeInstructions({ plan, factMap: {} }, moduleWithoutDefault);
 
-            expect(result.metadata.role).toBe('assistant');
-            expect(result.maxTokens).toBe(400);
-        });
-
-        it('should fall back to default role when role not found', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'nonexistent' },
-                    factMap: { Signal: [] }
-                },
-                mu
-            );
-
-            expect(result.metadata.role).toBe('assistant');
-            expect(result.maxTokens).toBe(400);
+            expect(result.metadata.role).toBe(mu.roles[0].name);
         });
     });
 
-    describe('signal adaptations', () => {
-        it('should apply explore signal adaptation', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant' },
-                    factMap: {
-                        Signal: [
-                            { signal: 'explore', dimension: 'contract', confidence: 0.9 }
-                        ]
-                    }
-                },
-                mu
-            );
+    describe('adaptation formatting', () => {
+        it('should format adaptations with markdown when specified in plan', async () => {
+            const plan = {
+                role: 'investigate',
+                adaptations: ['tools-available', 'task-execution']
+            };
+            const result = await composeInstructions({ plan, factMap: {} }, mu);
 
-            expect(result.adaptations).toContain('exploration is signaled');
-            expect(result.metadata.adaptations).toContain('explore');
+            expect(result.adaptations).toContain('## Adaptations');
+            expect(result.adaptations).toContain('The following adjustments apply based on the current context:');
+            expect(result.adaptations).toContain('Tools are available');
         });
 
-        it('should apply none signal adaptation', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant' },
-                    factMap: {
-                        Signal: [
-                            { signal: 'none', dimension: 'support', confidence: 0.8 }
-                        ]
-                    }
-                },
-                mu
-            );
-
-            expect(result.adaptations).toContain('no supporting evidence');
-            expect(result.metadata.adaptations).toContain('none');
-        });
-
-        it('should apply multiple signal adaptations', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant' },
-                    factMap: {
-                        Signal: [
-                            { signal: 'explore', dimension: 'contract', confidence: 0.9 },
-                            { signal: 'none', dimension: 'support', confidence: 0.8 }
-                        ]
-                    }
-                },
-                mu
-            );
-
-            expect(result.adaptations).toContain('exploration is signaled');
-            expect(result.adaptations).toContain('no supporting evidence');
-            expect(result.metadata.adaptations).toContain('explore');
-            expect(result.metadata.adaptations).toContain('none');
-        });
-
-        it('should deduplicate signal adaptations', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant' },
-                    factMap: {
-                        Signal: [
-                            { signal: 'explore', dimension: 'contract', confidence: 0.9 },
-                            { signal: 'explore', dimension: 'contract', confidence: 0.8 }
-                        ]
-                    }
-                },
-                mu
-            );
-
-            const exploreCount = (result.adaptations.match(/exploration is signaled/g) || []).length;
-            expect(exploreCount).toBe(1);
-        });
-
-        it('should handle signals without adaptations', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant' },
-                    factMap: {
-                        Signal: [
-                            { signal: 'nonexistent-signal', dimension: 'test', confidence: 0.9 }
-                        ]
-                    }
-                },
-                mu
-            );
+        it('should return empty string when no adaptations', async () => {
+            const plan = { role: 'analyze', adaptations: [] };
+            const result = await composeInstructions({ plan, factMap: {} }, mu);
 
             expect(result.adaptations).toBe('');
         });
-    });
 
-    describe('token calculation', () => {
-        it('should use role baseTokens', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'synthesizer' },
-                    factMap: { Signal: [] }
-                },
-                mu
-            );
+        it('should filter out invalid adaptation keys', async () => {
+            const plan = {
+                role: 'analyze',
+                adaptations: ['tools-available', 'nonexistent-key']
+            };
+            const result = await composeInstructions({ plan, factMap: {} }, mu);
 
-            expect(result.maxTokens).toBe(1000);
-        });
-
-        it('should apply signal token multipliers', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant' },
-                    factMap: {
-                        Signal: [
-                            { signal: 'explore', dimension: 'contract', confidence: 0.9 }
-                        ]
-                    }
-                },
-                mu
-            );
-
-            // 400 * 1.2 = 480
-            expect(result.maxTokens).toBe(480);
-            expect(result.metadata.tokenMultiplier).toBe(1.2);
-        });
-
-        it('should combine multiple token multipliers', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant' },
-                    factMap: {
-                        Signal: [
-                            { signal: 'explore', dimension: 'contract', confidence: 0.9 },
-                            { signal: 'none', dimension: 'support', confidence: 0.8 }
-                        ]
-                    }
-                },
-                mu
-            );
-
-            // 400 * 1.2 * 0.85 = 408
-            expect(result.maxTokens).toBe(408);
-        });
-
-        it('should apply TokenMultiplier facts from rules', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant' },
-                    factMap: {
-                        Signal: [],
-                        TokenMultiplier: [
-                            { value: 0.5 }
-                        ]
-                    }
-                },
-                mu
-            );
-
-            // 400 * 0.5 = 200
-            expect(result.maxTokens).toBe(200);
-        });
-
-        it('should respect plan maxTokens override', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant', maxTokens: 600 },
-                    factMap: { Signal: [] }
-                },
-                mu
-            );
-
-            expect(result.maxTokens).toBe(600);
-        });
-
-        it('should clamp tokens to minimum bound', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant' },
-                    factMap: {
-                        Signal: [],
-                        TokenMultiplier: [{ value: 0.01 }]
-                    }
-                },
-                mu
-            );
-
-            expect(result.maxTokens).toBeGreaterThanOrEqual(50);
-        });
-
-        it('should clamp tokens to maximum bound', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant', maxTokens: 3000 },
-                    factMap: {
-                        Signal: [],
-                        TokenMultiplier: [{ value: 10 }]
-                    }
-                },
-                mu
-            );
-
-            expect(result.maxTokens).toBeLessThanOrEqual(4000);
+            expect(result.adaptations).toContain('Tools are available');
+            expect(result.adaptations).not.toContain('nonexistent');
         });
     });
 
     describe('length guidance', () => {
-        it('should use standard length by default', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant' },
-                    factMap: { Signal: [] }
-                },
-                mu
-            );
+        it('should use brief length level', async () => {
+            const plan = { role: 'capture', lengthLevel: 'brief' };
+            const result = await composeInstructions({ plan, factMap: {} }, mu);
 
-            expect(result.lengthGuidance).toContain('Balance completeness with readability');
-            expect(result.metadata.lengthLevel).toBe('standard');
+            expect(result.lengthGuidance).toBe(mu.prompts['length.brief']);
         });
 
-        it('should use brief length for ack-only signal', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant' },
-                    factMap: {
-                        Signal: [
-                            { signal: 'ack-only', dimension: 'contract', confidence: 0.9 }
-                        ]
-                    }
-                },
-                mu
-            );
+        it('should use standard length level as default', async () => {
+            const plan = { role: 'analyze' };
+            const result = await composeInstructions({ plan, factMap: {} }, mu);
 
-            expect(result.lengthGuidance).toContain('concise');
-            expect(result.metadata.lengthLevel).toBe('brief');
+            expect(result.lengthGuidance).toBe(mu.prompts['length.standard']);
         });
 
-        it('should use comprehensive length for explore signal', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant' },
-                    factMap: {
-                        Signal: [
-                            { signal: 'explore', dimension: 'contract', confidence: 0.9 }
-                        ]
-                    }
-                },
-                mu
-            );
+        it('should use comprehensive length level', async () => {
+            const plan = { role: 'synthesize', lengthLevel: 'comprehensive' };
+            const result = await composeInstructions({ plan, factMap: {} }, mu);
 
-            expect(result.lengthGuidance).toContain('thorough');
-            expect(result.metadata.lengthLevel).toBe('comprehensive');
-        });
-
-        it('should use comprehensive length for analyze signal', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant' },
-                    factMap: {
-                        Signal: [
-                            { signal: 'analyze', dimension: 'contract', confidence: 0.9 }
-                        ]
-                    }
-                },
-                mu
-            );
-
-            expect(result.lengthGuidance).toContain('thorough');
-            expect(result.metadata.lengthLevel).toBe('comprehensive');
-        });
-    });
-
-    describe('adaptation key handling', () => {
-        it('should use plan adaptations for iteration-specific adaptations', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant', adaptations: ['outer_voice_opening'] },
-                    factMap: { Signal: [] }
-                },
-                mu
-            );
-
-            expect(result.adaptations).toContain('Constraints Lens');
-            expect(result.metadata.adaptations).toContain('outer_voice_opening');
-        });
-
-        it('should combine plan adaptations with signal adaptations', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant', adaptations: ['outer_voice_opening'] },
-                    factMap: {
-                        Signal: [
-                            { signal: 'explore', dimension: 'contract', confidence: 0.9 }
-                        ]
-                    }
-                },
-                mu
-            );
-
-            expect(result.adaptations).toContain('Constraints Lens');
-            expect(result.adaptations).toContain('exploration is signaled');
-        });
-    });
-
-    describe('derived facts', () => {
-        it('should include derived directives as adaptations', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant' },
-                    factMap: {
-                        Signal: [],
-                        Derived: [
-                            { directive: 'Test derived directive' }
-                        ]
-                    }
-                },
-                mu
-            );
-
-            expect(result.adaptations).toContain('Test derived directive');
-            expect(result.metadata.adaptations).toContain('derived');
+            expect(result.lengthGuidance).toBe(mu.prompts['length.comprehensive']);
         });
     });
 
     describe('tool instructions', () => {
-        it('should not include tool instructions when no tools', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant' },
-                    factMap: { Signal: [] }
-                },
-                mu
-            );
+        it('should include tool instructions when tools are present', async () => {
+            const plan = {
+                role: 'investigate',
+                tools: ['read_file', 'search']
+            };
+            const result = await composeInstructions({ plan, factMap: {} }, mu);
+
+            expect(result.toolInstructions).toContain('Tools are available');
+            expect(result.toolInstructions).toContain('Working on a task');
+        });
+
+        it('should return empty string when no tools', async () => {
+            const plan = { role: 'analyze' };
+            const result = await composeInstructions({ plan, factMap: {} }, mu);
 
             expect(result.toolInstructions).toBe('');
         });
+    });
 
-        it('should include tools-available adaptation when tools present', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant', tools: ['read_file'] },
-                    factMap: { Signal: [] }
-                },
-                mu
-            );
+    describe('token calculation', () => {
+        it('should use role baseTokens when plan.maxTokens not specified', async () => {
+            const plan = { role: 'capture' };
+            const result = await composeInstructions({ plan, factMap: {} }, mu);
 
-            expect(result.toolInstructions).toContain('tools available');
-            expect(result.metadata.adaptations).toContain('tools-available');
+            const roleConfig = mu.roles.find(r => r.name === 'capture');
+            expect(result.maxTokens).toBe(roleConfig.baseTokens);
         });
 
-        it('should include task adaptations for task context', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: {
-                        role: 'assistant',
-                        tools: ['read_file'],
-                        taskContext: { isTask: true }
-                    },
-                    factMap: { Signal: [] }
-                },
-                mu
-            );
+        it('should use plan.maxTokens when specified', async () => {
+            const plan = { role: 'analyze', maxTokens: 1500 };
+            const result = await composeInstructions({ plan, factMap: {} }, mu);
 
-            expect(result.toolInstructions).toContain('tools available');
-            expect(result.toolInstructions).toContain('multi-cycle tasks');
-            expect(result.metadata.adaptations).toContain('task-execution');
+            expect(result.maxTokens).toBe(1500);
+        });
+
+        it('should fallback to 500 if neither specified', async () => {
+            const moduleWithoutTokens = {
+                ...mu,
+                roles: mu.roles.map(r => ({ ...r, baseTokens: undefined }))
+            };
+            const plan = { role: 'analyze' };
+            const result = await composeInstructions({ plan, factMap: {} }, moduleWithoutTokens);
+
+            expect(result.maxTokens).toBe(500);
         });
     });
 
     describe('metadata', () => {
-        it('should return comprehensive metadata', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'analyzer' },
-                    factMap: {
-                        Signal: [
-                            { signal: 'explore', dimension: 'contract', confidence: 0.9 }
-                        ]
-                    }
-                },
-                mu
-            );
+        it('should return complete metadata', async () => {
+            const plan = {
+                role: 'investigate',
+                adaptations: ['tools-available'],
+                lengthLevel: 'standard'
+            };
+            const result = await composeInstructions({ plan, factMap: {} }, mu);
 
-            // Module returns only what it naturally computed
-            expect(result.metadata).toMatchObject({
-                role: 'analyzer',
-                baseTokens: 800,  // analyzer's baseTokens from role config
-                lengthLevel: 'comprehensive',  // chosen based on explore signal
-                adaptations: ['explore']  // tracked during composition
-            });
-            expect(result.metadata.tokenMultiplier).toBeCloseTo(1.2);  // explore multiplier
-
-            // signalCount and adaptationCount are NOT returned by module
-            // Those are engine-computed stats for logging only
-            expect(result.metadata.signalCount).toBeUndefined();
-            expect(result.metadata.adaptationCount).toBeUndefined();
+            expect(result.metadata).toBeDefined();
+            expect(result.metadata.role).toBe('investigate');
+            expect(result.metadata.baseTokens).toBeDefined();
+            expect(result.metadata.lengthLevel).toBe('standard');
+            expect(result.metadata.adaptations).toEqual(['tools-available']);
         });
     });
 
-    describe('edge cases', () => {
-        it('should handle empty factMap', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant' },
-                    factMap: {}
-                },
-                mu
-            );
+    describe('all 6 roles', () => {
+        const roles = ['capture', 'readback', 'analyze', 'investigate', 'synthesize', 'execute'];
 
-            expect(result.system).toBeDefined();
-            expect(result.primary).toBeDefined();
-            expect(result.adaptations).toBe('');
-            expect(result.maxTokens).toBe(400);
-        });
+        roles.forEach(roleName => {
+            it(`should compose instructions for ${roleName} role`, async () => {
+                const plan = { role: roleName };
+                const result = await composeInstructions({ plan, factMap: {} }, mu);
 
-        it('should handle missing plan', async () => {
-            const result = await composeInstructions(
-                {
-                    factMap: { Signal: [] }
-                },
-                mu
-            );
-
-            expect(result.metadata.role).toBe('assistant');
-            expect(result.maxTokens).toBe(400);
-        });
-
-        it('should handle Adaptation facts', async () => {
-            const result = await composeInstructions(
-                {
-                    plan: { role: 'assistant' },
-                    factMap: {
-                        Signal: [],
-                        Adaptation: [
-                            { signal: 'explore' }
-                        ]
-                    }
-                },
-                mu
-            );
-
-            expect(result.adaptations).toContain('exploration is signaled');
+                expect(result.system).toBe(mu.prompts[`system.${roleName}`]);
+                expect(result.primary).toBe(mu.prompts[`primary.${roleName}`]);
+                expect(result.metadata.role).toBe(roleName);
+                expect(typeof result.maxTokens).toBe('number');
+            });
         });
     });
 });

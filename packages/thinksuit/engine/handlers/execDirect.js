@@ -112,9 +112,14 @@ export async function execDirectCore(input, machineContext) {
         }
 
         // Add primary prompt only if this isn't a built conversation thread
-        // A built thread has alternating user/assistant messages beyond the initial input
+        // A built thread has content beyond the initial user input:
+        // - Traditional: alternating user/assistant messages
+        // - Provider-specific: structured items with type field (e.g., OpenAI Responses API)
+        // We detect this by checking if thread has any assistant messages or structured items
         const hasBuiltConversation =
-            thread && thread.length > 1 && thread.some((msg) => msg.role === 'assistant');
+            thread && thread.length > 1 &&
+            (thread.some((msg) => msg.role === 'assistant') ||
+             thread.some((item) => item.type && item.type !== 'message'));
 
         if (instructions?.primary && !hasBuiltConversation) {
             // If we have user messages, prepend primary to the first one

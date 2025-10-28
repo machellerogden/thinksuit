@@ -596,7 +596,7 @@ describe('run/internals', () => {
             };
 
             expect(() => selectModule(modules, 'test/invalid')).toThrow(
-                'Module \'test/invalid\' has invalid structure'
+                'Module \'test/invalid\' missing required property: namespace'
             );
         });
 
@@ -609,7 +609,7 @@ describe('run/internals', () => {
             };
 
             expect(() => selectModule(modules, 'test/invalid')).toThrow(
-                'Module \'test/invalid\' has invalid structure'
+                'Module \'test/invalid\' missing required property: name'
             );
         });
 
@@ -622,7 +622,7 @@ describe('run/internals', () => {
             };
 
             expect(() => selectModule(modules, 'test/invalid')).toThrow(
-                'Module \'test/invalid\' has invalid structure'
+                'Module \'test/invalid\' missing required property: version'
             );
         });
 

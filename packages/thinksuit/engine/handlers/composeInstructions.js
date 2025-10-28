@@ -42,9 +42,6 @@ function validateInstructionsResult(result) {
         if (typeof result.metadata.baseTokens !== 'number') {
             errors.push('metadata.baseTokens must be a number');
         }
-        if (typeof result.metadata.tokenMultiplier !== 'number') {
-            errors.push('metadata.tokenMultiplier must be a number');
-        }
         if (typeof result.metadata.lengthLevel !== 'string') {
             errors.push('metadata.lengthLevel must be a string');
         }
@@ -159,7 +156,6 @@ export async function composeInstructionsCore(input, machineContext) {
                 stage: 'instruction_composition',
                 role: result.metadata.role,
                 baseTokens: result.metadata.baseTokens,
-                tokenMultiplier: result.metadata.tokenMultiplier,
                 maxTokens: result.maxTokens,
                 lengthLevel: result.metadata.lengthLevel,
                 adaptations: result.metadata.adaptations,

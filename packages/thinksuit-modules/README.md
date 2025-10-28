@@ -14,33 +14,45 @@ ThinkSuit modules provide the cognitive capabilities that the orchestration engi
 
 ## Core Module (mu)
 
-The default module shipped with ThinkSuit provides a comprehensive cognitive system.
+The default module shipped with ThinkSuit provides 6 roles that enable intentional selection of cognitive instruments for software engineering workflows.
 
-### Cognitive Roles
+### Roles
 
-The mu module implements 9 cognitive roles:
+The mu module implements 6 roles, each representing a distinct mode of engagement:
 
-- **assistant**: General thinking companion for balanced responses
-- **analyzer**: Decomposes complexity into understandable components
-- **synthesizer**: Combines disparate elements into cohesive wholes
-- **critic**: Identifies weaknesses and provides constructive feedback
-- **planner**: Transforms goals into actionable sequences
-- **reflector**: Examines thinking processes and meta-cognition
-- **explorer**: Generates possibilities and creative alternatives
-- **optimizer**: Refines solutions for efficiency and elegance
-- **integrator**: Maintains system coherence across perspectives
+- **capture** (temperature: 0.0) - Records information without interpretation. Preserves exact content, structure, and intent.
+- **readback** (temperature: 0.0) - Retrieves and restates information. Mirrors syntax and structure without analysis.
+- **analyze** (temperature: 0.3, default) - Parses, reasons about, and validates structure. Identifies patterns and inconsistencies.
+- **investigate** (temperature: 0.6) - Gathers context through available tools. Queries, reads, and searches as needed.
+- **synthesize** (temperature: 0.8) - Combines prior artifacts into coherent output. Integrates findings and resolves conflicts.
+- **execute** (temperature: 0.1) - Performs work by calling available tools. Chains operations and handles errors.
 
-### Signal Detection
+### Two-Mode Operation
 
-Detects 16 distinct signals across 5 dimensions:
+The mu module supports two ways to select roles:
 
-| Dimension       | Signals                                            |
-| --------------- | -------------------------------------------------- |
-| **Claim**       | universal, high-quantifier, forecast, normative    |
-| **Support**     | source-cited, tool-result-attached, anecdote, none |
-| **Calibration** | high-certainty, hedged                             |
-| **Temporal**    | time-specified, no-date                            |
-| **Contract**    | ack-only, capture-only, explore, analyze           |
+**1. Explicit Mode** - Directly specify which role to engage by sending an ExecutionPlan:
+```javascript
+{
+    strategy: 'direct',
+    role: 'investigate',
+    tools: ['read_file', 'search'],
+    lengthLevel: 'standard'
+}
+```
+
+**2. Signal-Driven Mode** - Use natural language keywords that route to the appropriate role:
+
+| Keywords | Role |
+| -------- | ---------- |
+| save, record, remember, note, store, capture, keep | `capture` |
+| readback, repeat, show me, retrieve, recall, what did, display | `readback` |
+| analyze, why, explain, break down, examine, understand, how does | `analyze` |
+| find, search, look for, locate, what does, where is, show, list | `investigate` |
+| combine, integrate, summarize, merge, consolidate, overall | `synthesize` |
+| create, build, fix, implement, run, make, change, update, add | `execute` |
+
+Signal-driven mode provides convenience for interactive use, while explicit mode gives full control for programmatic workflows.
 
 ### Tool Integration
 
@@ -52,124 +64,19 @@ The mu module includes MCP (Model Context Protocol) tool support:
 
 See [TOOLS.md](TOOLS.md) for detailed tool documentation.
 
-## Module Structure
+## Module Internals
 
-```javascript
-export default {
-    namespace: 'thinksuit',
-    name: 'mu',
-    version: '0.1.3',
+The mu module uses convention-based prompt naming for reflection and validation. All prompts use one of these prefixes:
+- `system.*` - Role identity prompts
+- `primary.*` - Role instruction prompts
+- `adapt.*` - Behavioral modification prompts
+- `length.*` - Response length guidance
 
-    // Cognitive roles available
-    roles: ['assistant', 'analyzer', ...],
+For a complete reference implementation, see the mu module source code in this package.
 
-    // Default role for fallback
-    defaultRole: 'assistant',
+## Creating Your Own Modules
 
-    // Role for planning multi-step execution
-    plannerRole: 'assistant',
-
-    // Signal detection classifiers
-    classifiers: {
-        claim: { /* classifier implementation */ },
-        support: { /* classifier implementation */ },
-        // ...
-    },
-
-    // Forward-chaining rules for role selection
-    rules: [
-        {
-            name: 'rule-name',
-            conditions: { /* rule conditions */ },
-            action: (facts, engine) => { /* emit facts */ }
-        }
-    ],
-
-    // Prompts for each role
-    prompts: {
-        system: { /* role -> system prompt */ },
-        primary: { /* role -> primary prompt template */ }
-    },
-
-    // Execution configuration
-    instructionSchema: {
-        temperature: { /* role -> temperature */ },
-        tokens: { /* defaults and multipliers */ }
-    },
-
-    // MCP server configurations
-    mcpServers: {
-        filesystem: { /* server config */ }
-    },
-
-    // Available tools
-    tools: ['read_file', 'write_file', ...]
-}
-```
-
-## Creating Custom Modules
-
-To create a custom module:
-
-1. **Define your module structure** following the interface above
-2. **Implement classifiers** for signal detection (or reuse existing ones)
-3. **Write rules** that map signals to execution plans
-4. **Provide prompts** for your cognitive roles
-5. **Configure execution** parameters (temperature, tokens, etc.)
-
-### Example: Simple Custom Module
-
-```javascript
-export default {
-    namespace: 'custom',
-    name: 'simple',
-    version: 'v1',
-
-    roles: ['responder'],
-    defaultRole: 'responder',
-
-    // Minimal classifier that always returns empty signals
-    classifiers: {
-        detectAll: async (thread) => ({
-            claim: [],
-            support: [],
-            calibration: [],
-            temporal: [],
-            contract: []
-        })
-    },
-
-    // Simple rule that always uses responder role
-    rules: [
-        {
-            name: 'always-respond',
-            conditions: { all: [] }, // Always matches
-            action: (facts, engine) => {
-                engine.addFact({
-                    type: 'ExecutionPlan',
-                    strategy: 'direct',
-                    role: 'responder',
-                    confidence: 1.0
-                });
-            }
-        }
-    ],
-
-    prompts: {
-        system: {
-            responder: 'You are a helpful assistant.'
-        },
-        primary: {
-            responder: 'Please respond to: {{INPUT}}'
-        }
-    },
-
-    instructionSchema: {
-        temperature: { responder: 0.7 },
-        tokens: { default: 1000 }
-    }
-}
-```
+To create custom ThinkSuit modules with your own cognitive roles, signals, and rules, see the **[Module Authoring Guide](../../thinksuit/docs/module-authoring.md)** in the engine documentation.
 
 ## Using Modules
 

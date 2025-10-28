@@ -21,6 +21,23 @@ async function exampleClassifier(thread) {
     return [];
 }
 
+// Define prompts following naming conventions
+const prompts = {
+    // System prompts define role identity
+    'system.responder': 'You are a helpful assistant.',
+
+    // Primary prompts define task execution
+    'primary.responder': 'Respond helpfully to the user\'s message.',
+
+    // Adaptation prompts (optional)
+    'adapt.question': 'Provide a clear, direct answer to the question asked.',
+
+    // Length guidance
+    'length.brief': 'Respond in 1-3 sentences.',
+    'length.standard': 'Respond in 1-2 paragraphs.',
+    'length.comprehensive': 'Provide a thorough, detailed response.'
+};
+
 const scratch = {
     namespace: 'thinksuit',
     name: 'scratch',
@@ -34,27 +51,20 @@ const scratch = {
             temperature: 0.7,
             baseTokens: 800,
             prompts: {
-                system: 'You are a helpful assistant.',
-                primary: 'Respond helpfully to the user\'s message.'
+                system: 'system.responder',
+                primary: 'primary.responder'
             }
         }
     ],
 
-    // Example signal configuration (optional)
-    signals: {
-        'question': {
-            adaptation: 'Provide a clear, direct answer to the question asked.'
-        }
-    },
+    // Prompts following naming conventions (required)
+    prompts,
 
-    // Example context-based adaptations (optional)
-    adaptations: {},
-
-    // Example length guidance
+    // Example length guidance (derived from prompts)
     lengthGuidance: {
-        brief: 'Respond in 1-3 sentences.',
-        standard: 'Respond in 1-2 paragraphs.',
-        comprehensive: 'Provide a thorough, detailed response.'
+        brief: prompts['length.brief'],
+        standard: prompts['length.standard'],
+        comprehensive: prompts['length.comprehensive']
     },
 
     // Example tool dependencies (optional)
@@ -65,7 +75,7 @@ const scratch = {
         example: exampleClassifier
     },
 
-    // Example rule - simple direct execution
+    // Example rule - emits ExecutionPlan fact
     rules: [
         {
             name: 'default-direct',
@@ -84,13 +94,13 @@ const scratch = {
         }
     ],
 
-    // Minimal instruction composer
+    // Minimal instruction composer (required)
     composeInstructions: async ({ plan = {}, factMap = {} }, module) => {
         const roleConfig = module.roles[0]; // Always use the single responder role
 
         return {
-            system: roleConfig.prompts.system,
-            primary: roleConfig.prompts.primary,
+            system: module.prompts[roleConfig.prompts.system],
+            primary: module.prompts[roleConfig.prompts.primary],
             adaptations: '',
             lengthGuidance: module.lengthGuidance.standard,
             toolInstructions: '',
@@ -98,7 +108,6 @@ const scratch = {
             metadata: {
                 role: roleConfig.name,
                 baseTokens: roleConfig.baseTokens,
-                tokenMultiplier: 1.0,
                 lengthLevel: 'standard',
                 adaptations: []
             }
