@@ -16,6 +16,12 @@ const mu = {
     // Roles enabling intentional selection of cognitive instruments
     roles: [
         {
+            name: 'chat',
+            isDefault: true,
+            temperature: 0.7,
+            baseTokens: 400,
+            prompts: { system: 'system.chat', primary: 'primary.chat' }
+        }, {
             name: 'capture',
             temperature: 0.3,
             baseTokens: 400,
@@ -27,7 +33,6 @@ const mu = {
             prompts: { system: 'system.readback', primary: 'primary.readback' }
         }, {
             name: 'analyze',
-            isDefault: true,
             temperature: 0.5,
             baseTokens: 800,
             prompts: { system: 'system.analyze', primary: 'primary.analyze' }
@@ -82,6 +87,7 @@ const mu = {
             }
             const label = (r) =>
                 ({
+                    chat: 'Chat',
                     capture: 'Capture',
                     readback: 'Readback',
                     analyze: 'Analyze',

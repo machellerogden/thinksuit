@@ -44,6 +44,8 @@ export async function runCycle({
     parentSpanId = null,
     sessionId = null,
     parentBoundaryId = null,  // Parent boundary for execution handlers
+    historicalSignals = [],  // Historical signals from previous turns
+    currentTurnIndex = 1,  // Current turn index
 
     // Optional control
     selectedPlan = null,
@@ -110,7 +112,9 @@ export async function runCycle({
             traceId: finalTraceId,
             sessionId,
             previousOutput,
-            parentBoundaryId: orchestrationBoundaryId // Pipeline handlers should nest under orchestration
+            parentBoundaryId: orchestrationBoundaryId, // Pipeline handlers should nest under orchestration
+            historicalSignals: historicalSignals || [], // Pass historical signals through context
+            currentTurnIndex: currentTurnIndex || 1 // Pass current turn index through context
         },
         policy: config.policy || {},
         // Include selected plan if provided

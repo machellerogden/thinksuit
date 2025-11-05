@@ -6,6 +6,18 @@
 import { PIPELINE_EVENTS, PROCESSING_EVENTS } from '../constants/events.js';
 
 /**
+ * Create a TurnContext fact
+ * @param {number} currentTurnIndex - The current turn index
+ * @returns {Object} - TurnContext fact
+ */
+function createTurnContextFact(currentTurnIndex) {
+    return {
+        type: 'TurnContext',
+        data: { currentTurnIndex }
+    };
+}
+
+/**
  * Flatten config object to path notation
  * @param {Object} obj - Object to flatten
  * @param {string} prefix - Path prefix
@@ -46,6 +58,8 @@ export async function aggregateFactsCore(input, machineContext) {
     const dimPolicy = context?.config?.policy?.perception?.dimensions || {};
     const traceId = context?.traceId;
     const sessionId = context?.sessionId;
+    const historicalSignals = context?.historicalSignals || [];
+    const currentTurnIndex = context?.currentTurnIndex || 1;
 
     // Generate unique boundary ID for this pipeline stage
     const boundaryId = `pipeline-fact_aggregation-${sessionId}-${Date.now()}`;
@@ -62,14 +76,33 @@ export async function aggregateFactsCore(input, machineContext) {
             data: {
                 stage: 'fact_aggregation',
                 inputFactCount: signals.length,
-                dimensionPolicies: Object.keys(dimPolicy).length
+                dimensionPolicies: Object.keys(dimPolicy).length,
+                historicalTurnCount: historicalSignals.length,
+                currentTurnIndex
             }
         },
         'Starting fact aggregation'
     );
 
+    // Add turn metadata to current signals
+    const currentSignalsWithTurn = signals.map(s => ({
+        ...s,
+        turnIndex: currentTurnIndex
+    }));
+
+    // Flatten historical signals and add them to the signal pool
+    const historicalSignalFacts = historicalSignals.flatMap(turn =>
+        turn.signals.map(s => ({
+            ...s,
+            turnIndex: turn.turnIndex
+        }))
+    );
+
+    // Combine current and historical signals
+    const allSignals = [...currentSignalsWithTurn, ...historicalSignalFacts];
+
     // Filter by per-dimension gates
-    const filtered = signals.filter((s) => {
+    const filtered = allSignals.filter((s) => {
         const p = dimPolicy[s.dimension] || {};
         const enabled = p.enabled ?? true;
         const min = p.minConfidence ?? 0;
@@ -86,6 +119,7 @@ export async function aggregateFactsCore(input, machineContext) {
                         dimension: s.dimension,
                         signal: s.signal,
                         confidence: s.confidence,
+                        turnIndex: s.turnIndex,
                         enabled,
                         minConfidence: min
                     }
@@ -97,8 +131,9 @@ export async function aggregateFactsCore(input, machineContext) {
         return passes;
     });
 
-    // Dedupe by (type, dimension, signal|name) taking highest confidence
-    const key = (f) => `${f.type}|${f.dimension}|${f.signal || f.name || ''}`;
+    // Dedupe by (type, dimension, signal|name, turnIndex) taking highest confidence
+    // Note: We keep turn distinctions so rules can see signal history
+    const key = (f) => `${f.type}|${f.dimension}|${f.signal || f.name || ''}|${f.turnIndex || 0}`;
     const map = new Map();
 
     for (const f of filtered) {
@@ -183,8 +218,11 @@ export async function aggregateFactsCore(input, machineContext) {
         }
     }
 
-    // Combine all facts: signals, config, tools, and capabilities
-    const allFacts = [...facts, ...configFacts, ...toolFacts, ...capabilityFacts];
+    // Add current turn context fact for routing rules
+    const turnContextFact = createTurnContextFact(currentTurnIndex);
+
+    // Combine all facts: signals, config, tools, capabilities, and turn context
+    const allFacts = [...facts, ...configFacts, ...toolFacts, ...capabilityFacts, turnContextFact];
 
     logger.info(
         {
@@ -197,11 +235,14 @@ export async function aggregateFactsCore(input, machineContext) {
             data: {
                 stage: 'fact_aggregation',
                 inputCount: signals.length,
+                historicalSignalCount: historicalSignalFacts.length,
+                currentTurnIndex,
                 filteredCount: filtered.length,
                 deduplicatedCount: facts.length,
                 configFactCount: configFacts.length,
                 totalFactCount: allFacts.length,
                 dimensionsPresent: [...new Set(facts.map((f) => f.dimension).filter(Boolean))],
+                turnsPresent: [...new Set(facts.map((f) => f.turnIndex).filter(Boolean))],
                 aggregatedFacts: allFacts // Include full facts array for UI display
             }
         },

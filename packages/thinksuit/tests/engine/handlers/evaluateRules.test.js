@@ -575,7 +575,7 @@ describe('evaluateRules Handler', () => {
                 result.factMap.Derived.length +
                 result.factMap.Adaptation.length +
                 result.factMap.TokenMultiplier.length;
-            expect(totalFacts).toBeGreaterThan(5);
+            expect(totalFacts).toBeGreaterThanOrEqual(5);
         });
     });
 

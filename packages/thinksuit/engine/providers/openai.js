@@ -68,10 +68,23 @@ const transformRequest = (params) => {
 
     // Add text generation parameters for Responses API
     // Controls output format and verbosity
-    request.text = {
-        format: { type: 'text' },
-        verbosity: 'medium'  // Can be 'low', 'medium', or 'high'
-    };
+    if (params.responseFormat) {
+        // Use structured output if schema provided
+        request.text = {
+            format: {
+                type: 'json_schema',
+                name: params.responseFormat.name || 'response',
+                schema: params.responseFormat.schema,
+                strict: true
+            },
+            verbosity: 'medium'
+        };
+    } else {
+        request.text = {
+            format: { type: 'text' },
+            verbosity: 'medium'  // Can be 'low', 'medium', or 'high'
+        };
+    }
 
     // Add reasoning effort for GPT-5 models
     // Minimal reasoning allows text generation with fewer reasoning tokens

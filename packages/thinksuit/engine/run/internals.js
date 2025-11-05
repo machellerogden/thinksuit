@@ -78,6 +78,7 @@ export function normalizeConfig(config) {
         verbose: config.verbose || false,
         trace: config.trace || false,
         sessionId: config.sessionId,
+        selectedPlan: config.selectedPlan, // Manual plan override
         cwd: config.cwd,
         allowedDirectories,
         mcpServers: config.mcpServers,
@@ -320,7 +321,7 @@ export async function withMcpLifecycle(module, config, logger) {
  * @param {Object} params - Execution parameters
  * @returns {Promise<Array>} [status, result] tuple
  */
-export async function executeOnce({ finalConfig, logger, module, machineDefinition, discoveredTools, thread, abortSignal, turnBoundaryId }) {
+export async function executeOnce({ finalConfig, logger, module, machineDefinition, discoveredTools, thread, abortSignal, turnBoundaryId, historicalSignals, currentTurnIndex }) {
     const handlers = initializeHandlers();
 
     try {
@@ -335,7 +336,10 @@ export async function executeOnce({ finalConfig, logger, module, machineDefiniti
             handlers,
             config: finalConfig,
             discoveredTools,
-            abortSignal
+            abortSignal,
+            historicalSignals, // Pass historical signals to runCycle
+            currentTurnIndex, // Pass current turn index to runCycle
+            selectedPlan: finalConfig.selectedPlan // Pass selected plan to runCycle
         });
     } catch (error) {
         logger.error(

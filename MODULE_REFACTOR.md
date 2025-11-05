@@ -1,6 +1,54 @@
 # Mu Module Refactoring
 
-## Current: v0.3 - Simplified Role Architecture (2025-10-28)
+## Current: v0.4 - Chat Role & Multi-Turn Signals (2025-11-05)
+
+### Major Changes
+
+**New Chat Role**
+- **Added**: `chat` role (temp: 0.7, tokens: 400, default) for natural conversation
+- **Default changed**: From `analyze` to `chat` - reduces premature problem-solving
+- **Philosophy**: System now defaults to conversational mode, only escalating to specialized instruments when explicitly signaled
+
+**Multi-Turn Signal Architecture**
+- **Turn-aware signals**: All signals now carry `turnIndex` metadata
+- **Historical signal preservation**: `aggregateFacts` maintains signals across conversation turns
+- **Cross-turn pattern detection**: Rules can now detect patterns spanning multiple turns (infrastructure in place, not yet utilized)
+- **TurnContext fact**: New fact type injected by `aggregateFacts` for routing rules
+
+**Intent Classification Enhancement**
+- **Two-phase detection**: Pattern matching followed by optional LLM validation
+- **Validation prompts**: Each instrument has a specific validation prompt for ambiguous cases
+- **Multiple matches**: System now handles overlapping intent patterns with LLM disambiguation
+- **Plan precedence**: Deterministic priority when multiple intents detected: execute → investigate → analyze → synthesize → capture → readback → chat
+
+**Updated Roles** (now 7 total):
+  - `chat` (temp: 0.7, tokens: 400, default) - Natural conversation and casual interaction
+  - `capture` (temp: 0.3, tokens: 400) - Record information without interpretation
+  - `readback` (temp: 0.3, tokens: 400) - Retrieve and restate information
+  - `analyze` (temp: 0.5, tokens: 800) - Parse and validate structure
+  - `investigate` (temp: 0.6, tokens: 1000) - Gather context with tools
+  - `synthesize` (temp: 0.8, tokens: 1000) - Combine artifacts into output
+  - `execute` (temp: 0.1, tokens: 1200) - Perform work with tools
+
+### Implementation Details
+
+**Rule Changes**
+- All routing rules now check TurnContext to only fire for current turn signals
+- This prevents historical signals from re-triggering routing rules
+- Enables future cross-turn pattern detection without interfering with normal operation
+
+**Test Updates**
+- Intent classifier tests updated for new confidence values and chat default
+- Rules tests now provide TurnContext fact for routing
+- aggregateFacts tests account for always-present TurnContext fact
+
+**Documentation Updates**
+- README.md updated to reflect 7 roles and chat as default
+- Keyword table updated with refined patterns and chat role
+
+---
+
+## Previous: v0.3 - Simplified Role Architecture (2025-10-28)
 
 ### Major Changes
 

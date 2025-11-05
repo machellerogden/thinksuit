@@ -137,6 +137,12 @@ const transformRequest = (params) => {
         generationConfig.stopSequences = stop;
     }
 
+    // Add structured output schema if provided
+    if (params.responseFormat) {
+        generationConfig.responseSchema = params.responseFormat.schema;
+        generationConfig.responseMimeType = 'application/json';
+    }
+
     request.generationConfig = generationConfig;
 
     // Transform tools to Vertex AI format

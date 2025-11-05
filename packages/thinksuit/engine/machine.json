@@ -67,7 +67,6 @@
             "Resource": "composeInstructions",
             "Parameters": {
                 "plan.$": "$.planResult.plan",
-                "factMap.$": "$.evaluateRulesResult.factMap",
                 "context.$": "$.context"
             },
             "ResultPath": "$.instructions",

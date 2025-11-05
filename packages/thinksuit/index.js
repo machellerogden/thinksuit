@@ -19,3 +19,4 @@ export { buildConfig } from './engine/config.js';
 export { evaluateRulesCore as evaluateRules } from './engine/handlers/evaluateRules.js';
 export { detectSignalsCore as detectSignals } from './engine/handlers/detectSignals.js';
 export { loadModule } from './engine/run.js';
+export { callLLM } from './engine/providers/io.js';

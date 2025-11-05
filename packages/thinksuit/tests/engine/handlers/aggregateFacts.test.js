@@ -25,8 +25,10 @@ describe('aggregateFacts handler', () => {
 
         const result = await aggregateFactsCore(input, defaultMachineContext);
 
-        expect(result.facts).toHaveLength(1);
-        expect(result.facts[0].confidence).toBe(0.9);
+        // Expect 2 facts: 1 deduplicated Signal + 1 TurnContext
+        expect(result.facts).toHaveLength(2);
+        const signalFact = result.facts.find(f => f.type === 'Signal');
+        expect(signalFact.confidence).toBe(0.9);
     });
 
     it('should preserve facts with different keys', async () => {
@@ -41,8 +43,10 @@ describe('aggregateFacts handler', () => {
 
         const result = await aggregateFactsCore(input, defaultMachineContext);
 
-        expect(result.facts).toHaveLength(3);
-        const dimensions = [...new Set(result.facts.map((f) => f.dimension))];
+        // Expect 4 facts: 3 Signals + 1 TurnContext
+        expect(result.facts).toHaveLength(4);
+        const signalFacts = result.facts.filter(f => f.type === 'Signal');
+        const dimensions = [...new Set(signalFacts.map((f) => f.dimension))];
         expect(dimensions).toContain('claim');
         expect(dimensions).toContain('support');
     });
@@ -71,9 +75,10 @@ describe('aggregateFacts handler', () => {
 
         const result = await aggregateFactsCore(input, defaultMachineContext);
 
-        // Should have claim (no policy) but not support (below threshold) or calibration (disabled)
-        expect(result.facts).toHaveLength(1);
-        expect(result.facts[0].dimension).toBe('claim');
+        // Should have claim (no policy) + TurnContext, but not support (below threshold) or calibration (disabled)
+        expect(result.facts).toHaveLength(2);
+        const signalFact = result.facts.find(f => f.type === 'Signal');
+        expect(signalFact.dimension).toBe('claim');
     });
 
     it('should handle empty input gracefully', async () => {
@@ -84,13 +89,17 @@ describe('aggregateFacts handler', () => {
 
         const result = await aggregateFactsCore(input, defaultMachineContext);
 
-        expect(result.facts).toEqual([]);
+        // Should only have TurnContext fact
+        expect(result.facts).toHaveLength(1);
+        expect(result.facts[0].type).toBe('TurnContext');
     });
 
     it('should handle null input gracefully', async () => {
         const result = await aggregateFactsCore(null, defaultMachineContext);
 
-        expect(result.facts).toEqual([]);
+        // Should only have TurnContext fact
+        expect(result.facts).toHaveLength(1);
+        expect(result.facts[0].type).toBe('TurnContext');
     });
 
     it('should use fact name for deduplication key when signal is absent', async () => {
@@ -104,7 +113,9 @@ describe('aggregateFacts handler', () => {
 
         const result = await aggregateFactsCore(input, defaultMachineContext);
 
-        expect(result.facts).toHaveLength(1);
-        expect(result.facts[0].confidence).toBe(0.9);
+        // Expect 2 facts: 1 deduplicated Derived + 1 TurnContext
+        expect(result.facts).toHaveLength(2);
+        const derivedFact = result.facts.find(f => f.type === 'Derived');
+        expect(derivedFact.confidence).toBe(0.9);
     });
 });

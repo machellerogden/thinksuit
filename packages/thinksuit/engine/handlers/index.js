@@ -95,6 +95,12 @@ export function initializeHandlers() {
         withBudget(1000, 'execFallback') // 1 second budget
     );
 
+    // Debug handler for state inspection
+    const debugState = async (input) => {
+        console.log('[DEBUG debugState]', JSON.stringify(input, null, 2));
+        return {};
+    };
+
     // Return all handlers
     return {
         detectSignals,
@@ -107,6 +113,7 @@ export function initializeHandlers() {
         execParallel,
         execTask,
         execFallback,
+        debugState,
         Fallback: execFallback // Alias for state machine compatibility
     };
 }

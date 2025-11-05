@@ -14,15 +14,16 @@ ThinkSuit modules provide the cognitive capabilities that the orchestration engi
 
 ## Core Module (mu)
 
-The default module shipped with ThinkSuit provides 6 roles that enable intentional selection of cognitive instruments for software engineering workflows.
+The default module shipped with ThinkSuit provides 7 roles that enable intentional selection of cognitive instruments for software engineering workflows.
 
 ### Roles
 
-The mu module implements 6 roles, each representing a distinct mode of engagement:
+The mu module implements 7 roles, each representing a distinct mode of engagement:
 
-- **capture** (temperature: 0.0) - Records information without interpretation. Preserves exact content, structure, and intent.
-- **readback** (temperature: 0.0) - Retrieves and restates information. Mirrors syntax and structure without analysis.
-- **analyze** (temperature: 0.3, default) - Parses, reasons about, and validates structure. Identifies patterns and inconsistencies.
+- **chat** (temperature: 0.7, default) - Engages in natural conversation. Responds to greetings, questions, and casual interaction.
+- **capture** (temperature: 0.3) - Records information without interpretation. Preserves exact content, structure, and intent.
+- **readback** (temperature: 0.3) - Retrieves and restates information. Mirrors syntax and structure without analysis.
+- **analyze** (temperature: 0.5) - Parses, reasons about, and validates structure. Identifies patterns and inconsistencies.
 - **investigate** (temperature: 0.6) - Gathers context through available tools. Queries, reads, and searches as needed.
 - **synthesize** (temperature: 0.8) - Combines prior artifacts into coherent output. Integrates findings and resolves conflicts.
 - **execute** (temperature: 0.1) - Performs work by calling available tools. Chains operations and handles errors.
@@ -45,12 +46,13 @@ The mu module supports two ways to select roles:
 
 | Keywords | Role |
 | -------- | ---------- |
+| (no keywords - casual conversation, greetings) | `chat` |
 | save, record, remember, note, store, capture, keep | `capture` |
 | readback, repeat, show me, retrieve, recall, what did, display | `readback` |
-| analyze, why, explain, break down, examine, understand, how does | `analyze` |
-| find, search, look for, locate, what does, where is, show, list | `investigate` |
-| combine, integrate, summarize, merge, consolidate, overall | `synthesize` |
-| create, build, fix, implement, run, make, change, update, add | `execute` |
+| why, how does, explain, break down, examine, understand | `analyze` |
+| find, search, look for, locate, where is, show, list | `investigate` |
+| combine, integrate, summarize, summary, merge, consolidate, overall | `synthesize` |
+| create, build, fix, implement, make, change, update, add, write | `execute` |
 
 Signal-driven mode provides convenience for interactive use, while explicit mode gives full control for programmatic workflows.
 

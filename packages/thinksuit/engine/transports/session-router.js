@@ -104,6 +104,65 @@ export async function loadSessionThread(sessionId) {
 }
 
 /**
+ * Load historical signals from a session file
+ * Extracts signals from pipeline.signal_detection.complete events with turn numbers
+ *
+ * @param {string} sessionId - The session ID
+ * @returns {Promise<Array>} Array of {turnIndex: number, signals: Array} objects
+ */
+export async function loadSessionSignals(sessionId) {
+    const filePath = getSessionFilePath(sessionId);
+
+    try {
+        const content = await readFile(filePath, 'utf-8');
+        const lines = content.trim().split('\n');
+        const turnSignals = [];
+        let currentTurn = 0;
+        let inTurn = false;
+
+        for (const line of lines) {
+            if (!line.trim()) continue;
+
+            try {
+                const entry = JSON.parse(line);
+
+                // Track turn boundaries to number turns
+                if (entry.event === SESSION_EVENTS.TURN_START) {
+                    inTurn = true;
+                } else if (entry.event === SESSION_EVENTS.INPUT) {
+                    // Increment turn counter on each user input
+                    currentTurn++;
+                } else if (entry.event === 'pipeline.signal_detection.complete' && inTurn) {
+                    // Extract signals from this turn
+                    const signals = entry.data?.signals || [];
+                    if (signals.length > 0) {
+                        turnSignals.push({
+                            turnIndex: currentTurn,
+                            signals: signals
+                        });
+                    }
+                } else if (entry.event === SESSION_EVENTS.TURN_COMPLETE) {
+                    inTurn = false;
+                }
+            } catch {
+                // Skip malformed lines
+                stderr.write(
+                    `[SESSION] Warning: Skipping malformed line in session ${sessionId}\n`
+                );
+            }
+        }
+
+        return turnSignals;
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            return [];
+        }
+        stderr.write(`[SESSION] Error loading session signals ${sessionId}: ${error.message}\n`);
+        return [];
+    }
+}
+
+/**
  * Get the status of a session
  * Derives status by analyzing the session events
  *

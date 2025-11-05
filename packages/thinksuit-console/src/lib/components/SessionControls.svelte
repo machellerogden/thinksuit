@@ -1,7 +1,9 @@
 <script>
     import { Button, Input, Textarea, Checkbox } from '$lib/components/ui/index.js';
+    import Modal from '$lib/components/ui/Modal.svelte';
     import { getSession } from '$lib/stores/session.svelte.js';
-    import PlanBuilder from './PlanBuilder.svelte';
+    import PlanViewer from './PlanViewer.svelte';
+    import { onMount } from 'svelte';
 
     let {
         input = $bindable(''),
@@ -15,21 +17,111 @@
     } = $props();
 
     let textareaComponent = $state();
-    let planMode = $state('builder'); // 'builder' or 'json'
     let usePlanOverride = $state(false); // Whether to use plan override
     let planFormExpanded = $state(true); // Whether plan form is expanded or collapsed
 
+    // LLM assistance state
+    let llmDescription = $state('');
+    let isGeneratingPlan = $state(false);
+    let generationError = $state(null);
+    let moduleMetadata = $state(null);
+    let showHelp = $state(false);
+
+    // Plan view mode
+    let showPlanJson = $state(false); // false = visual view, true = JSON view
+
+    // Preview instructions state
+    let showPreview = $state(false);
+    let previewData = $state(null);
+    let isLoadingPreview = $state(false);
+    let previewError = $state(null);
+
     const session = getSession();
 
-    // Handle plan changes from builder
-    function handlePlanBuilderChange(plan) {
-        selectedPlan = JSON.stringify(plan, null, 2);
+    // Fetch module metadata on mount
+    onMount(async () => {
+        try {
+            const response = await fetch('/api/module/metadata');
+            if (response.ok) {
+                moduleMetadata = await response.json();
+            }
+        } catch (error) {
+            console.error('Failed to load module metadata:', error);
+        }
+    });
+
+    // Generate plan from LLM description
+    async function generatePlanFromDescription() {
+        if (!llmDescription.trim()) {
+            generationError = 'Please enter a description';
+            return;
+        }
+
+        isGeneratingPlan = true;
+        generationError = null;
+
+        try {
+            const currentPlan = selectedPlan ? JSON.parse(selectedPlan) : undefined;
+
+            const response = await fetch('/api/generate/plan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    description: llmDescription,
+                    currentPlan
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to generate plan');
+            }
+
+            const { plan } = await response.json();
+            selectedPlan = JSON.stringify(plan, null, 2);
+        } catch (error) {
+            generationError = error.message;
+            console.error('Plan generation error:', error);
+        } finally {
+            isGeneratingPlan = false;
+        }
+    }
+
+    // Preview instructions
+    async function previewInstructions() {
+        isLoadingPreview = true;
+        previewError = null;
+
+        try {
+            const plan = JSON.parse(selectedPlan);
+
+            const response = await fetch('/api/module/preview-instructions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plan })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to preview instructions');
+            }
+
+            previewData = await response.json();
+            showPreview = true;
+        } catch (error) {
+            previewError = error.message;
+            console.error('Preview error:', error);
+        } finally {
+            isLoadingPreview = false;
+        }
     }
 
     // Clear plan when unchecking override
     $effect(() => {
         if (!usePlanOverride) {
             selectedPlan = '';
+            llmDescription = '';
+            generationError = null;
         }
     });
 
@@ -150,49 +242,144 @@
                 {/if}
 
                 {#if planFormExpanded}
-                <div class="space-y-2 pl-6 border-l-2 border-indigo-200 pt-2">
-                    <!-- Mode Toggle -->
-                    <div class="flex gap-2">
-                        <button
-                            type="button"
-                            class="px-3 py-1 text-xs font-medium rounded border transition-colors
-                                {planMode === 'builder'
-                                    ? 'bg-indigo-600 text-white border-indigo-600'
-                                    : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-300'}"
-                            onclick={() => planMode = 'builder'}
-                            disabled={isSubmitting}
-                        >
-                            Build Custom Plan
-                        </button>
-                        <button
-                            type="button"
-                            class="px-3 py-1 text-xs font-medium rounded border transition-colors
-                                {planMode === 'json'
-                                    ? 'bg-indigo-600 text-white border-indigo-600'
-                                    : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-300'}"
-                            onclick={() => planMode = 'json'}
-                            disabled={isSubmitting}
-                        >
-                            Edit JSON
-                        </button>
-                    </div>
+                <div class="pl-6 border-l-2 border-indigo-200 pt-2">
+                    <!-- Two-column layout -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <!-- Left: LLM Description -->
+                        <div class="space-y-3">
+                            <div class="space-y-2">
+                                <label for="llm-description" class="text-xs font-medium text-gray-700">
+                                    Describe the plan you want:
+                                </label>
+                                <Textarea
+                                    id="llm-description"
+                                    bind:value={llmDescription}
+                                    rows={8}
+                                    placeholder="e.g., Investigate files, then analyze and create a summary..."
+                                    disabled={isSubmitting || isGeneratingPlan}
+                                    class="text-xs"
+                                    onkeydown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            if (llmDescription.trim()) {
+                                                generatePlanFromDescription();
+                                            }
+                                        }
+                                    }}
+                                />
 
-                    <!-- Plan Builder or JSON Editor -->
-                    {#if planMode === 'builder'}
-                        <PlanBuilder onPlanChange={handlePlanBuilderChange} disabled={isSubmitting} />
-                    {:else}
-                        <Textarea
-                            id="selectedPlan"
-                            bind:value={selectedPlan}
-                            rows={6}
-                            placeholder={`{"strategy": "direct", "name": "my-plan", "role": "developer"}`}
-                            disabled={isSubmitting}
-                            class="font-mono text-xs"
-                        />
-                        <div class="mt-1 text-[10px] text-gray-500">
-                            Enter JSON plan object to override automatic plan selection
+                                <!-- Help Text Toggle -->
+                                {#if moduleMetadata}
+                                    <button
+                                        type="button"
+                                        onclick={() => showHelp = !showHelp}
+                                        class="text-[10px] text-indigo-600 hover:text-indigo-700 underline"
+                                        disabled={isSubmitting}
+                                    >
+                                        {showHelp ? '− Hide' : '+ Show'} quick reference
+                                    </button>
+
+                                    {#if showHelp}
+                                        <div class="p-2 bg-gray-50 rounded border border-gray-200 text-[10px] space-y-1">
+                                            <div>
+                                                <span class="font-semibold">Roles:</span>
+                                                <span class="text-gray-700">{moduleMetadata.roles.join(', ')}</span>
+                                            </div>
+                                            <div>
+                                                <span class="font-semibold">Strategies:</span>
+                                                <span class="text-gray-700">{moduleMetadata.strategies.join(', ')}</span>
+                                            </div>
+                                            <div>
+                                                <span class="font-semibold">Adaptations:</span>
+                                                <span class="text-gray-700">{moduleMetadata.adaptations.join(', ')}</span>
+                                            </div>
+                                        </div>
+                                    {/if}
+                                {/if}
+
+                                <!-- Generate Button and Status -->
+                                <div class="flex items-center gap-2">
+                                    <Button
+                                        size="xs"
+                                        onclick={generatePlanFromDescription}
+                                        disabled={isSubmitting || isGeneratingPlan || !llmDescription.trim()}
+                                    >
+                                        {#if isGeneratingPlan}
+                                            Generating...
+                                        {:else if selectedPlan}
+                                            Revise Plan
+                                        {:else}
+                                            Generate Plan
+                                        {/if}
+                                    </Button>
+
+                                    {#if isGeneratingPlan}
+                                        <span class="text-[10px] text-gray-500">
+                                            Using LLM to generate plan...
+                                        </span>
+                                    {/if}
+                                </div>
+
+                                <!-- Error Display -->
+                                {#if generationError}
+                                    <div class="p-2 bg-red-50 border border-red-200 rounded text-[10px] text-red-700">
+                                        {generationError}
+                                    </div>
+                                {/if}
+                            </div>
                         </div>
-                    {/if}
+
+                        <!-- Right: Plan Viewer with toggle -->
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <label class="text-xs font-medium text-gray-700">
+                                    Plan Preview:
+                                </label>
+                                <div class="flex items-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="xs"
+                                        onclick={previewInstructions}
+                                        disabled={!selectedPlan || isSubmitting || isLoadingPreview}
+                                    >
+                                        {isLoadingPreview ? 'Loading...' : '🔍 Preview Instructions'}
+                                    </Button>
+                                    <button
+                                        type="button"
+                                        class="px-2 py-1 text-[10px] font-medium rounded border transition-colors
+                                            {showPlanJson
+                                                ? 'bg-gray-600 text-white border-gray-600'
+                                                : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'}"
+                                        onclick={() => showPlanJson = !showPlanJson}
+                                        disabled={isSubmitting}
+                                    >
+                                        {showPlanJson ? '📊 View' : '{ } JSON'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {#if previewError}
+                                <div class="text-xs text-red-600 bg-red-50 p-2 rounded">
+                                    {previewError}
+                                </div>
+                            {/if}
+
+                            {#if showPlanJson}
+                                <!-- JSON Editor -->
+                                <Textarea
+                                    id="selectedPlan"
+                                    bind:value={selectedPlan}
+                                    rows={12}
+                                    placeholder={`{"strategy": "direct", "name": "my-plan", "role": "analyze"}`}
+                                    disabled={isSubmitting}
+                                    class="font-mono text-xs"
+                                />
+                            {:else}
+                                <!-- Visual Plan Viewer -->
+                                <PlanViewer plan={selectedPlan} />
+                            {/if}
+                        </div>
+                    </div>
                 </div>
                 {/if}
             {/if}
@@ -248,3 +435,122 @@
         </div>
     </form>
 </div>
+
+<!-- Preview Modal -->
+<Modal
+    bind:open={showPreview}
+    title={previewData ? `Instruction Preview: ${previewData.plan.name} (${previewData.plan.strategy})` : 'Instruction Preview'}
+>
+    {#snippet children()}
+        {#if previewData}
+            <div class="space-y-6">
+                {#each previewData.results as result, index}
+                    <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        <div class="flex items-center gap-2 mb-3">
+                            {#if result.type === 'step'}
+                                <span class="text-xs font-mono bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                    Step {result.index}
+                                </span>
+                            {:else if result.type === 'branch'}
+                                <span class="text-xs font-mono bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                                    Branch {result.index}
+                                </span>
+                            {:else}
+                                <span class="text-xs font-mono bg-green-100 text-green-800 px-2 py-1 rounded">
+                                    {result.type}
+                                </span>
+                            {/if}
+                            <span class="text-sm font-semibold text-gray-900">{result.role}</span>
+                            <span class="text-xs text-gray-500">({result.strategy})</span>
+                        </div>
+
+                        <div class="space-y-3">
+                            <!-- System Prompt -->
+                            <div>
+                                <div class="text-xs font-semibold text-gray-700 mb-1">System</div>
+                                <div class="text-xs bg-white p-2 rounded border border-gray-200 font-mono whitespace-pre-wrap">
+                                    {result.instructions.system}
+                                </div>
+                            </div>
+
+                            <!-- Primary Prompt -->
+                            <div>
+                                <div class="text-xs font-semibold text-gray-700 mb-1">Primary</div>
+                                <div class="text-xs bg-white p-2 rounded border border-gray-200 font-mono whitespace-pre-wrap">
+                                    {result.instructions.primary}
+                                </div>
+                            </div>
+
+                            <!-- Adaptations -->
+                            {#if result.instructions.adaptations}
+                                <div>
+                                    <div class="text-xs font-semibold text-gray-700 mb-1">Adaptations</div>
+                                    <div class="text-xs bg-white p-2 rounded border border-gray-200 font-mono whitespace-pre-wrap">
+                                        {result.instructions.adaptations}
+                                    </div>
+                                </div>
+                            {/if}
+
+                            <!-- Length Guidance -->
+                            {#if result.instructions.lengthGuidance}
+                                <div>
+                                    <div class="text-xs font-semibold text-gray-700 mb-1">Length Guidance</div>
+                                    <div class="text-xs bg-white p-2 rounded border border-gray-200 font-mono whitespace-pre-wrap">
+                                        {result.instructions.lengthGuidance}
+                                    </div>
+                                </div>
+                            {/if}
+
+                            <!-- Tool Instructions -->
+                            {#if result.instructions.toolInstructions}
+                                <div>
+                                    <div class="text-xs font-semibold text-gray-700 mb-1">Tool Instructions</div>
+                                    <div class="text-xs bg-white p-2 rounded border border-gray-200 font-mono whitespace-pre-wrap">
+                                        {result.instructions.toolInstructions}
+                                    </div>
+                                </div>
+                            {/if}
+
+                            <!-- Metadata -->
+                            <div>
+                                <div class="text-xs font-semibold text-gray-700 mb-1">Metadata</div>
+                                <div class="text-xs bg-white p-2 rounded border border-gray-200">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <span class="text-gray-600">Max Tokens:</span>
+                                            <span class="font-mono ml-1">{result.instructions.maxTokens}</span>
+                                        </div>
+                                        {#if result.instructions.metadata?.baseTokens}
+                                            <div>
+                                                <span class="text-gray-600">Base Tokens:</span>
+                                                <span class="font-mono ml-1">{result.instructions.metadata.baseTokens}</span>
+                                            </div>
+                                        {/if}
+                                        {#if result.instructions.metadata?.tokenMultiplier}
+                                            <div>
+                                                <span class="text-gray-600">Token Multiplier:</span>
+                                                <span class="font-mono ml-1">{result.instructions.metadata.tokenMultiplier}</span>
+                                            </div>
+                                        {/if}
+                                        {#if result.instructions.metadata?.lengthLevel}
+                                            <div>
+                                                <span class="text-gray-600">Length Level:</span>
+                                                <span class="font-mono ml-1">{result.instructions.metadata.lengthLevel}</span>
+                                            </div>
+                                        {/if}
+                                        {#if result.instructions.metadata?.adaptations?.length > 0}
+                                            <div class="col-span-2">
+                                                <span class="text-gray-600">Adaptations:</span>
+                                                <span class="font-mono ml-1">{result.instructions.metadata.adaptations.join(', ')}</span>
+                                            </div>
+                                        {/if}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {/each}
+            </div>
+        {/if}
+    {/snippet}
+</Modal>

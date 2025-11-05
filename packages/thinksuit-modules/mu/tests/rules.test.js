@@ -14,7 +14,11 @@ describe('Mu Rules', () => {
             const engine = new RulesEngine();
             rules.forEach(rule => engine.addRule(rule));
 
-            const signal = createFact.signal('intent', 'capture', 0.9);
+            const currentTurnIndex = 1;
+            const turnContext = { type: 'TurnContext', data: { currentTurnIndex } };
+            const signal = { ...createFact.signal('intent', 'capture', 0.9), turnIndex: currentTurnIndex };
+
+            engine.addFact(turnContext);
             engine.addFact(signal);
             engine.run();
 
@@ -30,7 +34,11 @@ describe('Mu Rules', () => {
             const engine = new RulesEngine();
             rules.forEach(rule => engine.addRule(rule));
 
-            const signal = createFact.signal('intent', 'readback', 0.9);
+            const currentTurnIndex = 1;
+            const turnContext = { type: 'TurnContext', data: { currentTurnIndex } };
+            const signal = { ...createFact.signal('intent', 'readback', 0.9), turnIndex: currentTurnIndex };
+
+            engine.addFact(turnContext);
             engine.addFact(signal);
             engine.run();
 
@@ -45,7 +53,11 @@ describe('Mu Rules', () => {
             const engine = new RulesEngine();
             rules.forEach(rule => engine.addRule(rule));
 
-            const signal = createFact.signal('intent', 'analyze', 0.8);
+            const currentTurnIndex = 1;
+            const turnContext = { type: 'TurnContext', data: { currentTurnIndex } };
+            const signal = { ...createFact.signal('intent', 'analyze', 0.8), turnIndex: currentTurnIndex };
+
+            engine.addFact(turnContext);
             engine.addFact(signal);
             engine.run();
 
@@ -60,7 +72,11 @@ describe('Mu Rules', () => {
             const engine = new RulesEngine();
             rules.forEach(rule => engine.addRule(rule));
 
-            const signal = createFact.signal('intent', 'investigate', 0.9);
+            const currentTurnIndex = 1;
+            const turnContext = { type: 'TurnContext', data: { currentTurnIndex } };
+            const signal = { ...createFact.signal('intent', 'investigate', 0.9), turnIndex: currentTurnIndex };
+
+            engine.addFact(turnContext);
             engine.addFact(signal);
             engine.run();
 
@@ -79,7 +95,11 @@ describe('Mu Rules', () => {
             const engine = new RulesEngine();
             rules.forEach(rule => engine.addRule(rule));
 
-            const signal = createFact.signal('intent', 'synthesize', 0.8);
+            const currentTurnIndex = 1;
+            const turnContext = { type: 'TurnContext', data: { currentTurnIndex } };
+            const signal = { ...createFact.signal('intent', 'synthesize', 0.8), turnIndex: currentTurnIndex };
+
+            engine.addFact(turnContext);
             engine.addFact(signal);
             engine.run();
 
@@ -95,7 +115,11 @@ describe('Mu Rules', () => {
             const engine = new RulesEngine();
             rules.forEach(rule => engine.addRule(rule));
 
-            const signal = createFact.signal('intent', 'execute', 0.9);
+            const currentTurnIndex = 1;
+            const turnContext = { type: 'TurnContext', data: { currentTurnIndex } };
+            const signal = { ...createFact.signal('intent', 'execute', 0.9), turnIndex: currentTurnIndex };
+
+            engine.addFact(turnContext);
             engine.addFact(signal);
             engine.run();
 
@@ -129,8 +153,12 @@ describe('Mu Rules', () => {
             const engine = new RulesEngine();
             rules.forEach(rule => engine.addRule(rule));
 
-            engine.addFact(createFact.signal('intent', 'analyze', 0.7));
-            engine.addFact(createFact.signal('intent', 'investigate', 0.8));
+            const currentTurnIndex = 1;
+            const turnContext = { type: 'TurnContext', data: { currentTurnIndex } };
+
+            engine.addFact(turnContext);
+            engine.addFact({ ...createFact.signal('intent', 'analyze', 0.7), turnIndex: currentTurnIndex });
+            engine.addFact({ ...createFact.signal('intent', 'investigate', 0.8), turnIndex: currentTurnIndex });
             engine.run();
 
             const executionPlans = engine.query('ExecutionPlan').execute();

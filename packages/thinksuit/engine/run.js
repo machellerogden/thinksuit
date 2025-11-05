@@ -67,13 +67,16 @@ export async function run(config) {
 
     // Use provided thread or load it
     let thread;
+    let historicalSignals = [];
     if (config._thread) {
         // Thread was already loaded by schedule()
         thread = config._thread;
+        historicalSignals = config._historicalSignals || [];
     } else {
-        // Load thread (for direct calls, though this shouldn't happen)
-        const { loadSessionThread } = await import('./transports/session-router.js');
+        // Load thread and historical signals (for direct calls, though this shouldn't happen)
+        const { loadSessionThread, loadSessionSignals } = await import('./transports/session-router.js');
         thread = await loadSessionThread(finalConfig.sessionId);
+        historicalSignals = await loadSessionSignals(finalConfig.sessionId);
     }
 
     // Build full thread with user input
@@ -81,6 +84,9 @@ export async function run(config) {
         ...thread, // Include conversation history
         { role: 'user', content: finalConfig.input }
     ];
+
+    // Calculate current turn index (previous turns + 1)
+    const currentTurnIndex = thread.filter(msg => msg.role === 'user').length + 1;
 
     // Generate boundary IDs
     const sessionBoundaryId = `session-${finalConfig.sessionId}`;
@@ -118,7 +124,7 @@ export async function run(config) {
     const { discoveredTools, cleanup } = await withMcpLifecycle(module, finalConfig, logger);
 
     try {
-        // Execute the ThinkSuit cycle with abort signal
+        // Execute the ThinkSuit cycle with abort signal and historical signals
         const [status, result] = await executeOnce({
             finalConfig,
             logger,
@@ -127,7 +133,9 @@ export async function run(config) {
             discoveredTools,
             thread: fullThread,
             abortSignal,
-            turnBoundaryId
+            turnBoundaryId,
+            historicalSignals,
+            currentTurnIndex
         });
 
         // Format and return the final result

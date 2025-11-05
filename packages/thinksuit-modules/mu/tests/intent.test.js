@@ -55,7 +55,7 @@ describe('Intent Classifier', () => {
     });
 
     describe('confidence scoring', () => {
-        it('should give higher confidence for keywords early in text', async () => {
+        it('should give consistent confidence for pattern matches', async () => {
             const early = [{ role: 'user', content: 'Find the bug in this code please' }];
             const late = [{ role: 'user', content: 'There is something wrong with the implementation and I need you to find the issue' }];
 
@@ -65,19 +65,19 @@ describe('Intent Classifier', () => {
             const earlyConfidence = earlySignals.find(s => s.signal === 'investigate')?.confidence || 0;
             const lateConfidence = lateSignals.find(s => s.signal === 'investigate')?.confidence || 0;
 
-            expect(earlyConfidence).toBe(0.9); // Early match gets high confidence
-            expect(lateConfidence).toBe(0.7); // Late match gets lower confidence
+            expect(earlyConfidence).toBe(0.85); // Pattern match confidence
+            expect(lateConfidence).toBe(0.85); // Pattern match confidence
         });
     });
 
     describe('default behavior', () => {
-        it('should default to analyze when no specific intent detected', async () => {
+        it('should default to chat when no specific intent detected', async () => {
             const thread = [{ role: 'user', content: 'This is some random text without keywords' }];
             const signals = await classifyIntent(thread);
 
             expect(signals).toHaveLength(1);
-            expect(signals[0].signal).toBe('analyze');
-            expect(signals[0].confidence).toBe(0.5);
+            expect(signals[0].signal).toBe('chat');
+            expect(signals[0].confidence).toBe(0.7);
         });
     });
 
@@ -93,13 +93,14 @@ describe('Intent Classifier', () => {
             expect(signals).toEqual([]);
         });
 
-        it('should detect multiple intents in same message', async () => {
+        it('should detect multiple pattern matches in message with multiple keywords', async () => {
             const thread = [{ role: 'user', content: 'Find the files and then create a summary' }];
             const signals = await classifyIntent(thread);
 
+            // Returns multiple signals when multiple patterns match
             expect(signals.length).toBeGreaterThan(1);
             expect(signals.some(s => s.signal === 'investigate')).toBe(true);
-            expect(signals.some(s => s.signal === 'execute')).toBe(true);
+            expect(signals.some(s => s.signal === 'synthesize')).toBe(true);
         });
     });
 });
