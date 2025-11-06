@@ -10,11 +10,10 @@ export const factFactory = (ns = MODULE_NS) => ({
         provenance
     }),
 
-    executionPlan: (strategy, options = {}) => ({
+    executionPlan: (plan) => ({
         ns,
         type: 'ExecutionPlan',
-        strategy,
-        ...options
+        ...plan
     }),
 
     planPrecedence: (precedence) => ({

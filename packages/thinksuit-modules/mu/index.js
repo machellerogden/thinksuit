@@ -2,6 +2,7 @@ import prompts from './prompts.js';
 import classifiers from './classifiers/index.js';
 import rules from './rules.js';
 import { composeInstructions } from './composeInstructions.js';
+import { planLibrary } from './planLibrary.js';
 
 /**
  * Core Thinking Companion Module
@@ -79,6 +80,7 @@ const mu = {
     classifiers,
     rules,
     composeInstructions,
+    planLibrary,
 
     orchestration: {
         formatResponse: (results) => {

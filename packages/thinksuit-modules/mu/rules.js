@@ -4,8 +4,7 @@
  */
 
 import { createFact } from './facts.js';
-
-const DEFAULT_TIMEOUT_MS = 1000 * 60 * 60 * 12;
+import { planLibrary } from './planLibrary.js';
 
 const rules = [
   // Plan precedence - defines priority order when multiple intents detected
@@ -41,11 +40,7 @@ const rules = [
       ]
     },
     action: (facts, engine) => {
-      engine.addFact(createFact.executionPlan('direct', {
-        name: 'chat-turn',
-        role: 'chat',
-        lengthLevel: 'brief'
-      }));
+      engine.addFact(createFact.executionPlan(planLibrary['chat-turn']));
     }
   },
 
@@ -60,11 +55,7 @@ const rules = [
       ]
     },
     action: (facts, engine) => {
-      engine.addFact(createFact.executionPlan('direct', {
-        name: 'capture-turn',
-        role: 'capture',
-        lengthLevel: 'brief'
-      }));
+      engine.addFact(createFact.executionPlan(planLibrary['capture-turn']));
     }
   },
 
@@ -79,11 +70,7 @@ const rules = [
       ]
     },
     action: (facts, engine) => {
-      engine.addFact(createFact.executionPlan('direct', {
-        name: 'readback-turn',
-        role: 'readback',
-        lengthLevel: 'standard'
-      }));
+      engine.addFact(createFact.executionPlan(planLibrary['readback-turn']));
     }
   },
 
@@ -98,11 +85,7 @@ const rules = [
       ]
     },
     action: (facts, engine) => {
-      engine.addFact(createFact.executionPlan('direct', {
-        name: 'analyze-turn',
-        role: 'analyze',
-        lengthLevel: 'standard'
-      }));
+      engine.addFact(createFact.executionPlan(planLibrary['analyze-turn']));
     }
   },
 
@@ -117,13 +100,7 @@ const rules = [
       ]
     },
     action: (facts, engine) => {
-      engine.addFact(createFact.executionPlan('task', {
-        name: 'investigate-task',
-        role: 'investigate',
-        tools: ['list_directory', 'read_file', 'search'],
-        resolution: { maxCycles: 5, maxTokens: 10000, maxToolCalls: 15, timeoutMs: DEFAULT_TIMEOUT_MS },
-        lengthLevel: 'standard'
-      }));
+      engine.addFact(createFact.executionPlan(planLibrary['investigate-task']));
     }
   },
 
@@ -138,11 +115,7 @@ const rules = [
       ]
     },
     action: (facts, engine) => {
-      engine.addFact(createFact.executionPlan('direct', {
-        name: 'synthesize-turn',
-        role: 'synthesize',
-        lengthLevel: 'comprehensive'
-      }));
+      engine.addFact(createFact.executionPlan(planLibrary['synthesize-turn']));
     }
   },
 
@@ -157,13 +130,7 @@ const rules = [
       ]
     },
     action: (facts, engine) => {
-      engine.addFact(createFact.executionPlan('task', {
-        name: 'execute-task',
-        role: 'execute',
-        tools: ['read_file', 'write_file', 'edit_file', 'list_directory'],
-        resolution: { maxCycles: 8, maxTokens: 12000, maxToolCalls: 20, timeoutMs: DEFAULT_TIMEOUT_MS },
-        lengthLevel: 'standard'
-      }));
+      engine.addFact(createFact.executionPlan(planLibrary['execute-task']));
     }
   }
 ];

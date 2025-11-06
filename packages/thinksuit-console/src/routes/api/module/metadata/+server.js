@@ -41,7 +41,9 @@ export async function GET({ url }) {
             // Derive adaptations from prompts using adapt.* convention
             adaptations: Object.keys(module.prompts || {})
                 .filter(key => key.startsWith('adapt.'))
-                .map(key => key.replace('adapt.', ''))
+                .map(key => key.replace('adapt.', '')),
+            // Include planLibrary if available
+            planLibrary: module.planLibrary || {}
         };
 
         return json(metadata);

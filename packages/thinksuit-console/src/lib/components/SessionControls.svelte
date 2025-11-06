@@ -17,8 +17,11 @@
     } = $props();
 
     let textareaComponent = $state();
-    let usePlanOverride = $state(false); // Whether to use plan override
+    let selectedPresetId = $state(null); // Currently selected preset ID
     let planFormExpanded = $state(true); // Whether plan form is expanded or collapsed
+    let isDirty = $state(false); // Whether plan form has been modified
+    let showDirtyConfirmation = $state(false); // Show confirmation dialog
+    let pendingPresetId = $state(null); // Preset pending load after confirmation
 
     // LLM assistance state
     let llmDescription = $state('');
@@ -36,17 +39,52 @@
     let isLoadingPreview = $state(false);
     let previewError = $state(null);
 
+    // Preset loading state
+    let allPresets = $state([]);
+    let customPresets = $state([]);
+    let isLoadingPresets = $state(false);
+
+    // Save preset state
+    let showSaveDialog = $state(false);
+    let newPresetName = $state('');
+    let newPresetDescription = $state('');
+    let saveError = $state(null);
+    let isSavingPreset = $state(false);
+
     const session = getSession();
 
-    // Fetch module metadata on mount
+    // Fetch module metadata and presets on mount
     onMount(async () => {
+        isLoadingPresets = true;
         try {
-            const response = await fetch('/api/module/metadata');
-            if (response.ok) {
-                moduleMetadata = await response.json();
+            // Load module metadata (includes planLibrary)
+            const metadataResponse = await fetch('/api/module/metadata');
+            if (metadataResponse.ok) {
+                moduleMetadata = await metadataResponse.json();
+
+                // Convert planLibrary to preset format
+                const libraryPresets = Object.entries(moduleMetadata.planLibrary || {}).map(([id, preset]) => ({
+                    id,
+                    name: preset.name || id,
+                    description: preset.description || '',
+                    plan: preset.plan || preset,
+                    source: 'module'
+                }));
+
+                // Load custom presets
+                const settingsResponse = await fetch('/api/console/settings');
+                if (settingsResponse.ok) {
+                    const settings = await settingsResponse.json();
+                    customPresets = settings.customPresets || [];
+                }
+
+                // Merge presets: module library first, then custom
+                allPresets = [...libraryPresets, ...customPresets.map(p => ({ ...p, source: 'custom' }))];
             }
         } catch (error) {
-            console.error('Failed to load module metadata:', error);
+            console.error('Failed to load presets:', error);
+        } finally {
+            isLoadingPresets = false;
         }
     });
 
@@ -116,12 +154,135 @@
         }
     }
 
-    // Clear plan when unchecking override
-    $effect(() => {
-        if (!usePlanOverride) {
+    // Handle preset selection
+    function selectPreset(presetId) {
+        // If clicking the already-selected preset, deselect it
+        if (selectedPresetId === presetId) {
+            selectedPresetId = null;
             selectedPlan = '';
-            llmDescription = '';
-            generationError = null;
+            isDirty = false;
+            return;
+        }
+
+        // If dirty, show confirmation
+        if (isDirty) {
+            pendingPresetId = presetId;
+            showDirtyConfirmation = true;
+            return;
+        }
+
+        // Load preset
+        loadPreset(presetId);
+    }
+
+    function loadPreset(presetId) {
+        const preset = allPresets.find(p => p.id === presetId);
+        if (preset) {
+            selectedPresetId = presetId;
+            selectedPlan = JSON.stringify(preset.plan, null, 2);
+            isDirty = false;
+        }
+    }
+
+    function confirmLoadPreset() {
+        if (pendingPresetId) {
+            loadPreset(pendingPresetId);
+            pendingPresetId = null;
+        }
+        showDirtyConfirmation = false;
+    }
+
+    function cancelLoadPreset() {
+        pendingPresetId = null;
+        showDirtyConfirmation = false;
+    }
+
+    function openSaveDialog() {
+        if (!selectedPlan) {
+            saveError = 'No plan to save';
+            return;
+        }
+        newPresetName = '';
+        newPresetDescription = '';
+        saveError = null;
+        showSaveDialog = true;
+    }
+
+    async function savePreset() {
+        if (!newPresetName.trim()) {
+            saveError = 'Preset name is required';
+            return;
+        }
+
+        if (!selectedPlan) {
+            saveError = 'No plan to save';
+            return;
+        }
+
+        isSavingPreset = true;
+        saveError = null;
+
+        try {
+            const plan = JSON.parse(selectedPlan);
+
+            // Generate unique ID
+            const presetId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+            const newPreset = {
+                id: presetId,
+                name: newPresetName.trim(),
+                description: newPresetDescription.trim(),
+                plan
+            };
+
+            // Add to custom presets
+            customPresets = [...customPresets, newPreset];
+
+            // Save to server
+            const response = await fetch('/api/console/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ customPresets })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to save preset');
+            }
+
+            // Reload all presets
+            const libraryPresets = Object.entries(moduleMetadata.planLibrary || {}).map(([id, preset]) => ({
+                id,
+                name: preset.name || id,
+                description: preset.description || '',
+                plan: preset.plan || preset,
+                source: 'module'
+            }));
+            allPresets = [...libraryPresets, ...customPresets.map(p => ({ ...p, source: 'custom' }))];
+
+            // Close dialog
+            showSaveDialog = false;
+            newPresetName = '';
+            newPresetDescription = '';
+        } catch (error) {
+            saveError = error.message;
+            console.error('Error saving preset:', error);
+        } finally {
+            isSavingPreset = false;
+        }
+    }
+
+    function cancelSavePreset() {
+        showSaveDialog = false;
+        newPresetName = '';
+        newPresetDescription = '';
+        saveError = null;
+    }
+
+    // Track dirty state when plan is modified
+    $effect(() => {
+        // Mark dirty if user has typed description or modified plan
+        if (llmDescription.trim() || (selectedPlan && !selectedPresetId)) {
+            isDirty = true;
         }
     });
 
@@ -197,32 +358,60 @@
             />
         </div>
 
-        <!-- Plan Override Section -->
+        <!-- Plan Presets Section -->
         <div class="space-y-3">
-            <!-- Checkbox to enable plan override -->
-            <div class="flex items-center justify-between gap-2">
-                <Checkbox
-                    bind:checked={usePlanOverride}
-                    label="Bypass automatic plan selection"
-                    class="text-xs font-mono"
-                    disabled={isSubmitting}
-                />
-                {#if usePlanOverride}
+            <!-- Preset buttons -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between gap-2">
+                    <label class="text-xs font-medium text-gray-700">
+                        Plan Presets:
+                    </label>
                     <button
                         type="button"
                         onclick={() => planFormExpanded = !planFormExpanded}
                         class="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
                         disabled={isSubmitting}
                     >
-                        {planFormExpanded ? '▼ Collapse' : '▶ Expand'}
+                        {planFormExpanded ? '▼ Collapse Builder' : '▶ Expand Builder'}
                     </button>
+                </div>
+
+                {#if isLoadingPresets}
+                    <div class="text-xs text-gray-500">Loading presets...</div>
+                {:else if allPresets.length > 0}
+                    <div class="flex flex-wrap gap-2">
+                        {#each allPresets as preset}
+                            <button
+                                type="button"
+                                onclick={() => selectPreset(preset.id)}
+                                class="px-3 py-1.5 text-xs font-medium rounded border transition-colors
+                                    {selectedPresetId === preset.id
+                                        ? 'bg-indigo-600 text-white border-indigo-600'
+                                        : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'}"
+                                disabled={isSubmitting}
+                                title={preset.description}
+                            >
+                                {preset.name}
+                            </button>
+                        {/each}
+                        <button
+                            type="button"
+                            onclick={openSaveDialog}
+                            class="px-3 py-1.5 text-xs font-medium rounded border border-dashed border-gray-400 text-gray-600 hover:border-indigo-500 hover:text-indigo-600 transition-colors"
+                            disabled={isSubmitting || !selectedPlan}
+                            title="Save current plan as preset"
+                        >
+                            + Save as Preset
+                        </button>
+                    </div>
+                {:else}
+                    <div class="text-xs text-gray-500">No presets available</div>
                 {/if}
             </div>
 
-            <!-- Plan builder/editor (only shown when checkbox is checked) -->
-            {#if usePlanOverride}
-                <!-- Collapsed summary view -->
-                {#if !planFormExpanded}
+            <!-- Plan builder/editor -->
+            <!-- Collapsed summary view -->
+            {#if !planFormExpanded}
                     <div class="pl-6 border-l-2 border-indigo-200 py-2">
                         <div class="text-xs text-gray-600 font-mono">
                             {#if selectedPlan}
@@ -381,7 +570,6 @@
                         </div>
                     </div>
                 </div>
-                {/if}
             {/if}
         </div>
 
@@ -552,5 +740,95 @@
                 {/each}
             </div>
         {/if}
+    {/snippet}
+</Modal>
+
+<!-- Dirty Confirmation Modal -->
+<Modal
+    bind:open={showDirtyConfirmation}
+    title="Unsaved Changes"
+>
+    {#snippet children()}
+        <div class="space-y-4">
+            <p class="text-sm text-gray-700">
+                You have unsaved changes to your current plan. Loading a preset will discard these changes.
+            </p>
+            <div class="flex justify-end gap-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onclick={cancelLoadPreset}
+                >
+                    Cancel
+                </Button>
+                <Button
+                    variant="danger"
+                    size="sm"
+                    onclick={confirmLoadPreset}
+                >
+                    Load Preset Anyway
+                </Button>
+            </div>
+        </div>
+    {/snippet}
+</Modal>
+
+<!-- Save Preset Modal -->
+<Modal
+    bind:open={showSaveDialog}
+    title="Save Plan as Preset"
+>
+    {#snippet children()}
+        <div class="space-y-4">
+            <div class="space-y-2">
+                <label for="preset-name" class="text-sm font-medium text-gray-700">
+                    Preset Name
+                </label>
+                <Input
+                    id="preset-name"
+                    bind:value={newPresetName}
+                    placeholder="e.g., My Custom Workflow"
+                    disabled={isSavingPreset}
+                />
+            </div>
+
+            <div class="space-y-2">
+                <label for="preset-description" class="text-sm font-medium text-gray-700">
+                    Description (optional)
+                </label>
+                <Textarea
+                    id="preset-description"
+                    bind:value={newPresetDescription}
+                    rows={3}
+                    placeholder="Describe what this preset does..."
+                    disabled={isSavingPreset}
+                />
+            </div>
+
+            {#if saveError}
+                <div class="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                    {saveError}
+                </div>
+            {/if}
+
+            <div class="flex justify-end gap-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onclick={cancelSavePreset}
+                    disabled={isSavingPreset}
+                >
+                    Cancel
+                </Button>
+                <Button
+                    variant="primary"
+                    size="sm"
+                    onclick={savePreset}
+                    disabled={isSavingPreset || !newPresetName.trim()}
+                >
+                    {isSavingPreset ? 'Saving...' : 'Save Preset'}
+                </Button>
+            </div>
+        </div>
     {/snippet}
 </Modal>
