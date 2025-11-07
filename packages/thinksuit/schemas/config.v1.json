@@ -14,8 +14,8 @@
     },
     "provider": {
       "type": "string",
-      "enum": ["openai", "vertex-ai", "anthropic"],
-      "description": "LLM provider"
+      "enum": ["openai", "vertex-ai", "anthropic", "hugging-face", "onnx"],
+      "description": "LLM provider / API gateway"
     },
     "model": {
       "type": "string",

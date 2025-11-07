@@ -2,11 +2,183 @@ import { json } from '@sveltejs/kit';
 import { buildConfig, loadModules, createLogger, callLLM } from 'thinksuit';
 import { validatePlan } from 'thinksuit/schemas/validate';
 import { modules as defaultModules } from 'thinksuit-modules';
-import planSchema from 'thinksuit/schemas/plan.v1.json' with { type: 'json' };
+
+// Stage 1 Schema: High-level structure (strategy selection)
+const stage1Schema = {
+    type: 'object',
+    required: ['strategy', 'name', 'roles', 'buildThread', 'resultStrategy', 'rationale'],
+    properties: {
+        strategy: {
+            enum: ['direct', 'task', 'sequential', 'parallel'],
+            description: 'Execution strategy for this plan'
+        },
+        name: {
+            type: 'string',
+            description: 'Unique identifier for this plan'
+        },
+        roles: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Role names involved in this plan'
+        },
+        buildThread: {
+            type: 'boolean',
+            description: 'Whether to build conversation thread between sequential steps'
+        },
+        resultStrategy: {
+            enum: ['last', 'concat'],
+            description: 'How to combine results'
+        },
+        rationale: {
+            type: 'string',
+            description: 'Why this approach was chosen'
+        }
+    },
+    additionalProperties: false
+};
+
+// Stage 2 Schemas: Strategy-specific details
+
+const directDetailsSchema = {
+    type: 'object',
+    required: ['adaptations'],
+    properties: {
+        adaptations: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Adaptation keys to apply'
+        }
+    },
+    additionalProperties: false
+};
+
+const taskDetailsSchema = {
+    type: 'object',
+    required: ['tools', 'adaptations'],
+    properties: {
+        tools: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Tool names to make available'
+        },
+        adaptations: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Adaptation keys to apply'
+        }
+    },
+    additionalProperties: false
+};
+
+const sequentialDetailsSchema = {
+    type: 'object',
+    required: ['steps'],
+    properties: {
+        steps: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['role', 'strategy', 'tools', 'adaptations'],
+                properties: {
+                    role: {
+                        type: 'string',
+                        description: 'Role for this step'
+                    },
+                    strategy: {
+                        enum: ['direct', 'task'],
+                        description: 'Execution strategy for this step'
+                    },
+                    tools: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: 'Tools for this step (empty array for direct strategy)'
+                    },
+                    adaptations: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: 'Adaptations for this step'
+                    }
+                },
+                additionalProperties: false
+            }
+        }
+    },
+    additionalProperties: false
+};
+
+const parallelDetailsSchema = {
+    type: 'object',
+    required: ['branches'],
+    properties: {
+        branches: {
+            type: 'array',
+            items: {
+                type: 'object',
+                required: ['role', 'strategy', 'tools', 'adaptations'],
+                properties: {
+                    role: {
+                        type: 'string',
+                        description: 'Role for this branch'
+                    },
+                    strategy: {
+                        enum: ['direct', 'task'],
+                        description: 'Execution strategy for this branch'
+                    },
+                    tools: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: 'Tools for this branch (empty array for direct strategy)'
+                    },
+                    adaptations: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: 'Adaptations for this branch'
+                    }
+                },
+                additionalProperties: false
+            }
+        }
+    },
+    additionalProperties: false
+};
+
+// Stitching function
+function stitchPlan(stage1Result, stage2Result) {
+    const plan = {
+        name: stage1Result.name,
+        strategy: stage1Result.strategy,
+        rationale: stage1Result.rationale || '',
+        buildThread: stage1Result.buildThread !== false, // default true for sequential
+        resultStrategy: stage1Result.resultStrategy || 'last'
+    };
+
+    switch (stage1Result.strategy) {
+        case 'direct':
+            plan.role = stage1Result.roles[0];
+            plan.adaptations = stage2Result.adaptations || [];
+            break;
+
+        case 'task':
+            plan.role = stage1Result.roles[0];
+            plan.tools = stage2Result.tools || [];
+            plan.adaptations = stage2Result.adaptations || [];
+            break;
+
+        case 'sequential':
+            plan.sequence = stage2Result.steps || [];
+            break;
+
+        case 'parallel':
+            plan.roles = stage2Result.branches || [];
+            break;
+    }
+
+    return plan;
+}
 
 export async function POST({ request }) {
     try {
-        const { description, currentPlan } = await request.json();
+        const { description, currentPlan, availableTools = [] } = await request.json();
 
         if (!description || typeof description !== 'string') {
             return json({ error: 'Description is required and must be a string' }, { status: 400 });
@@ -42,85 +214,19 @@ export async function POST({ request }) {
             }, { status: 404 });
         }
 
-        // Extract available options for the LLM
-        const availableRoles = module.roles?.map(r =>
-            typeof r === 'string' ? r : r.name
-        ) || [];
+        // Extract available roles with descriptions
+        const roles = module.roles || [];
+        const roleDescriptions = roles.map(role => {
+            const name = typeof role === 'string' ? role : role.name;
+            const description = typeof role === 'object' && role.description
+                ? role.description
+                : '';
+            return `- ${name}: ${description}`;
+        }).join('\n');
 
         const availableAdaptations = Object.keys(module.prompts || {})
             .filter(key => key.startsWith('adapt.'))
             .map(key => key.replace('adapt.', ''));
-
-        // Build system prompt with schema and available options
-        const systemPrompt = `You are a plan generator for ThinkSuit orchestration.
-
-Available strategies: direct, task, sequential, parallel
-Available roles: ${availableRoles.join(', ')}
-Available adaptations: ${availableAdaptations.join(', ')}
-
-CRITICAL RULES - READ CAREFULLY:
-
-1. DIRECT STRATEGY - Use "role" field, NOT "sequence" or "roles":
-   {
-     "strategy": "direct",
-     "name": "plan-name",
-     "role": "role-name"
-   }
-   - MUST include: strategy, name, role
-   - NEVER include: sequence, roles
-   - Optional: adaptations (array of strings)
-
-2. TASK STRATEGY - Use "role" field, NOT "sequence" or "roles":
-   {
-     "strategy": "task",
-     "name": "plan-name",
-     "role": "role-name",
-     "tools": ["tool1"]
-   }
-   - MUST include: strategy, name, role
-   - NEVER include: sequence, roles
-   - Optional: tools (array), adaptations (array), resolution (object with maxCycles/maxTokens/maxToolCalls/timeoutMs)
-
-3. SEQUENTIAL STRATEGY - Use "sequence" field, NOT "role" or "roles":
-   {
-     "strategy": "sequential",
-     "name": "plan-name",
-     "sequence": [
-       { "role": "role-name", "strategy": "direct" }
-     ]
-   }
-   - MUST include: strategy, name, sequence (array of objects)
-   - NEVER include: role, roles
-   - Each sequence item MUST have: role, strategy
-   - Optional: resultStrategy ("last" or "concat"), buildThread (boolean)
-
-4. PARALLEL STRATEGY - Use "roles" field, NOT "role" or "sequence":
-   {
-     "strategy": "parallel",
-     "name": "plan-name",
-     "roles": [
-       { "role": "role-name", "strategy": "direct" }
-     ]
-   }
-   - MUST include: strategy, name, roles (array of objects)
-   - NEVER include: role, sequence
-   - Each roles item MUST have: role, strategy
-   - Optional: resultStrategy ("last" or "concat")
-
-VALIDATION CHECKLIST:
-- If strategy is "direct" or "task" → use "role" field only
-- If strategy is "sequential" → use "sequence" field only
-- If strategy is "parallel" → use "roles" field only
-- Never mix these fields together
-- All field names must match exactly (case-sensitive)
-
-Return ONLY the JSON plan object. No explanation, no markdown code blocks.`;
-
-        // Build user prompt
-        let userPrompt = `Generate an execution plan for: ${description}`;
-        if (currentPlan) {
-            userPrompt += `\n\nCurrent plan:\n${JSON.stringify(currentPlan, null, 2)}\n\nRevise this plan based on the description.`;
-        }
 
         // Build machine context for callLLM
         const machineContext = {
@@ -128,63 +234,190 @@ Return ONLY the JSON plan object. No explanation, no markdown code blocks.`;
             execLogger
         };
 
-        // Transform schema for structured output - OpenAI requires all properties in required arrays
-        function transformSchemaForStructuredOutput(schema) {
-            const transformed = JSON.parse(JSON.stringify(schema));
+        // ============================================================
+        // STAGE 1: Determine strategy and roles
+        // ============================================================
 
-            function processNode(node, isRoot = false) {
-                if (!node || typeof node !== 'object') return;
+        const stage1SystemPrompt = `You are a plan generator for ThinkSuit orchestration.
 
-                // Remove oneOf and use the object variant (for sequence/roles items)
-                if (node.oneOf) {
-                    const objectVariant = node.oneOf.find(v => v.type === 'object');
-                    if (objectVariant) {
-                        delete node.oneOf;
-                        Object.assign(node, objectVariant);
-                    }
-                }
+Available strategies:
+- direct: Single role execution without tools
+- task: Single role execution with tools
+- sequential: Multiple roles executed in order
+- parallel: Multiple roles executed concurrently
 
-                // Set additionalProperties: false and add required for ALL objects
-                if (node.type === 'object' && node.properties) {
-                    node.additionalProperties = false;
-                    // OpenAI strict mode requires all properties to be in required array
-                    node.required = Object.keys(node.properties);
-                }
+Available roles and their purposes:
+${roleDescriptions}
 
-                // Recurse
-                if (node.properties) {
-                    Object.values(node.properties).forEach(prop => processNode(prop, false));
-                }
-                if (node.items) {
-                    processNode(node.items, false);
-                }
-            }
+Your task is to determine:
+1. Which strategy is most appropriate for the request
+2. Which role(s) are needed
+3. Whether sequential steps should build a conversation thread
+4. How results should be combined (for sequential/parallel)
 
-            processNode(transformed, true);
-            return transformed;
-        }
+Return ONLY the JSON object. No explanation, no markdown code blocks.`;
 
-        const structuredSchema = transformSchemaForStructuredOutput(planSchema);
+        const stage1UserPrompt = currentPlan
+            ? `Revise the strategy for: ${description}\n\nCurrent plan:\n${JSON.stringify(currentPlan, null, 2)}`
+            : `Determine the strategy and roles for: ${description}`;
 
-        // Call LLM through ThinkSuit's provider abstraction
-        const response = await callLLM(
+        const stage1Response = await callLLM(
             machineContext,
             {
                 model: config.model || 'gpt-4o-mini',
                 thread: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userPrompt }
+                    { role: 'system', content: stage1SystemPrompt },
+                    { role: 'user', content: stage1UserPrompt }
                 ],
                 responseFormat: {
-                    name: 'execution_plan',
-                    schema: structuredSchema
+                    name: 'plan_structure',
+                    schema: stage1Schema
                 },
-                maxTokens: 2000,
+                maxTokens: 1000,
                 temperature: 0.7
             }
         );
 
-        const generatedPlan = JSON.parse(response.output);
+        const stage1Result = JSON.parse(stage1Response.output);
+
+        // ============================================================
+        // STAGE 2: Get strategy-specific details
+        // ============================================================
+
+        const toolsSection = availableTools.length > 0
+            ? `Available tools:\n${availableTools.map(t => `- ${t.name}: ${t.description}`).join('\n')}`
+            : 'Available tools: none';
+
+        const adaptationsSection = `Available adaptations: ${availableAdaptations.join(', ')}`;
+
+        let stage2Schema;
+        let stage2SystemPrompt;
+        let stage2UserPrompt;
+
+        switch (stage1Result.strategy) {
+            case 'direct':
+                stage2Schema = directDetailsSchema;
+                stage2SystemPrompt = `You are specifying details for a direct strategy plan.
+
+Role: ${stage1Result.roles[0]}
+
+${adaptationsSection}
+
+Direct strategy executes a single role without tools. Specify which adaptations should be applied.
+
+Return ONLY the JSON object. No explanation, no markdown code blocks.`;
+                stage2UserPrompt = `What adaptations should be applied for: ${description}`;
+                break;
+
+            case 'task':
+                stage2Schema = taskDetailsSchema;
+                stage2SystemPrompt = `You are specifying details for a task strategy plan.
+
+Role: ${stage1Result.roles[0]}
+
+${toolsSection}
+
+${adaptationsSection}
+
+Task strategy executes a single role WITH tools. Specify which tools and adaptations are needed.
+
+IMPORTANT: Only use tool names from the "Available tools" list above. Tool names must match exactly.
+
+Return ONLY the JSON object. No explanation, no markdown code blocks.`;
+                stage2UserPrompt = `What tools and adaptations are needed for: ${description}`;
+                break;
+
+            case 'sequential':
+                stage2Schema = sequentialDetailsSchema;
+                stage2SystemPrompt = `You are specifying details for a sequential strategy plan.
+
+Roles to use (in order): ${stage1Result.roles.join(', ')}
+
+${toolsSection}
+
+${adaptationsSection}
+
+Sequential strategy executes multiple roles in order. For each step, specify:
+- role: which role to use
+- strategy: "direct" (no tools) or "task" (with tools)
+- tools: array of tool names (empty array [] if strategy is "direct")
+- adaptations: array of adaptation names
+
+IMPORTANT:
+- Only use tool names from the "Available tools" list above
+- Tool names must match exactly
+- Use empty array [] for tools when strategy is "direct"
+- Adaptations starting with "task-" are ONLY for task strategy steps
+- Direct strategy steps should use general adaptations, not task-specific ones
+
+For filesystem and codebase exploration tasks:
+- Include tools for listing/discovering (to see what exists)
+- Include tools for reading/examining (to inspect contents)
+- Include tools for searching (to find specific patterns)
+- Complete exploration typically requires multiple complementary tools, not just one
+
+Return ONLY the JSON object. No explanation, no markdown code blocks.`;
+                stage2UserPrompt = `For each step, specify ALL tools needed for thorough execution. For information gathering steps, include tools for both discovering and examining content. Specify: ${description}`;
+                break;
+
+            case 'parallel':
+                stage2Schema = parallelDetailsSchema;
+                stage2SystemPrompt = `You are specifying details for a parallel strategy plan.
+
+Roles to use (concurrently): ${stage1Result.roles.join(', ')}
+
+${toolsSection}
+
+${adaptationsSection}
+
+Parallel strategy executes multiple roles concurrently. For each branch, specify:
+- role: which role to use
+- strategy: "direct" (no tools) or "task" (with tools)
+- tools: array of tool names (empty array [] if strategy is "direct")
+- adaptations: array of adaptation names
+
+IMPORTANT:
+- Only use tool names from the "Available tools" list above
+- Tool names must match exactly
+- Use empty array [] for tools when strategy is "direct"
+- Adaptations starting with "task-" are ONLY for task strategy steps
+- Direct strategy steps should use general adaptations, not task-specific ones
+
+For filesystem and codebase exploration tasks:
+- Include tools for listing/discovering (to see what exists)
+- Include tools for reading/examining (to inspect contents)
+- Include tools for searching (to find specific patterns)
+- Complete exploration typically requires multiple complementary tools, not just one
+
+Return ONLY the JSON object. No explanation, no markdown code blocks.`;
+                stage2UserPrompt = `For each branch, specify ALL tools needed for thorough execution. For information gathering, include tools for both discovering and examining content. Specify: ${description}`;
+                break;
+        }
+
+        const stage2Response = await callLLM(
+            machineContext,
+            {
+                model: config.model || 'gpt-4o-mini',
+                thread: [
+                    { role: 'system', content: stage2SystemPrompt },
+                    { role: 'user', content: stage2UserPrompt }
+                ],
+                responseFormat: {
+                    name: 'plan_details',
+                    schema: stage2Schema
+                },
+                maxTokens: 1500,
+                temperature: 0.7
+            }
+        );
+
+        const stage2Result = JSON.parse(stage2Response.output);
+
+        // ============================================================
+        // STITCH: Combine stage 1 and stage 2 results
+        // ============================================================
+
+        const generatedPlan = stitchPlan(stage1Result, stage2Result);
 
         // Validate the generated plan
         const validation = validatePlan(generatedPlan);

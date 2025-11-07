@@ -4,7 +4,91 @@
  */
 
 import { createFact } from './facts.js';
-import { planLibrary } from './planLibrary.js';
+
+const plans = {
+  chat: {
+    name: 'chat',
+    rationale: 'Single turn direct response for conversational interaction',
+    strategy: 'direct',
+    role: 'chat',
+    lengthLevel: 'brief'
+  },
+  capture: {
+    name: 'capture',
+    rationale: 'Direct recording preserves exact content without analysis or transformation',
+    strategy: 'direct',
+    role: 'capture',
+    lengthLevel: 'brief'
+  },
+  readback: {
+    name: 'readback',
+    rationale: 'Direct recall and presentation of information from conversation history',
+    strategy: 'direct',
+    role: 'readback',
+    lengthLevel: 'standard'
+  },
+  analyze: {
+    name: 'analyze',
+    rationale: 'Task strategy with multiple cycles allows iterative thinking and refinement. No tools needed as analysis works on already-gathered information',
+    strategy: 'task',
+    role: 'analyze',
+    tools: [],
+    adaptations: [
+      'task-budget-awareness'
+    ],
+    resolution: {
+      maxCycles: 3,
+      maxTokens: 8000,
+      maxToolCalls: 0,
+      timeoutMs: 43200000
+    },
+    lengthLevel: 'standard'
+  },
+  investigate: {
+    name: 'investigate',
+    rationale: 'Task strategy with tools for systematic discovery and examination. Multiple cycles support thorough exploration of external sources',
+    strategy: 'task',
+    role: 'investigate',
+    tools: [
+      'list_directory',
+      'read_file',
+      'search'
+    ],
+    resolution: {
+      maxCycles: 5,
+      maxTokens: 10000,
+      maxToolCalls: 15,
+      timeoutMs: 43200000
+    },
+    lengthLevel: 'standard'
+  },
+  synthesize: {
+    name: 'synthesize',
+    rationale: 'Direct synthesis integrates findings into unified framework. Comprehensive length for thorough presentation',
+    strategy: 'direct',
+    role: 'synthesize',
+    lengthLevel: 'comprehensive'
+  },
+  execute: {
+    name: 'execute',
+    rationale: 'Task strategy with modification tools for chaining operations. Multiple cycles support verification and error handling',
+    strategy: 'task',
+    role: 'execute',
+    tools: [
+      'read_file',
+      'write_file',
+      'edit_file',
+      'list_directory'
+    ],
+    resolution: {
+      maxCycles: 8,
+      maxTokens: 12000,
+      maxToolCalls: 20,
+      timeoutMs: 43200000
+    },
+    lengthLevel: 'standard'
+  }
+};
 
 const rules = [
   // Plan precedence - defines priority order when multiple intents detected
@@ -18,13 +102,13 @@ const rules = [
     },
     action: (facts, engine) => {
       engine.addFact(createFact.planPrecedence([
-        'execute-task',      // Highest priority - user wants to do work
-        'investigate-task',  // Search/find information
-        'analyze-turn',      // Understand/explain something
-        'synthesize-turn',   // Combine information
-        'capture-turn',      // Save information
-        'readback-turn',     // Retrieve information
-        'chat-turn'          // Lowest priority - casual conversation
+        'execute',      // Highest priority - user wants to do work
+        'investigate',  // Search/find information
+        'analyze',      // Understand/explain something
+        'synthesize',   // Combine information
+        'capture',      // Save information
+        'readback',     // Retrieve information
+        'chat'          // Lowest priority - casual conversation
       ]));
     }
   },
@@ -40,7 +124,7 @@ const rules = [
       ]
     },
     action: (facts, engine) => {
-      engine.addFact(createFact.executionPlan(planLibrary['chat-turn']));
+      engine.addFact(createFact.executionPlan(plans['chat']));
     }
   },
 
@@ -55,7 +139,7 @@ const rules = [
       ]
     },
     action: (facts, engine) => {
-      engine.addFact(createFact.executionPlan(planLibrary['capture-turn']));
+      engine.addFact(createFact.executionPlan(plans['capture']));
     }
   },
 
@@ -70,7 +154,7 @@ const rules = [
       ]
     },
     action: (facts, engine) => {
-      engine.addFact(createFact.executionPlan(planLibrary['readback-turn']));
+      engine.addFact(createFact.executionPlan(plans['readback']));
     }
   },
 
@@ -85,7 +169,7 @@ const rules = [
       ]
     },
     action: (facts, engine) => {
-      engine.addFact(createFact.executionPlan(planLibrary['analyze-turn']));
+      engine.addFact(createFact.executionPlan(plans['analyze']));
     }
   },
 
@@ -100,7 +184,7 @@ const rules = [
       ]
     },
     action: (facts, engine) => {
-      engine.addFact(createFact.executionPlan(planLibrary['investigate-task']));
+      engine.addFact(createFact.executionPlan(plans['investigate']));
     }
   },
 
@@ -115,7 +199,7 @@ const rules = [
       ]
     },
     action: (facts, engine) => {
-      engine.addFact(createFact.executionPlan(planLibrary['synthesize-turn']));
+      engine.addFact(createFact.executionPlan(plans['synthesize']));
     }
   },
 
@@ -130,7 +214,7 @@ const rules = [
       ]
     },
     action: (facts, engine) => {
-      engine.addFact(createFact.executionPlan(planLibrary['execute-task']));
+      engine.addFact(createFact.executionPlan(plans['execute']));
     }
   }
 ];

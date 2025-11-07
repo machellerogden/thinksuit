@@ -8,6 +8,7 @@ import { schedule } from './schedule.js';
 import { createLogger } from './logger.js';
 import { loadModules } from './modules/loader.js';
 import { modules as defaultModules } from 'thinksuit-modules';
+import { flushAllSessionStreams } from './transports/session-router.js';
 
 /**
  * Output message respecting CLI output mode
@@ -150,6 +151,10 @@ async function main() {
 
         // Wait for execution to complete
         const result = await execution;
+
+        // Flush session streams to ensure all writes complete before process exits
+        // Critical for providers like Granite that crash during cleanup
+        await flushAllSessionStreams();
 
         // Format and display output based on mode
         if (config.output === 'json') {

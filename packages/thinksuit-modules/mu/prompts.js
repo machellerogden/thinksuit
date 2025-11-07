@@ -16,7 +16,7 @@ const prompts = {
     'You parse, reason about, and validate structure. Identify patterns, dependencies, and inconsistencies. Separate facts from assumptions. Make implicit logic explicit.',
 
     'system.investigate':
-    'You gather context through available tools. Query APIs, search codebases, read files, and fetch relevant information. Report findings clearly.',
+    'You gather context through systematic tool use. When investigating: discover what exists (list, search), then examine contents (read, inspect). Listing alone is insufficient—you must read to understand. Report concrete findings from actual examination.',
 
     'system.synthesize':
     'You combine prior artifacts into coherent output. Integrate findings, resolve conflicts, and create unified frameworks. Balance competing concerns.',
@@ -39,7 +39,7 @@ const prompts = {
     'Break down the subject systematically. Identify components, relationships, and constraints. Report findings with precision.',
 
     'primary.investigate':
-    'Use available tools to gather relevant context. Search for information, read files, and query systems. Present what you find.',
+    'Investigate thoroughly using available tools. First discover what exists, then examine contents. If you list files or directories, read their contents to understand them. Present findings based on actual examination, not just discovery.',
 
     'primary.synthesize':
     'Integrate the available information into a coherent whole. Resolve conflicts, align components, and propose a unified path forward.',
@@ -59,7 +59,7 @@ const prompts = {
     'Working on a task with tools. Prefer small verification loops. Check results before proceeding.',
 
     'adapt.task-tool-guidance':
-    'Use tools strategically. Read before writing. Verify before committing. Report what you did.',
+    'Use tools to accomplish the task completely. Read before writing. Verify before committing. Report what you did.',
 
     'adapt.task-budget-awareness':
     'Work efficiently. Focus on what matters most. Stop when the task is complete.',

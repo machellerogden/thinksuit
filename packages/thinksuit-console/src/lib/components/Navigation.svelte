@@ -11,8 +11,8 @@
 
 <nav class="relative bg-gradient-to-t from-gray-100 to-white border-b border-gray-300 text-black transition-all duration-300 {expanded ? 'pb-40' : ''}">
     <div class="flex items-center justify-between">
-        <a href="#/" class="flex items-center justify-center gap-2 w-12 h-12 p-2"><!-- border-r border-gray-300 -->
-            <img src="/favicon.svg" alt="ThinkSuit Logo" class="w-7 h-7" />
+        <a href="#/" class="flex items-center justify-center gap-2 px-4 text-gray-400 hover:text-violet-500"><!-- border-r border-gray-300 -->
+            ThinkSuit
         </a>
 
         <!--

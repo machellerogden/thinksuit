@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import { SvelteSet } from 'svelte/reactivity';
     import { EmptyState, Dropdown, Button } from '$lib/components/ui/index.js';
+    import { formatDateTime } from '$lib/utils/time.js';
 
     let {
         selectedSessionId = null,
@@ -196,7 +197,7 @@
                                 <div class="text-xs text-gray-600 truncate mt-1">{session.firstInput}</div>
                             {/if}
                             <div class="text-xs text-gray-500 mt-1">
-                                {session.lineCount} entries • {new Date(session.timestamp).toLocaleString()}
+                                {session.lineCount} entries • {formatDateTime(session.time)}
                             </div>
                         </div>
                     </button>
@@ -213,7 +214,7 @@
                             <div class="text-xs text-gray-600 truncate mt-1">{session.firstInput}</div>
                         {/if}
                         <div class="text-xs text-gray-500 mt-1">
-                            {session.lineCount} entries • {new Date(session.timestamp).toLocaleString()}
+                            {session.lineCount} entries • {formatDateTime(session.time)}
                         </div>
                     </a>
 

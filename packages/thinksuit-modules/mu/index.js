@@ -2,7 +2,7 @@ import prompts from './prompts.js';
 import classifiers from './classifiers/index.js';
 import rules from './rules.js';
 import { composeInstructions } from './composeInstructions.js';
-import { planLibrary } from './planLibrary.js';
+import presets from './presets.json' with { type: 'json' };
 
 /**
  * Core Thinking Companion Module
@@ -18,37 +18,44 @@ const mu = {
     roles: [
         {
             name: 'chat',
+            description: 'Natural conversation and direct responses. Use for greetings, questions, and casual interaction.',
             isDefault: true,
             temperature: 0.7,
             baseTokens: 400,
             prompts: { system: 'system.chat', primary: 'primary.chat' }
         }, {
             name: 'capture',
+            description: 'Records information verbatim without commentary. Use for taking notes or preserving exact content provided by user.',
             temperature: 0.3,
             baseTokens: 400,
             prompts: { system: 'system.capture', primary: 'primary.capture' }
         }, {
             name: 'readback',
+            description: 'Retrieves and restates previously mentioned information. Use for recalling facts from earlier in conversation. NOT for presenting newly created outputs or reports.',
             temperature: 0.3,
             baseTokens: 400,
             prompts: { system: 'system.readback', primary: 'primary.readback' }
         }, {
             name: 'analyze',
+            description: 'Examines structure, identifies patterns, and reasons about information. Use for breaking down complex topics or validating logic. Works on information already gathered.',
             temperature: 0.5,
             baseTokens: 800,
             prompts: { system: 'system.analyze', primary: 'primary.analyze' }
         }, {
             name: 'investigate',
+            description: 'Gathers information using available tools (reading files, searching, querying systems). Use when new information needs to be collected from external sources.',
             temperature: 0.4,
             baseTokens: 1000,
             prompts: { system: 'system.investigate', primary: 'primary.investigate' }
         }, {
             name: 'synthesize',
+            description: 'Combines and integrates information into coherent final output. Use for creating reports, summaries, or unified frameworks from gathered data. This is the appropriate role for presenting final results.',
             temperature: 0.6,
             baseTokens: 1000,
             prompts: { system: 'system.synthesize', primary: 'primary.synthesize' }
         }, {
             name: 'execute',
+            description: 'Performs work by calling tools (writing files, making changes, executing operations). Use when modifications or actions need to be performed, not just information gathering.',
             temperature: 0.4,
             baseTokens: 1200,
             prompts: { system: 'system.execute', primary: 'primary.execute' }
@@ -80,7 +87,7 @@ const mu = {
     classifiers,
     rules,
     composeInstructions,
-    planLibrary,
+    presets,
 
     orchestration: {
         formatResponse: (results) => {

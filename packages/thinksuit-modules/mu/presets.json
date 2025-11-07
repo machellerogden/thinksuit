@@ -1,0 +1,176 @@
+{
+  "chat": {
+    "id": "chat",
+    "name": "Chat",
+    "description": "Natural conversation and direct responses",
+    "plan": {
+      "name": "chat",
+      "rationale": "Single turn direct response for conversational interaction",
+      "strategy": "direct",
+      "role": "chat",
+      "lengthLevel": "brief"
+    }
+  },
+  "capture": {
+    "id": "capture",
+    "name": "Capture",
+    "description": "Record information verbatim without commentary",
+    "plan": {
+      "name": "capture",
+      "rationale": "Direct recording preserves exact content without analysis or transformation",
+      "strategy": "direct",
+      "role": "capture",
+      "lengthLevel": "brief"
+    }
+  },
+  "readback": {
+    "id": "readback",
+    "name": "Readback",
+    "description": "Retrieve and restate previously mentioned information",
+    "plan": {
+      "name": "readback",
+      "rationale": "Direct recall and presentation of information from conversation history",
+      "strategy": "direct",
+      "role": "readback",
+      "lengthLevel": "standard"
+    }
+  },
+  "investigate": {
+    "id": "investigate",
+    "name": "Investigate",
+    "description": "Gather information using available tools",
+    "plan": {
+      "name": "investigate",
+      "rationale": "Task strategy with tools for systematic discovery and examination. Multiple cycles support thorough exploration of external sources",
+      "strategy": "task",
+      "role": "investigate",
+      "tools": [
+        "list_directory",
+        "read_file",
+        "search"
+      ],
+      "resolution": {
+        "maxCycles": 5,
+        "maxTokens": 10000,
+        "maxToolCalls": 15,
+        "timeoutMs": 43200000
+      },
+      "lengthLevel": "standard"
+    }
+  },
+  "analyze": {
+    "id": "analyze",
+    "name": "Analyze",
+    "description": "Examine structure, identify patterns, and reason about information",
+    "plan": {
+      "name": "analyze",
+      "rationale": "Task strategy with multiple cycles allows iterative thinking and refinement. No tools needed as analysis works on already-gathered information",
+      "strategy": "task",
+      "role": "analyze",
+      "tools": [],
+      "adaptations": [
+        "task-budget-awareness"
+      ],
+      "resolution": {
+        "maxCycles": 3,
+        "maxTokens": 8000,
+        "maxToolCalls": 0,
+        "timeoutMs": 43200000
+      },
+      "lengthLevel": "standard"
+    }
+  },
+  "synthesize": {
+    "id": "synthesize",
+    "name": "Synthesize",
+    "description": "Combine and integrate information into coherent output",
+    "plan": {
+      "name": "synthesize",
+      "rationale": "Direct synthesis integrates findings into unified framework. Comprehensive length for thorough presentation",
+      "strategy": "direct",
+      "role": "synthesize",
+      "lengthLevel": "comprehensive"
+    }
+  },
+  "execute": {
+    "id": "execute",
+    "name": "Execute",
+    "description": "Perform work by calling tools to make changes",
+    "plan": {
+      "name": "execute",
+      "rationale": "Task strategy with modification tools for chaining operations. Multiple cycles support verification and error handling",
+      "strategy": "task",
+      "role": "execute",
+      "tools": [
+        "read_file",
+        "write_file",
+        "edit_file",
+        "list_directory"
+      ],
+      "resolution": {
+        "maxCycles": 8,
+        "maxTokens": 12000,
+        "maxToolCalls": 20,
+        "timeoutMs": 43200000
+      },
+      "lengthLevel": "standard"
+    }
+  },
+  "deep-analysis": {
+    "id": "deep-analysis",
+    "name": "Deep Analysis",
+    "description": "Multi-stage investigation, analysis, and synthesis",
+    "plan": {
+      "name": "investigate-analyze-synthesize-fs",
+      "rationale": "We must first gather file information using tools (investigate), then reason about structure and patterns (analyze), and finally present a coherent report (synthesize). Building a thread preserves findings across steps; only the final synthesized report should be returned.",
+      "strategy": "sequential",
+      "buildThread": true,
+      "resultStrategy": "last",
+      "sequence": [
+        {
+          "role": "investigate",
+          "strategy": "task",
+          "tools": [
+            "list_directory",
+            "read_file"
+          ],
+          "adaptations": [
+            "tools-available",
+            "task-execution",
+            "task-tool-guidance",
+            "task-budget-awareness"
+          ],
+          "resolution": {
+            "maxCycles": 5,
+            "maxTokens": 10000,
+            "maxToolCalls": 15,
+            "timeoutMs": 43200000
+          },
+          "lengthLevel": "standard"
+        },
+        {
+          "role": "analyze",
+          "strategy": "task",
+          "tools": [],
+          "adaptations": [
+            "task-budget-awareness"
+          ],
+          "resolution": {
+            "maxCycles": 3,
+            "maxTokens": 8000,
+            "maxToolCalls": 0,
+            "timeoutMs": 43200000
+          },
+          "lengthLevel": "standard"
+        },
+        {
+          "role": "synthesize",
+          "strategy": "direct",
+          "tools": [],
+          "adaptations": [],
+          "lengthLevel": "comprehensive"
+        }
+      ]
+    }
+  }
+}

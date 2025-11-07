@@ -70,7 +70,7 @@ export function createInterruptController() {
         controller.abort({
             isUserInterrupt: true,
             reason,
-            timestamp: new Date().toISOString()
+            time: new Date().toISOString()
         });
     };
 

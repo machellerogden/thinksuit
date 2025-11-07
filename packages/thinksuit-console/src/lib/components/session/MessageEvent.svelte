@@ -1,10 +1,10 @@
 <script>
     import { Card, Badge } from '$lib/components/ui/index.js';
+    import { formatTime } from '$lib/utils/time.js';
 
     let {
         node,
         role = 'user', // 'user' or 'assistant'
-        formatTimestamp = (ts) => ts,
         copyToClipboard = async () => {}
     } = $props();
 
@@ -23,7 +23,7 @@
         <Badge variant="primary" size="sm">{role}</Badge>
         <div class="flex items-center gap-2">
             <span class="text-xs text-gray-500">
-                {formatTimestamp(node.timestamp)}
+                {formatTime(node.time)}
             </span>
             <button
                 onclick={() => copyToClipboard(content || '')}

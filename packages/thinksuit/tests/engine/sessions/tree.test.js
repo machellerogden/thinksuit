@@ -322,8 +322,8 @@ describe('buildSessionTree', () => {
                         for (let i = 1; i < node.children.length; i++) {
                             const prev = node.children[i-1];
                             const curr = node.children[i];
-                            const prevTime = new Date(prev.timestamp || prev.startTime || 0);
-                            const currTime = new Date(curr.timestamp || curr.startTime || 0);
+                            const prevTime = new Date(prev.time || prev.startTime || 0);
+                            const currTime = new Date(curr.time || curr.startTime || 0);
                             expect(currTime.getTime()).toBeGreaterThanOrEqual(prevTime.getTime());
                         }
                         // Recursively check children
@@ -339,24 +339,24 @@ describe('buildSessionTree', () => {
     describe('Edge cases', () => {
         it('should handle events without boundary metadata gracefully', () => {
             const mixedEvents = [
-                { event: 'session.pending', timestamp: '2025-01-01T00:00:00Z' },
-                { event: 'processing.signals.detected', timestamp: '2025-01-01T00:00:01Z' },
+                { event: 'session.pending', time: '2025-01-01T00:00:00Z' },
+                { event: 'processing.signals.detected', time: '2025-01-01T00:00:01Z' },
                 {
                     event: 'execution.task.start',
                     eventRole: 'boundary_start',
                     boundaryType: 'execution',
                     boundaryId: 'exec-1',
-                    timestamp: '2025-01-01T00:00:02Z'
+                    time: '2025-01-01T00:00:02Z'
                 },
-                { event: 'processing.llm.request', timestamp: '2025-01-01T00:00:03Z' },
+                { event: 'processing.llm.request', time: '2025-01-01T00:00:03Z' },
                 {
                     event: 'execution.task.complete',
                     eventRole: 'boundary_end',
                     boundaryType: 'execution',
                     boundaryId: 'exec-1',
-                    timestamp: '2025-01-01T00:00:04Z'
+                    time: '2025-01-01T00:00:04Z'
                 },
-                { event: 'session.response', timestamp: '2025-01-01T00:00:05Z' }
+                { event: 'session.response', time: '2025-01-01T00:00:05Z' }
             ];
 
             const result = buildSessionTree(mixedEvents);
@@ -371,13 +371,13 @@ describe('buildSessionTree', () => {
 
         it('should handle unclosed boundaries', () => {
             const unclosedEvents = [
-                { event: 'session.pending', timestamp: '2025-01-01T00:00:00Z' },
+                { event: 'session.pending', time: '2025-01-01T00:00:00Z' },
                 {
                     event: 'execution.task.start',
                     eventRole: 'boundary_start',
                     boundaryType: 'execution',
                     boundaryId: 'exec-1',
-                    timestamp: '2025-01-01T00:00:01Z',
+                    time: '2025-01-01T00:00:01Z',
                     data: { strategy: 'task' }
                 },
                 {
@@ -386,10 +386,10 @@ describe('buildSessionTree', () => {
                     boundaryType: 'cycle',
                     boundaryId: 'cycle-1',
                     parentBoundaryId: 'exec-1',
-                    timestamp: '2025-01-01T00:00:02Z',
+                    time: '2025-01-01T00:00:02Z',
                     data: { cycleNumber: 1 }
                 },
-                { event: 'processing.llm.request', timestamp: '2025-01-01T00:00:03Z' }
+                { event: 'processing.llm.request', time: '2025-01-01T00:00:03Z' }
                 // Note: Missing cycle_complete and task.complete
             ];
 

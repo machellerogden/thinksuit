@@ -6,9 +6,7 @@ import { homedir } from 'os';
 const SETTINGS_DIR = join(homedir(), '.thinksuit', 'console');
 const SETTINGS_FILE = join(SETTINGS_DIR, 'settings.json');
 
-const DEFAULT_SETTINGS = {
-    customPresets: []
-};
+const DEFAULT_SETTINGS = {};
 
 async function ensureSettingsDir() {
     try {

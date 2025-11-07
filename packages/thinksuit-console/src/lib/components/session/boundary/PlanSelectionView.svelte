@@ -4,8 +4,9 @@
     let { node } = $props();
 
     const metadata = node.metadata || {};
+    // Handle both pipeline-selected plans (completion.selectedPlan) and user-selected plans (selectedPlan)
     const completion = metadata.completion || {};
-    const plan = completion.selectedPlan || {};
+    const plan = metadata.selectedPlan || completion.selectedPlan || {};
 
     // Get strategy variant for badges
     function getStrategyVariant(strategy) {

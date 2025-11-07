@@ -20,7 +20,7 @@ export async function GET({ url }) {
             id: session.id,
             filename: `${session.id}.jsonl`,
             status: session.status,
-            timestamp: session.firstEvent?.time || null,
+            time: session.firstEvent?.time || null,
             lastUpdate: session.lastEvent?.time || null,
             firstInput: session.firstEvent?.input || session.secondEvent?.input || null,
             // Approximate line count from events (at minimum 1 per event we have)

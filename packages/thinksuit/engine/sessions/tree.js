@@ -136,8 +136,8 @@ function boundaryToTreeNode(boundary, allEvents) {
     // Merge and sort chronologically
     const children = [...directEvents, ...nestedBoundaries];
     children.sort((a, b) => {
-        const aTime = new Date(a.timestamp || a.startTime || 0);
-        const bTime = new Date(b.timestamp || b.startTime || 0);
+        const aTime = new Date(a.time || a.startTime || 0);
+        const bTime = new Date(b.time || b.startTime || 0);
         return aTime - bTime;
     });
 
@@ -186,7 +186,7 @@ function extractDirectEvents(boundary) {
         events.push({
             type: 'event',
             eventType: event.event,
-            timestamp: event.time,
+            time: event.time,
             index: eventIndex, // Line index in the session file
             data: {
                 ...(event.data || {}),

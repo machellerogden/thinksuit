@@ -13,8 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Roles store prompt keys (e.g., `'system.capture'`) which are resolved from `module.prompts` map
   - Eliminates prompt text duplication - single source of truth in prompts map
   - Enforces convention-based naming: `system.*`, `primary.*`, `adapt.*`, `length.*`
-- **Mu Module v0.3**: Simplified role architecture
-  - Replaced 14-role cognitive system with 6 roles enabling intentional selection of cognitive instruments: capture, readback, analyze, investigate, synthesize, execute
+- **Mu Module v0.3**: Updated role architecture
+  - Replaced the earlier 14-role cognitive system with 7 roles: chat, capture, readback, analyze, investigate, synthesize, execute
   - Simplified signal detection from 16 signals across 5 dimensions to single intent classifier with keyword patterns
   - Introduced two-mode operation: explicit plans (programmatic control) and signal-driven (interactive convenience)
   - Rewritten prompts with simple, direct language focused on software engineering workflows

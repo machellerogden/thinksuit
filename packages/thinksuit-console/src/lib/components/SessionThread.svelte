@@ -202,7 +202,8 @@
                         status: 'pending',
                         tool: entry.data?.tool,
                         args: entry.data?.args,
-                        sessionId: entry.sessionId || sessionId
+                        sessionId: entry.sessionId || sessionId,
+                        time: entry.time
                     });
                 }
             } else if (entry.event === EXECUTION_EVENTS.TOOL_APPROVED && entry.approvalId) {
@@ -228,21 +229,14 @@
                 tool: data.tool,
                 args: data.args,
                 sessionId: data.sessionId,
-                status: data.status
+                status: data.status,
+                time: data.time
             });
         }
 
         approvalQueue = newQueue;
     });
 
-    function formatTimestamp(timestamp) {
-        const date = new Date(timestamp);
-        return date.toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-        });
-    }
 
     async function copyToClipboard(text) {
         try {
@@ -450,6 +444,11 @@
                                 <InstructionCompositionView {node} />
                             </div>
                         {/if}
+                    {:else if node.type === 'orchestration' && node.metadata?.selectedPlan}
+                        <!-- Selected plan view -->
+                        <div class="ml-2 mt-2 px-3 py-2 bg-white rounded border border-slate-100">
+                            <PlanSelectionView node={node} />
+                        </div>
                     {:else if node.type === 'tool'}
                         <!-- Tool execution view -->
                         <div class="ml-2 mt-2 px-3 py-2 bg-white rounded border border-teal-100">
@@ -532,7 +531,7 @@
                         {#if showData}
                             <JSONView data={node} />
                         {:else}
-                            <MessageEvent {node} role="user" {formatTimestamp} {copyToClipboard} />
+                            <MessageEvent {node} role="user" {copyToClipboard} />
                         {/if}
                     </div>
                     <button
@@ -561,7 +560,7 @@
                         {#if showData}
                             <JSONView data={node} />
                         {:else}
-                            <MessageEvent {node} role="assistant" {formatTimestamp} {copyToClipboard} />
+                            <MessageEvent {node} role="assistant" {copyToClipboard} />
                         {/if}
                     </div>
                     <button

@@ -14,7 +14,11 @@
     "./sessions/deriveSessionStatus": "./engine/sessions/deriveSessionStatus.js",
     "./constants/events": "./engine/constants/events.js",
     "./schemas/validate": "./schemas/validate.js",
-    "./schemas/plan.v1.json": "./schemas/plan.v1.json"
+    "./schemas/plan.v1.json": "./schemas/plan.v1.json",
+    "./engine/mcp/client": "./engine/mcp/client.js",
+    "./engine/mcp/discovery": "./engine/mcp/discovery.js",
+    "./engine/mcp/factory": "./engine/mcp/factory.js",
+    "./engine/mcp/policy": "./engine/mcp/policy.js"
   },
   "directories": {
     "doc": "docs",
@@ -53,8 +57,10 @@
   "homepage": "https://github.com/machellerogden/thinksuit/tree/main/packages/thinksuit#readme",
   "dependencies": {
     "@google-cloud/vertexai": "^1.10.0",
+    "@huggingface/transformers": "^3.7.6",
     "@modelcontextprotocol/sdk": "^1.19.1",
     "chokidar": "^4.0.3",
+    "is-online": "^12.0.1",
     "jsonschema": "^1.5.0",
     "meow": "^13.2.0",
     "openai": "^5.20.1",

@@ -242,9 +242,12 @@ export async function withMcpLifecycle(module, config, logger) {
             'Starting MCP servers...'
         );
 
+        // Detect if we're online to determine npx flag
+        const isOnline = await (await import('is-online')).default();
+
         // System creates MCP servers from user config (not module)
         // Filesystem server is baked in and uses allowedDirectories
-        const mcpServersConfig = createMcpServersFromConfig(config);
+        const mcpServersConfig = createMcpServersFromConfig(config, !isOnline);
         mcpClients = await startMCPServers(mcpServersConfig, config.cwd, config.allowedDirectories, config.verbose);
         const allDiscoveredTools = await discoverTools(mcpClients);
 

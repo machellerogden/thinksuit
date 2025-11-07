@@ -29,7 +29,9 @@ export async function execDirectCore(input, machineContext) {
     const hasValidConfig =
         (config?.provider === 'vertex-ai' && config?.providerConfig?.vertexAi?.projectId) ||
         (config?.provider === 'openai' && config?.providerConfig?.openai?.apiKey) ||
-        (config?.provider === 'anthropic' && config?.providerConfig?.anthropic?.apiKey);
+        (config?.provider === 'anthropic' && config?.providerConfig?.anthropic?.apiKey) ||
+        (config?.provider === 'hugging-face' && config?.providerConfig?.huggingFace?.apiKey) ||
+        (config?.provider === 'onnx'); // Always valid - runs locally
 
     if (!hasValidConfig) {
         logger.error({ traceId }, 'IO config not available for LLM execution');
@@ -190,7 +192,7 @@ export async function execDirectCore(input, machineContext) {
 
         const llmResponse = await callLLM(machineContext, llmParams, toolSchemas);
         const duration = Date.now() - startTime;
-        
+
         // Log raw API response if available
         if (llmResponse.raw) {
             logger.debug({

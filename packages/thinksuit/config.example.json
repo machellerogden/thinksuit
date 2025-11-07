@@ -10,6 +10,12 @@
         "vertexAi": {
             "projectId": "your-gcp-project-id",
             "location": "us-central1"
+        },
+        "huggingFace": {
+            "apiKey": "hf_..."
+        },
+        "onnx": {
+            "dtype": "q4"
         }
     },
     "maxDepth": 5,

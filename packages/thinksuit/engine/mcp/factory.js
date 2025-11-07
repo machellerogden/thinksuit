@@ -9,6 +9,7 @@
 /**
  * Create MCP server configurations from user config
  * @param {Object} userConfig - User configuration containing allowedDirectories and optional mcpServers
+ * @param {boolean} offline - Whether to use offline mode for npx
  * @returns {Object} MCP server configurations ready for startMCPServers()
  *
  * @example
@@ -24,24 +25,27 @@
  *     }
  * };
  *
- * const servers = createMcpServersFromConfig(config);
+ * const servers = createMcpServersFromConfig(config, false);
  * // Returns:
  * // {
  * //   filesystem: { command: 'npx', args: [...], env: {} },
  * //   customTools: { command: 'npx', args: [...], env: {} }
  * // }
  */
-export function createMcpServersFromConfig(userConfig) {
+export function createMcpServersFromConfig(userConfig, offline = false) {
     const servers = {};
 
     // BAKED-IN: Filesystem server is always created with system-enforced allowedDirectories
     // This ensures the trust boundary is enforced by the system, not by module code
     const allowedDirectories = userConfig.allowedDirectories || [userConfig.cwd];
 
+    // Use --offline when offline (uses cache only), -y when online (auto-install if needed)
+    const npxFlag = offline ? '--offline' : '-y';
+
     servers.filesystem = {
         command: 'npx',
         args: [
-            '-y',
+            npxFlag,
             '@modelcontextprotocol/server-filesystem',
             ...allowedDirectories
         ],

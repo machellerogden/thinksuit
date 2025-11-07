@@ -234,7 +234,7 @@ const updates = await readSessionLinesFrom('20250821T164513435Z-xXKTbcJ2', 10);
 if (updates) {
     console.log(`Got ${updates.entryCount} new events`);
     updates.entries.forEach((event) => {
-        console.log(event.type, event.timestamp);
+        console.log(event.type, event.time);
     });
 }
 ```

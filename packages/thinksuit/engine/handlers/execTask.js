@@ -107,8 +107,8 @@ export async function execTaskCore(input, machineContext) {
         // Check token budget (but still allow one more cycle to use remaining tokens)
         // We'll log the warning after the cycle if we exceed
 
-        // Check tool call budget
-        if (totalToolCalls >= resolution.maxToolCalls) {
+        // Check tool call budget (only if tools are enabled)
+        if (resolution.maxToolCalls > 0 && totalToolCalls >= resolution.maxToolCalls) {
             logger.warn({
                 event: 'execution.task.tool_budget_exhausted',
                 traceId,
@@ -628,7 +628,7 @@ export async function execTaskCore(input, machineContext) {
         finalFinishReason = 'max_tokens';
     } else if (Date.now() - startTime >= resolution.timeoutMs) {
         finalFinishReason = 'timeout';
-    } else if (totalToolCalls >= resolution.maxToolCalls) {
+    } else if (resolution.maxToolCalls > 0 && totalToolCalls >= resolution.maxToolCalls) {
         finalFinishReason = 'max_tool_calls';
     } else if (lastResponse?.finishReason) {
         // Use the last response's finish reason if it's not a continuation signal

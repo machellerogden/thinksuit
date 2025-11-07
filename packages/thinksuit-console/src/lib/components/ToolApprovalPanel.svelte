@@ -1,6 +1,7 @@
 <script>
     import { Button, Badge } from '$lib/components/ui/index.js';
     import { SvelteSet } from 'svelte/reactivity';
+    import { formatTime } from '$lib/utils/time.js';
 
     let { approvalQueue = [], onApprove = () => {}, onDeny = () => {} } = $props();
 
@@ -118,7 +119,7 @@
                                         </span>
                                     </div>
                                     <div class="text-xs text-gray-500 truncate">
-                                        {request.approvalId}
+                                        {formatTime(request.time)}
                                     </div>
                                 </div>
                                 {#key `${request.approvalId}-${request.status}`}

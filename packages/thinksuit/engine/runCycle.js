@@ -132,7 +132,8 @@ export async function runCycle({
             data: {
                 depth,
                 branch,
-                hasSelectedPlan: !!selectedPlan
+                hasSelectedPlan: !!selectedPlan,
+                ...(selectedPlan && { selectedPlan })
             }
         },
         'Starting execution cycle'

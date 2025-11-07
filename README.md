@@ -69,6 +69,9 @@ git clone https://github.com/machellerogden/thinksuit.git
 cd thinksuit
 npm install
 
+# Link the thinksuit commands globally (`thinksuit`, `thinksuit-exec`)
+npm link -ws
+
 # Link the thinksuit command globally
 npm -w thinksuit-cli link
 ```
@@ -94,7 +97,7 @@ npm run tty       # First, start the tty service
 npm run console   # Then, the console
 
 # Run one-shot executor
-npm run exec "Your input here"
+npm run exec "Your input here" # or use the glboal: `thinksuit-exec "Your input here"`
 
 # Run tests
 npm run test
@@ -102,6 +105,16 @@ npm run test
 # Lint and format
 npm run lint
 npm run format
+```
+
+
+### Some useful examples...
+
+```
+thinksuit-exec --provider onnx --model ibm-granite/granite-4.0-h-1b "What is 6+7?"
+thinksuit-exec --provider onnx --model Qwen/Qwen2.5-0.5B-Instruct "What is 6+7?"
+thinksuit-exec --provider hugging-face --model moonshotai/Kimi-K2-Thinking:novita "What is 6+7?"
+thinksuit-exec --provider hugging-face --model meta-llama/Llama-3.3-70B-Instruct "What is 6+7?"
 ```
 
 ### Running the Console as a Background Service

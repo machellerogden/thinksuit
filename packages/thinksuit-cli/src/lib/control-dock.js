@@ -13,6 +13,7 @@ export class ControlDock {
     #screen;
     #pasteFilter;
     #currentStatus = '';
+    #currentPreset = ''; // Persistent preset indicator
     #currentHint = '';
     #baseHint = ''; // The persistent mode hint
     #promptColor = 'cyan'; // Default prompt color
@@ -129,7 +130,7 @@ export class ControlDock {
             this.#baseHint = chalk.red('  Shell Mode');
         } else {
             this.#promptColor = 'cyan';
-            this.#baseHint = chalk.dim('  Agent Mode');
+            this.#baseHint = chalk.dim('  Language Mode');
         }
         // Update current hint to match base hint (in case no temporary hint is showing)
         this.#currentHint = this.#baseHint;
@@ -143,8 +144,11 @@ export class ControlDock {
     #render(inputValue = '') {
         const width = readlineWidth(this.#rl.output);
 
-        // Status line (reserved even when empty)
-        const statusLine = this.#currentStatus || '\u200D';
+        // Status line - combine status and preset
+        const statusParts = [];
+        if (this.#currentStatus) statusParts.push(this.#currentStatus);
+        if (this.#currentPreset) statusParts.push(chalk.dim.cyan(`[${this.#currentPreset}]`));
+        const statusLine = statusParts.length > 0 ? statusParts.join(' ') : '\u200D';
 
         // Top border (dim gray)
         const topBorder = chalk.dim.gray('─'.repeat(width));
@@ -211,6 +215,22 @@ export class ControlDock {
      */
     clearStatus() {
         this.#currentStatus = '';
+        this.#render();
+    }
+
+    /**
+     * Update preset indicator
+     */
+    updatePreset(presetName) {
+        this.#currentPreset = presetName;
+        this.#render();
+    }
+
+    /**
+     * Clear preset indicator
+     */
+    clearPreset() {
+        this.#currentPreset = '';
         this.#render();
     }
 

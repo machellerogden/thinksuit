@@ -18,7 +18,28 @@
                 "plan.$": "$.selectedPlan"
             },
             "ResultPath": "$.planResult",
-            "Next": "ComposeInstructions"
+            "Next": "RouteSelectedPlan"
+        },
+        "RouteSelectedPlan": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.selectedPlan.strategy",
+                    "StringEquals": "sequential",
+                    "Next": "DoSequential"
+                },
+                {
+                    "Variable": "$.selectedPlan.strategy",
+                    "StringEquals": "parallel",
+                    "Next": "DoParallel"
+                },
+                {
+                    "Variable": "$.selectedPlan.strategy",
+                    "StringEquals": "task",
+                    "Next": "DoTask"
+                }
+            ],
+            "Default": "ComposeInstructions"
         },
         "DetectSignals": {
             "Type": "Task",

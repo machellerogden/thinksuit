@@ -47,7 +47,7 @@ export async function requestToolApproval(request, sessionId, logger, timeoutMs 
             resolve,
             request,
             sessionId,
-            timestamp: Date.now(),
+            requestedAt: Date.now(),
             timeoutId: null // Will be set below
         });
     });
@@ -114,8 +114,7 @@ export function getApprovalInfo(approvalId) {
     return {
         request: pending.request,
         sessionId: pending.sessionId,
-        timestamp: pending.timestamp,
-        age: Date.now() - pending.timestamp
+        requestedAt: pending.requestedAt
     };
 }
 
@@ -128,7 +127,7 @@ export function cleanupOldApprovals(maxAgeMs = DEFAULT_APPROVAL_TIMEOUT_MS) {
     const maxAge = maxAgeMs === -1 ? Infinity : (maxAgeMs || DEFAULT_APPROVAL_TIMEOUT_MS);
 
     for (const [id, pending] of pendingApprovals.entries()) {
-        if (now - pending.timestamp > maxAge) {
+        if (now - pending.requestedAt > maxAge) {
             pendingApprovals.delete(id);
             pending.resolve(false); // Auto-deny old approvals
         }

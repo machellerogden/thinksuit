@@ -20,6 +20,33 @@ async function main() {
     // Load base configuration using buildConfig
     const baseConfig = buildConfig();
 
+    // Load modules to get plans
+    const { modules: defaultModules } = await import('thinksuit-modules');
+    const { loadModules } = await import('../../thinksuit/engine/modules/loader.js');
+
+    let modules;
+    if (baseConfig.modules) {
+        modules = baseConfig.modules;
+    } else if (baseConfig.modulesPackage) {
+        const basePath = process.env.INIT_CWD || process.cwd();
+        const resolvedPath = baseConfig.modulesPackage.startsWith('/')
+            ? baseConfig.modulesPackage
+            : path.join(basePath, baseConfig.modulesPackage);
+        modules = await loadModules(resolvedPath);
+    } else {
+        modules = defaultModules;
+    }
+
+    // Get current module and its presets
+    const moduleName = baseConfig.module || 'thinksuit/mu';
+    const currentModule = modules[moduleName];
+    const presets = currentModule?.presets || {};
+    const presetList = Object.entries(presets).map(([id, preset]) => ({
+        id,
+        name: preset.name || id,
+        description: preset.description || ''
+    }));
+
     // Setup history file path
     const historyDir = path.join(os.homedir(), '.thinksuit');
     const historyPath = path.join(historyDir, 'history');
@@ -90,7 +117,7 @@ async function main() {
             lastTraceId: null,
             config: {
                 module: baseConfig.module,
-                modules: baseConfig.modules,
+                modules: modules,
                 modulesPackage: baseConfig.modulesPackage,
                 provider: baseConfig.provider,
                 model: baseConfig.model,
@@ -102,6 +129,12 @@ async function main() {
                 policy: baseConfig.policy,
                 trace: baseConfig.trace || false
             }
+        },
+        presetCycling: {
+            presetList: presetList,
+            presets: presets,
+            currentIndex: -1,  // -1 = auto, 0..N = specific preset
+            selectedPlan: null  // The actual plan object extracted from preset when selected
         }
     };
 
@@ -227,8 +260,31 @@ async function main() {
         }
     });
 
-    // Handle keypress events - ESC and hint clearing
+    // Handle keypress events - ESC, Shift+Tab for preset cycling, and hint clearing
     pasteFilter.on('keypress', (char, key) => {
+        // Shift+Tab - cycle through presets
+        if (key && key.name === 'tab' && key.shift) {
+            const { presetCycling } = session;
+            const totalPresets = presetCycling.presetList.length;
+
+            // Cycle index: -1 (auto) -> 0 -> 1 -> ... -> totalPresets-1 -> -1 (auto)
+            presetCycling.currentIndex = (presetCycling.currentIndex + 2) % (totalPresets + 1) - 1;
+
+            // Update selectedPlan based on index
+            if (presetCycling.currentIndex === -1) {
+                presetCycling.selectedPlan = null;
+                controlDock.clearPreset();
+            } else {
+                const presetInfo = presetCycling.presetList[presetCycling.currentIndex];
+                const preset = presetCycling.presets[presetInfo.id];
+                presetCycling.selectedPlan = preset?.plan;
+                controlDock.updatePreset(presetInfo.name);
+            }
+
+            // Prevent default tab behavior
+            return;
+        }
+
         if (key && key.name === 'escape') {
             // ESC interrupts execution if busy
             if (executionState.busy && executionState.interrupt) {

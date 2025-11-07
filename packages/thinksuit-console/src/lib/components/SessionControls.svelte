@@ -41,8 +41,11 @@
 
     // Preset loading state
     let allPresets = $state([]);
-    let customPresets = $state([]);
+    let userPresets = $state([]);
     let isLoadingPresets = $state(false);
+
+    // Available tools for plan generation
+    let availableTools = $state([]);
 
     // Save preset state
     let showSaveDialog = $state(false);
@@ -53,36 +56,49 @@
 
     const session = getSession();
 
-    // Fetch module metadata and presets on mount
+    // Fetch module metadata, presets, and tools on mount
     onMount(async () => {
         isLoadingPresets = true;
         try {
-            // Load module metadata (includes planLibrary)
+            // Load module metadata (includes presets)
             const metadataResponse = await fetch('/api/module/metadata');
             if (metadataResponse.ok) {
                 moduleMetadata = await metadataResponse.json();
 
-                // Convert planLibrary to preset format
-                const libraryPresets = Object.entries(moduleMetadata.planLibrary || {}).map(([id, preset]) => ({
+                // Convert presets object to array
+                const modulePresets = Object.entries(moduleMetadata.presets || {}).map(([id, preset]) => ({
                     id,
                     name: preset.name || id,
                     description: preset.description || '',
-                    plan: preset.plan || preset,
+                    plan: preset.plan,
                     source: 'module'
                 }));
 
-                // Load custom presets
+                // Load user presets
                 const settingsResponse = await fetch('/api/console/settings');
                 if (settingsResponse.ok) {
                     const settings = await settingsResponse.json();
-                    customPresets = settings.customPresets || [];
+                    const currentModule = `${moduleMetadata.namespace}/${moduleMetadata.name}`;
+                    const moduleSettings = settings[currentModule] || {};
+                    userPresets = moduleSettings.presets || [];
                 }
 
-                // Merge presets: module library first, then custom
-                allPresets = [...libraryPresets, ...customPresets.map(p => ({ ...p, source: 'custom' }))];
+                // Merge presets: module presets first, then user presets
+                allPresets = [...modulePresets, ...userPresets.map(p => ({ ...p, source: 'user' }))];
+            }
+
+            // Load available tools
+            const toolsResponse = await fetch('/api/tools');
+            if (toolsResponse.ok) {
+                const toolsData = await toolsResponse.json();
+                // Store only name and description for plan generation
+                availableTools = toolsData.tools.map(t => ({
+                    name: t.name,
+                    description: t.description
+                }));
             }
         } catch (error) {
-            console.error('Failed to load presets:', error);
+            console.error('Failed to load presets or tools:', error);
         } finally {
             isLoadingPresets = false;
         }
@@ -106,7 +122,8 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     description: llmDescription,
-                    currentPlan
+                    currentPlan,
+                    availableTools
                 })
             });
 
@@ -160,6 +177,8 @@
         if (selectedPresetId === presetId) {
             selectedPresetId = null;
             selectedPlan = '';
+            lastLoadedPlan = '';
+            llmDescription = '';
             isDirty = false;
             return;
         }
@@ -180,6 +199,7 @@
         if (preset) {
             selectedPresetId = presetId;
             selectedPlan = JSON.stringify(preset.plan, null, 2);
+            lastLoadedPlan = selectedPlan;
             isDirty = false;
         }
     }
@@ -226,7 +246,7 @@
             const plan = JSON.parse(selectedPlan);
 
             // Generate unique ID
-            const presetId = `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            const presetId = `preset-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
             const newPreset = {
                 id: presetId,
@@ -235,29 +255,41 @@
                 plan
             };
 
-            // Add to custom presets
-            customPresets = [...customPresets, newPreset];
+            // Add to user presets
+            userPresets = [...userPresets, newPreset];
+
+            // Get current module name
+            const currentModule = `${moduleMetadata.namespace}/${moduleMetadata.name}`;
+
+            // Load current settings
+            const settingsResponse = await fetch('/api/console/settings');
+            const settings = settingsResponse.ok ? await settingsResponse.json() : {};
+
+            // Update module settings
+            settings[currentModule] = {
+                presets: userPresets
+            };
 
             // Save to server
             const response = await fetch('/api/console/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ customPresets })
+                body: JSON.stringify(settings)
             });
 
             if (!response.ok) {
                 throw new Error('Failed to save preset');
             }
 
-            // Reload all presets
-            const libraryPresets = Object.entries(moduleMetadata.planLibrary || {}).map(([id, preset]) => ({
+            // Rebuild allPresets
+            const modulePresets = Object.entries(moduleMetadata.presets || {}).map(([id, preset]) => ({
                 id,
                 name: preset.name || id,
                 description: preset.description || '',
-                plan: preset.plan || preset,
+                plan: preset.plan,
                 source: 'module'
             }));
-            allPresets = [...libraryPresets, ...customPresets.map(p => ({ ...p, source: 'custom' }))];
+            allPresets = [...modulePresets, ...userPresets.map(p => ({ ...p, source: 'user' }))];
 
             // Close dialog
             showSaveDialog = false;
@@ -278,11 +310,85 @@
         saveError = null;
     }
 
-    // Track dirty state when plan is modified
+    async function deletePreset(presetId) {
+        if (!confirm('Delete this preset?')) {
+            return;
+        }
+
+        try {
+            // Remove from user presets
+            userPresets = userPresets.filter(p => p.id !== presetId);
+
+            // Get current module name
+            const currentModule = `${moduleMetadata.namespace}/${moduleMetadata.name}`;
+
+            // Load current settings
+            const settingsResponse = await fetch('/api/console/settings');
+            const settings = settingsResponse.ok ? await settingsResponse.json() : {};
+
+            // Update module settings
+            settings[currentModule] = {
+                presets: userPresets
+            };
+
+            // Save to server
+            const response = await fetch('/api/console/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settings)
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to delete preset');
+            }
+
+            // Rebuild allPresets
+            const modulePresets = Object.entries(moduleMetadata.presets || {}).map(([id, preset]) => ({
+                id,
+                name: preset.name || id,
+                description: preset.description || '',
+                plan: preset.plan,
+                source: 'module'
+            }));
+            allPresets = [...modulePresets, ...userPresets.map(p => ({ ...p, source: 'user' }))];
+
+            // Clear selection if deleted preset was selected
+            if (selectedPresetId === presetId) {
+                selectedPresetId = null;
+                selectedPlan = '';
+                lastLoadedPlan = '';
+                llmDescription = '';
+                isDirty = false;
+            }
+        } catch (error) {
+            console.error('Error deleting preset:', error);
+            alert('Failed to delete preset: ' + error.message);
+        }
+    }
+
+    // Track dirty state and preset deselection when plan is modified
+    let lastLoadedPlan = $state('');
+
     $effect(() => {
-        // Mark dirty if user has typed description or modified plan
-        if (llmDescription.trim() || (selectedPlan && !selectedPresetId)) {
+        // If plan was just loaded from preset, store it
+        if (selectedPresetId && selectedPlan && selectedPlan !== lastLoadedPlan) {
+            lastLoadedPlan = selectedPlan;
+            isDirty = false;
+            return;
+        }
+
+        // If user has typed description or manually edited the plan
+        const planChanged = selectedPlan && selectedPlan !== lastLoadedPlan;
+        const hasDescription = llmDescription.trim().length > 0;
+
+        if (hasDescription || planChanged) {
             isDirty = true;
+            // Clear preset selection if plan was manually edited
+            if (planChanged && selectedPresetId) {
+                selectedPresetId = null;
+            }
+        } else {
+            isDirty = false;
         }
     });
 
@@ -300,6 +406,7 @@
 
     function handleSubmit() {
         if (!input.trim() || isSubmitting) return;
+        planFormExpanded = false;
         onSubmit?.();
     }
 
@@ -358,13 +465,13 @@
             />
         </div>
 
-        <!-- Plan Presets Section -->
+        <!-- Presets Section -->
         <div class="space-y-3">
             <!-- Preset buttons -->
             <div class="space-y-2">
                 <div class="flex items-center justify-between gap-2">
                     <label class="text-xs font-medium text-gray-700">
-                        Plan Presets:
+                        Presets:
                     </label>
                     <button
                         type="button"
@@ -378,22 +485,42 @@
 
                 {#if isLoadingPresets}
                     <div class="text-xs text-gray-500">Loading presets...</div>
-                {:else if allPresets.length > 0}
+                {:else}
                     <div class="flex flex-wrap gap-2">
-                        {#each allPresets as preset}
-                            <button
-                                type="button"
-                                onclick={() => selectPreset(preset.id)}
-                                class="px-3 py-1.5 text-xs font-medium rounded border transition-colors
-                                    {selectedPresetId === preset.id
-                                        ? 'bg-indigo-600 text-white border-indigo-600'
-                                        : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'}"
-                                disabled={isSubmitting}
-                                title={preset.description}
-                            >
-                                {preset.name}
-                            </button>
-                        {/each}
+                        {#if allPresets.length === 0}
+                            <div class="text-xs text-gray-500 py-1">No presets available</div>
+                        {:else}
+                            {#each allPresets as preset}
+                                <div class="relative inline-flex group">
+                                    <button
+                                        type="button"
+                                        onclick={() => selectPreset(preset.id)}
+                                        class="px-3 py-1.5 text-xs font-medium rounded border transition-colors
+                                            {selectedPresetId === preset.id
+                                                ? 'bg-indigo-600 text-white border-indigo-600'
+                                                : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'}"
+                                        disabled={isSubmitting}
+                                        title={preset.description}
+                                    >
+                                        {preset.name}
+                                    </button>
+                                    {#if preset.source === 'user'}
+                                        <button
+                                            type="button"
+                                            onclick={(e) => {
+                                                e.stopPropagation();
+                                                deletePreset(preset.id);
+                                            }}
+                                            class="absolute -top-1.5 -right-1.5 w-4 h-4 bg-gray-400 text-white rounded-full text-[10px] leading-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-600"
+                                            disabled={isSubmitting}
+                                            title="Delete preset"
+                                        >
+                                            ×
+                                        </button>
+                                    {/if}
+                                </div>
+                            {/each}
+                        {/if}
                         <button
                             type="button"
                             onclick={openSaveDialog}
@@ -404,8 +531,6 @@
                             + Save as Preset
                         </button>
                     </div>
-                {:else}
-                    <div class="text-xs text-gray-500">No presets available</div>
                 {/if}
             </div>
 
@@ -443,7 +568,7 @@
                                 <Textarea
                                     id="llm-description"
                                     bind:value={llmDescription}
-                                    rows={8}
+                                    rows={4}
                                     placeholder="e.g., Investigate files, then analyze and create a summary..."
                                     disabled={isSubmitting || isGeneratingPlan}
                                     class="text-xs"

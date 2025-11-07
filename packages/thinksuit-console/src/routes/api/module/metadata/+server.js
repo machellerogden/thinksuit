@@ -34,16 +34,22 @@ export async function GET({ url }) {
             name: module.name,
             version: module.version,
             description: module.description,
-            roles: module.roles?.map(r =>
-                typeof r === 'string' ? r : r.name
-            ) || [],
+            roles: module.roles?.map(r => {
+                if (typeof r === 'string') {
+                    return { name: r };
+                }
+                return {
+                    name: r.name,
+                    description: r.description || ''
+                };
+            }) || [],
             strategies: ['direct', 'task', 'sequential', 'parallel'],
             // Derive adaptations from prompts using adapt.* convention
             adaptations: Object.keys(module.prompts || {})
                 .filter(key => key.startsWith('adapt.'))
                 .map(key => key.replace('adapt.', '')),
-            // Include planLibrary if available
-            planLibrary: module.planLibrary || {}
+            // Include presets if available
+            presets: module.presets || {}
         };
 
         return json(metadata);

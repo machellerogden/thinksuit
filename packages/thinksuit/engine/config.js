@@ -50,6 +50,7 @@ function parseCLI(argv) {
       ANTHROPIC_API_KEY    Anthropic API key
       GOOGLE_CLOUD_PROJECT Google Cloud project ID (for Vertex AI)
       GOOGLE_CLOUD_LOCATION Google Cloud location (default: us-central1)
+      HF_TOKEN             Hugging Face API token (for hugging-face provider)
 
     Config File
       Default location: ~/.thinksuit.json
@@ -378,6 +379,12 @@ function buildConfig(options = {}) {
         },
         anthropic: {
             apiKey: process.env.ANTHROPIC_API_KEY
+        },
+        huggingFace: {
+            apiKey: process.env.HF_TOKEN
+        },
+        onnx: {
+            dtype: process.env.ONNX_DTYPE || 'q4'
         }
     };
 
@@ -391,6 +398,7 @@ function buildConfig(options = {}) {
             openai: !!process.env.OPENAI_API_KEY,
             anthropic: !!process.env.ANTHROPIC_API_KEY,
             vertexAi: !!process.env.GOOGLE_CLOUD_PROJECT,
+            huggingFace: !!process.env.HF_TOKEN,
             debug: !!process.env.DEBUG,
             trace: !!process.env.THINKSUIT_TRACE,
             silent: !!process.env.LOG_SILENT

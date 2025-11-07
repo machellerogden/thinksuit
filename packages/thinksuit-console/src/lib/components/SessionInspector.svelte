@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import { Badge, Card, JSONView, EmptyState, Tabs, Copyable } from '$lib/components/ui/index.js';
     import { SESSION_EVENTS } from 'thinksuit/constants/events';
+    import { formatTimeWithMs, formatDateTime, formatISO, formatDuration } from '$lib/utils/time.js';
 
     let { sessionId = null } = $props();
 
@@ -146,33 +147,6 @@
         return `Level ${level}`;
     }
 
-    function formatTimeWithMs(timestamp) {
-        if (!timestamp) return '';
-        const date = new Date(timestamp);
-        return date.toLocaleTimeString('en-US', {
-            hour12: false,
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            fractionalSecondDigits: 3
-        });
-    }
-
-    function formatDuration(ms) {
-        if (!ms) return '';
-        const seconds = Math.floor(ms / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const hours = Math.floor(minutes / 60);
-
-        if (hours > 0) {
-            return `${hours}h ${minutes % 60}m`;
-        } else if (minutes > 0) {
-            return `${minutes}m ${seconds % 60}s`;
-        } else {
-            return `${seconds}s`;
-        }
-    }
-
     // Helper to get JSON string with caching
     function getJsonString(entry) {
         if (entry.eventId) {
@@ -264,7 +238,7 @@
                 <!-- Session metadata row 1 -->
                 <div class="flex items-center gap-4 text-sm text-gray-600 mt-2">
                     {#if sessionMetadata?.sessionStart}
-                        <span>{new Date(sessionMetadata.sessionStart).toLocaleString()}</span>
+                        <span>{formatDateTime(sessionMetadata.sessionStart)}</span>
                     {/if}
                     {#if sessionMetadata?.duration}
                         <span>{formatDuration(sessionMetadata.duration)}</span>
@@ -364,7 +338,7 @@
                                     {#if entry.event}
                                         <Badge variant="primary" size="xs">{entry.event}</Badge>
                                     {/if}
-                                    {entry.time ? new Date(entry.time).toLocaleString() : 'No timestamp'}
+                                    {entry.time ? formatDateTime(entry.time) : 'No timestamp'}
                                 </div>
                                 <JSONView data={entry} />
                             </Card>
@@ -478,7 +452,7 @@
                                             <div class="grid grid-cols-2 gap-4">
                                                 <div>
                                                     <div class="text-xs font-medium text-gray-500 mb-1">Timestamp</div>
-                                                    <div class="font-mono text-xs text-gray-700">{new Date(selectedTraceEntry.time).toISOString()}</div>
+                                                    <div class="font-mono text-xs text-gray-700">{formatISO(selectedTraceEntry.time)}</div>
                                                 </div>
                                                 <div>
                                                     <div class="text-xs font-medium text-gray-500 mb-1">Log Level</div>
@@ -589,8 +563,8 @@
                                                                     <span class="text-xs font-medium text-purple-700">#{ruleIndex + 1}</span>
                                                                     <Badge variant="purple" size="xs">{rule.ruleName}</Badge>
                                                                 </div>
-                                                                {#if rule.timestamp}
-                                                                    <span class="text-xs text-gray-500">{formatTimeWithMs(rule.timestamp)}</span>
+                                                                {#if rule.time}
+                                                                    <span class="text-xs text-gray-500">{formatTimeWithMs(rule.time)}</span>
                                                                 {/if}
                                                             </div>
 

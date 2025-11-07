@@ -45,6 +45,14 @@ export async function* statusCommand(args, session) {
         yield fx('output', `  ${chalk.bold('Session:')} ${chalk.dim('(none - use /session to start)')}`);
     }
 
+    // Show selected preset
+    if (session.presetCycling?.selectedPlan) {
+        const presetInfo = session.presetCycling.presetList[session.presetCycling.currentIndex];
+        yield fx('output', `  ${chalk.bold('Preset:')} ${presetInfo.name}${presetInfo.description ? ` - ${presetInfo.description}` : ''}`);
+    } else {
+        yield fx('output', `  ${chalk.bold('Preset:')} ${chalk.dim('(auto)')}`);
+    }
+
     yield fx('output', '');
     yield fx('output', chalk.bold.cyan('Configuration:'));
     yield fx('output', `  ${chalk.bold('Module:')} ${thinkSuit.config.module}`);
@@ -174,6 +182,11 @@ export async function* helpCommand(args, session) {
     yield fx('output', '  Commands starting with : control the REPL (vim-like)');
     yield fx('output', '  Regular text sends input to ThinkSuit');
     yield fx('output', '');
+    yield fx('output', chalk.bold.cyan('Keyboard Shortcuts:'));
+    yield fx('output', chalk.bold('  Shift+Tab') + ' - Cycle through presets (auto → chat → capture → investigate → ...)');
+    yield fx('output', chalk.bold('  Ctrl+C') + ' - Exit (double-press)');
+    yield fx('output', chalk.bold('  ESC') + ' - Interrupt execution (when busy) or clear input (double-press)');
+    yield fx('output', '');
     yield fx('output', chalk.bold.cyan('Config Keys:'));
     yield fx('output', '  module, provider, model, tools, maxdepth, maxfanout');
     yield fx('output', '');
@@ -190,8 +203,6 @@ export async function* executeCommand(args, session) {
     // Lazy imports to avoid circular dependencies
     const { schedule } = await import('../../../thinksuit/engine/schedule.js');
     const { createBaseConfig } = await import('../../../thinksuit/engine/logger.js');
-    const { modules: defaultModules } = await import('thinksuit-modules');
-    const { loadModules } = await import('../../../thinksuit/engine/modules/loader.js');
     const { createLoggerStream } = await import('./logger-stream.js');
     const { resolveApproval } = await import('../../../thinksuit/index.js');
     const pino = (await import('pino')).default;
@@ -211,20 +222,8 @@ export async function* executeCommand(args, session) {
         // Show initial busy state
         yield fx('status-show', chalk.dim('⋯ Initializing...'));
 
-        // Determine modules (same logic as engine/execute.js)
-        let modules;
-        if (thinkSuit.config.modules) {
-            modules = thinkSuit.config.modules;
-        } else if (thinkSuit.config.modulesPackage) {
-            // Resolve relative paths from where the user ran the command (INIT_CWD)
-            const basePath = process.env.INIT_CWD || process.cwd();
-            const resolvedPath = thinkSuit.config.modulesPackage.startsWith('/')
-                ? thinkSuit.config.modulesPackage
-                : join(basePath, thinkSuit.config.modulesPackage);
-            modules = await loadModules(resolvedPath);
-        } else {
-            modules = defaultModules;
-        }
+        // Use modules already loaded in main.js startup
+        const modules = thinkSuit.config.modules;
 
         // Event handler for ThinkSuit events
         const handleEvent = (event) => {
@@ -290,7 +289,8 @@ export async function* executeCommand(args, session) {
             policy: thinkSuit.config.policy,
             trace: thinkSuit.config.trace,
             sessionId: thinkSuit.sessionId,
-            logger
+            logger,
+            ...(session.presetCycling?.selectedPlan && { selectedPlan: session.presetCycling.selectedPlan })
         };
 
         // Schedule and execute

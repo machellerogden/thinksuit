@@ -65,7 +65,7 @@ describe('Mu Rules', () => {
 
             expect(executionPlans).toHaveLength(1);
             expect(executionPlans[0].data.role).toBe('analyze');
-            expect(executionPlans[0].data.strategy).toBe('direct');
+            expect(executionPlans[0].data.strategy).toBe('task');
         });
 
         it('should route investigate intent to investigate role with tools', () => {

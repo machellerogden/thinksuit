@@ -329,3 +329,24 @@ export default async function (_opts) {
         }
     );
 }
+
+/**
+ * Flush all session streams to ensure writes complete
+ * @returns {Promise<void>}
+ */
+export async function flushAllSessionStreams() {
+    const flushPromises = [];
+    for (const [sessionId, stream] of streams.entries()) {
+        if (stream && !stream.destroyed) {
+            flushPromises.push(new Promise((resolve) => {
+                // Force flush by writing empty string and waiting for drain
+                if (stream.write('')) {
+                    resolve();
+                } else {
+                    stream.once('drain', resolve);
+                }
+            }));
+        }
+    }
+    await Promise.all(flushPromises);
+}
