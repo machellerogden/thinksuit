@@ -79,8 +79,11 @@ describe('execDirect handler', () => {
                     role: 'assistant'
                 },
                 instructions: {
-                    system: 'You are a helpful assistant.',
-                    primary: 'Help the user with their request.',
+                    systemInstructions: 'You are a helpful assistant.',
+                    thread: [
+                        { role: 'user', content: 'Help the user with their request.' },
+                        { role: 'user', content: 'What is 2+2?' }
+                    ],
                     adaptations: '',
                     maxTokens: 400
                 },
@@ -108,8 +111,11 @@ describe('execDirect handler', () => {
                     role: 'analyzer'
                 },
                 instructions: {
-                    system: 'You are an analyzer.',
-                    primary: 'Analyze the input.',
+                    systemInstructions: 'You are an analyzer.',
+                    thread: [
+                        { role: 'user', content: 'Analyze the input.' },
+                        { role: 'user', content: 'Analyze this text' }
+                    ],
                     adaptations: 'Be thorough.',
                     maxTokens: 800
                 },
@@ -124,8 +130,8 @@ describe('execDirect handler', () => {
                 { config: mockConfig, module: mockModule, execLogger: logger },
                 expect.objectContaining({
                     model: expect.any(String),
+                    systemInstructions: 'You are an analyzer.',
                     thread: expect.arrayContaining([
-                        expect.objectContaining({ role: 'system' }),
                         expect.objectContaining({ role: 'user' })
                     ]),
                     maxTokens: 800,
@@ -135,15 +141,18 @@ describe('execDirect handler', () => {
             );
         });
 
-        it('should include adaptations in system prompt', async () => {
+        it('should pass systemInstructions separately from thread', async () => {
             const input = {
                 plan: {
                     strategy: 'direct',
                     role: 'assistant'
                 },
                 instructions: {
-                    system: 'You are a helpful assistant.',
-                    primary: 'Help the user.',
+                    systemInstructions: 'You are a helpful assistant. Be concise and clear.',
+                    thread: [
+                        { role: 'user', content: 'Help the user.' },
+                        { role: 'user', content: 'Hello' }
+                    ],
                     adaptations: 'Be concise and clear.',
                     maxTokens: 400
                 },
@@ -157,10 +166,10 @@ describe('execDirect handler', () => {
             expect(callLLM).toHaveBeenCalledWith(
                 { config: mockConfig, module: mockModule, execLogger: logger },
                 expect.objectContaining({
+                    systemInstructions: expect.stringContaining('Be concise and clear.'),
                     thread: expect.arrayContaining([
                         expect.objectContaining({
-                            role: 'system',
-                            content: expect.stringContaining('Be concise and clear.')
+                            role: 'user'
                         })
                     ])
                 }),
@@ -168,15 +177,18 @@ describe('execDirect handler', () => {
             );
         });
 
-        it('should combine primary prompt with user message', async () => {
+        it('should include primary prompt in thread', async () => {
             const input = {
                 plan: {
                     strategy: 'direct',
                     role: 'assistant'
                 },
                 instructions: {
-                    system: 'You are a helpful assistant.',
-                    primary: 'Consider the following request carefully.',
+                    systemInstructions: 'You are a helpful assistant.',
+                    thread: [
+                        { role: 'user', content: 'Consider the following request carefully.' },
+                        { role: 'user', content: 'What is the capital of France?' }
+                    ],
                     adaptations: '',
                     maxTokens: 400
                 },

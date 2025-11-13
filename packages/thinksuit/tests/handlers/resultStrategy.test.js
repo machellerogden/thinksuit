@@ -32,7 +32,7 @@ describe('resultStrategy behaviors', () => {
                 .mockResolvedValueOnce([
                     'SUCCEEDED',
                     {
-                        responseResult: {
+                        handlerResult: {
                             response: { output: 'First', usage: { prompt: 10, completion: 5 } }
                         }
                     }
@@ -40,7 +40,7 @@ describe('resultStrategy behaviors', () => {
                 .mockResolvedValueOnce([
                     'SUCCEEDED',
                     {
-                        responseResult: {
+                        handlerResult: {
                             response: { output: 'Second', usage: { prompt: 10, completion: 5 } }
                         }
                     }
@@ -64,7 +64,7 @@ describe('resultStrategy behaviors', () => {
                 .mockResolvedValueOnce([
                     'SUCCEEDED',
                     {
-                        responseResult: {
+                        handlerResult: {
                             response: {
                                 output: 'First output',
                                 usage: { prompt: 10, completion: 5 }
@@ -75,7 +75,7 @@ describe('resultStrategy behaviors', () => {
                 .mockResolvedValueOnce([
                     'SUCCEEDED',
                     {
-                        responseResult: {
+                        handlerResult: {
                             response: {
                                 output: 'Second output',
                                 usage: { prompt: 10, completion: 5 }
@@ -105,7 +105,7 @@ describe('resultStrategy behaviors', () => {
                 .mockResolvedValueOnce([
                     'SUCCEEDED',
                     {
-                        responseResult: {
+                        handlerResult: {
                             response: {
                                 output: 'Explorer output',
                                 usage: { prompt: 10, completion: 5 }
@@ -116,7 +116,7 @@ describe('resultStrategy behaviors', () => {
                 .mockResolvedValueOnce([
                     'SUCCEEDED',
                     {
-                        responseResult: {
+                        handlerResult: {
                             response: {
                                 output: 'Analyzer output',
                                 usage: { prompt: 10, completion: 5 }
@@ -155,7 +155,7 @@ describe('resultStrategy behaviors', () => {
                 .mockResolvedValueOnce([
                     'SUCCEEDED',
                     {
-                        responseResult: {
+                        handlerResult: {
                             response: { output: 'Output 1', usage: { prompt: 10, completion: 5 } }
                         }
                     }
@@ -163,7 +163,7 @@ describe('resultStrategy behaviors', () => {
                 .mockResolvedValueOnce([
                     'SUCCEEDED',
                     {
-                        responseResult: {
+                        handlerResult: {
                             response: { output: 'Output 2', usage: { prompt: 10, completion: 5 } }
                         }
                     }
@@ -190,7 +190,7 @@ describe('resultStrategy behaviors', () => {
                 .mockResolvedValueOnce([
                     'SUCCEEDED',
                     {
-                        responseResult: {
+                        handlerResult: {
                             response: { output: 'First', usage: { prompt: 10, completion: 5 } }
                         }
                     }
@@ -198,7 +198,7 @@ describe('resultStrategy behaviors', () => {
                 .mockResolvedValueOnce([
                     'SUCCEEDED',
                     {
-                        responseResult: {
+                        handlerResult: {
                             response: { output: 'Second', usage: { prompt: 10, completion: 5 } }
                         }
                     }
@@ -228,7 +228,7 @@ describe('resultStrategy behaviors', () => {
             runCycle.mockImplementation(async () => [
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: { output: 'Output', usage: { prompt: 10, completion: 5 } }
                     }
                 }
@@ -258,7 +258,7 @@ describe('resultStrategy behaviors', () => {
             runCycle.mockImplementation(async () => [
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: { output: 'Output', usage: { prompt: 10, completion: 5 } }
                     }
                 }
@@ -281,7 +281,7 @@ describe('resultStrategy behaviors', () => {
                 .mockResolvedValueOnce([
                     'SUCCEEDED',
                     {
-                        responseResult: {
+                        handlerResult: {
                             response: {
                                 output: 'Perspective 1',
                                 usage: { prompt: 10, completion: 5 }
@@ -292,7 +292,7 @@ describe('resultStrategy behaviors', () => {
                 .mockResolvedValueOnce([
                     'SUCCEEDED',
                     {
-                        responseResult: {
+                        handlerResult: {
                             response: {
                                 output: 'Perspective 2',
                                 usage: { prompt: 10, completion: 5 }
@@ -321,7 +321,7 @@ describe('resultStrategy behaviors', () => {
                 .mockResolvedValueOnce([
                     'SUCCEEDED',
                     {
-                        responseResult: {
+                        handlerResult: {
                             response: {
                                 output: 'First output',
                                 usage: { prompt: 10, completion: 5 }
@@ -333,7 +333,7 @@ describe('resultStrategy behaviors', () => {
                 .mockResolvedValueOnce([
                     'SUCCEEDED',
                     {
-                        responseResult: {
+                        handlerResult: {
                             response: {
                                 output: 'Last output',
                                 usage: { prompt: 10, completion: 5 }

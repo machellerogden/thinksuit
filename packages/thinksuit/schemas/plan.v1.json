@@ -133,9 +133,10 @@
         "maxTokens": {
             "type": "number"
         },
-        "buildThread": {
+        "threadAccumulation": {
             "type": "boolean",
-            "description": "Whether to build conversation thread between sequential steps"
+            "default": true,
+            "description": "Whether to accumulate conversation thread between sequential steps (defaults to true)"
         },
         "resultStrategy": {
             "enum": [

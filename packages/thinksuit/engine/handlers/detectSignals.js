@@ -58,7 +58,6 @@ export async function detectSignalsCore(input, machineContext) {
                 stage: 'signal_detection',
                 threadLength: thread?.length,
                 mode: hasLLM ? 'llm-enhanced' : 'regex-only',
-                usingModuleClassifiers: !!module?.classifiers,
                 profile: profile || 'default',
                 budgetMs: budgetMs || null,
                 dimensionPolicy: dimensionPolicy || null

@@ -12,16 +12,11 @@ import { InterruptError, isInterruptError } from '../errors/InterruptError.js';
 
 // Default task progress prompts (fallbacks when module doesn't provide them)
 const DEFAULT_TASK_PROMPTS = {
-    header: '[Task Progress Report]',
-    assessment: `Assess your readiness:
-- Have you gathered sufficient information to address the user's request?
-- Are new discoveries revealing critical insights or just confirming details?
-- Will additional tool calls materially improve your response?`,
-    limited: 'Token budget is limited. Strongly consider synthesizing now.',
-    available: 'Resources available for continued investigation if needed.',
-    guidance: `If you have the core information needed, synthesize your response now.
-If critical gaps remain, continue with specific investigation goals.`,
-    forceSynthesis: 'Resource limits reached. Provide your synthesis based on the information gathered.'
+    limited: 'Token budget limited.',
+    available: 'Resources available.',
+    complete: 'I have completed my task.',
+    synthesis: 'What did you discover?',
+    continue: 'Continue.'
 };
 
 /**
@@ -31,7 +26,7 @@ If critical gaps remain, continue with specific investigation goals.`,
  * @returns {Object} - { response: Response }
  */
 export async function execTaskCore(input, machineContext) {
-    const { plan = {}, thread = [], context = {}, /*policy = {}*/ } = input;
+    const { plan = {}, instructions = {}, thread = [], userInput = '', context = {}, compositionType = 'default', /*policy = {}*/ } = input;
     const { module, config, execLogger: logger, abortSignal } = machineContext;
 
     const traceId = context.traceId;
@@ -60,7 +55,9 @@ export async function execTaskCore(input, machineContext) {
                 role: plan.role,
                 tools: plan.tools?.length || 0,
                 resolution,
-                depth: context.depth || 0
+                depth: context.depth || 0,
+                threadReceived: thread?.length || 0,
+                compositionType
             }
         },
         'Starting task execution'
@@ -69,7 +66,8 @@ export async function execTaskCore(input, machineContext) {
     let cycleCount = 0;
     let totalTokens = 0;
     let totalToolCalls = 0;
-    let currentThread = [...thread];
+    let taskThread = [...thread]; // Internal working thread with all tool calls/cycles
+    let currentThread = [...(instructions?.thread || [])]; // Framing thread from composition
     let lastResponse = null;
     let continueTask = true;
     let errorMessage = null;
@@ -136,7 +134,7 @@ export async function execTaskCore(input, machineContext) {
                 eventRole: EVENT_ROLES.BOUNDARY_START,
                 boundaryType: BOUNDARY_TYPES.CYCLE,
                 boundaryId: cycleBoundaryId,
-                data: { threadLength: currentThread.length }
+                data: { threadLength: taskThread.length }
             },
             'Starting task cycle'
         );
@@ -145,7 +143,8 @@ export async function execTaskCore(input, machineContext) {
             // Execute a cycle with task context (pass abort signal)
             const [status, result] = await runCycle({
                 logger: cycleLogger,
-                thread: currentThread,
+                thread: taskThread,
+                input: cycleCount === 1 ? userInput : '', // Pass user input only to first cycle
                 module,
                 depth: (context.depth || 0) + 1,
                 branch: `${context.branch || 'root'}.task-${cycleCount}`,
@@ -167,6 +166,7 @@ export async function execTaskCore(input, machineContext) {
                         resolution.maxTokens - totalTokens
                     )
                 },
+                compositionType: cycleCount === 1 ? compositionType : 'continuation', // First cycle uses given type (default/accumulation), subsequent are continuation
                 machineDefinition: machineContext.machineDefinition,
                 handlers: machineContext.handlers,
                 config,
@@ -174,8 +174,8 @@ export async function execTaskCore(input, machineContext) {
                 abortSignal  // Pass abort signal to nested cycle
             });
 
-            if (status === 'SUCCEEDED' && result?.responseResult?.response) {
-                const response = result.responseResult.response;
+            if (status === 'SUCCEEDED' && result?.handlerResult?.response) {
+                const response = result.handlerResult.response;
                 lastResponse = response;
 
                 // Track usage
@@ -203,9 +203,15 @@ export async function execTaskCore(input, machineContext) {
                     continueTask = false;
                 } else {
                     // Use provider's finishReason to determine continuation
-                    continueTask = finishReason === 'tool_use' ||
-                                  finishReason === 'tool_calls' ||
-                                  finishReason === 'max_tokens';
+                    const isToolUse = finishReason === 'tool_use' || finishReason === 'tool_calls';
+                    const shouldStop = finishReason === 'max_tokens';
+                    const isTextResponse = finishReason === 'stop' || finishReason === 'end_turn';
+
+                    // Continue if:
+                    // - Tool use (normal flow)
+                    // - Text response with budget remaining (prompt to continue)
+                    // - Max tokens reached (let synthesis happen)
+                    continueTask = isToolUse || shouldStop || (isTextResponse && cycleCount < resolution.maxCycles);
                 }
 
                 // Update thread for next cycle if continuing
@@ -213,8 +219,8 @@ export async function execTaskCore(input, machineContext) {
                     // Add the raw output items from the Responses API
                     // These include function_call items that must be present for function_call_output matching
                     if (response.outputItems) {
-                        currentThread = [
-                            ...currentThread,
+                        taskThread = [
+                            ...taskThread,
                             ...response.outputItems
                         ];
                     } else {
@@ -228,8 +234,8 @@ export async function execTaskCore(input, machineContext) {
                             assistantMessage.content = response.output;
                         }
 
-                        currentThread = [
-                            ...currentThread,
+                        taskThread = [
+                            ...taskThread,
                             assistantMessage
                         ];
                     }
@@ -421,14 +427,14 @@ export async function execTaskCore(input, machineContext) {
                                 if (toolResult) {
                                     if (response.outputItems) {
                                         // Add as function_call_output item for Responses API
-                                        currentThread.push({
+                                        taskThread.push({
                                             type: 'function_call_output',
                                             call_id: toolCall.id || toolCall.call_id,
                                             output: toolResult.result
                                         });
                                     } else {
                                         // Fallback to internal format for providers without outputItems
-                                        currentThread.push({
+                                        taskThread.push({
                                             role: 'tool',
                                             tool_call_id: toolCall.id || toolCall.call_id,
                                             content: toolResult.result
@@ -438,33 +444,17 @@ export async function execTaskCore(input, machineContext) {
                                 toolCallIndex++;
                             }
                         }
-
-                        // Always add progress context for budget awareness
-                        if (continueTask) {
-                            const tokensRemaining = Math.max(0, resolution.maxTokens - totalTokens);
-                            // Trigger 'limited' state when:
-                            // - Less than 800 tokens remaining (need ~500 for good synthesis)
-                            // - OR less than 20% of total budget remaining
-                            const resourceState = (tokensRemaining < 800 || tokensRemaining < resolution.maxTokens * 0.2) ? 'limited' : 'available';
-
-                            const progressMessage = [
-                                module?.prompts?.['adapt.task-progress-header'] || DEFAULT_TASK_PROMPTS.header,
-                                `Budget status: ${tokensRemaining} tokens available (from ${resolution.maxTokens} total). You've used ${totalTokens} tokens so far.`,
-                                'Remember: These are limits, not targets. Synthesize as soon as you have sufficient information.',
-                                '',
-                                module?.prompts?.['adapt.task-progress-assessment'] || DEFAULT_TASK_PROMPTS.assessment,
-                                '',
-                                module?.prompts?.[`adapt.task-progress-${resourceState}`] || DEFAULT_TASK_PROMPTS[resourceState],
-                                '',
-                                module?.prompts?.['adapt.task-progress-guidance'] || DEFAULT_TASK_PROMPTS.guidance
-                            ].join('\n');
-
-                            currentThread.push({
-                                role: 'user',
-                                content: progressMessage
-                            });
-                        }
                     }
+
+                    // If text response (no tools), prompt to continue
+                    const isTextResponse = finishReason === 'stop' || finishReason === 'end_turn';
+                    if (continueTask && isTextResponse && !response.toolCalls) {
+                        taskThread.push({
+                            role: 'user',
+                            content: module?.prompts?.['adapt.task-continue'] || DEFAULT_TASK_PROMPTS.continue
+                        });
+                    }
+
                 }
 
                 // Log cycle complete AFTER all tool processing
@@ -533,7 +523,7 @@ export async function execTaskCore(input, machineContext) {
         }
     }
 
-    // Force synthesis if:
+    // Do synthesis if:
     // - Last response was tool_use with no text output
     // - OR we stopped to preserve synthesis budget
     const needsSynthesis = (lastResponse?.finishReason === 'tool_use' && !lastResponse?.output) || stoppedForSynthesis;
@@ -559,16 +549,26 @@ export async function execTaskCore(input, machineContext) {
         );
 
         try {
+            // Frame the work as completed before asking for synthesis
+            const taskCompleteMessage = {
+                role: 'assistant',
+                content: module?.prompts?.['adapt.task-complete'] || DEFAULT_TASK_PROMPTS.complete
+            };
+            taskThread.push(taskCompleteMessage);
+            currentThread.push(taskCompleteMessage);
+
             // Add synthesis instruction to thread
-            currentThread.push({
+            const taskSynthesisMessage = {
                 role: 'user',
-                content: module?.prompts?.['adapt.task-force-synthesis'] || DEFAULT_TASK_PROMPTS.forceSynthesis
-            });
+                content: module?.prompts?.['adapt.task-synthesis'] || DEFAULT_TASK_PROMPTS.synthesis
+            };
+            taskThread.push(taskSynthesisMessage);
+            currentThread.push(taskSynthesisMessage);
 
             // Execute synthesis without tools
             const [status, result] = await runCycle({
                 logger: cycleLogger,
-                thread: currentThread,
+                thread: taskThread,
                 module,
                 depth: (context.depth || 0) + 1,
                 branch: `${context.branch || 'root'}.synthesis`,
@@ -583,6 +583,7 @@ export async function execTaskCore(input, machineContext) {
                     // Ensure minimum 1000 tokens for synthesis
                     maxTokens: Math.max(1000, Math.min(2000, resolution.maxTokens - totalTokens || 2000))
                 },
+                compositionType: 'continuation', // Synthesis is a continuation of the task cycles
                 machineDefinition: machineContext.machineDefinition,
                 handlers: machineContext.handlers,
                 config,
@@ -590,8 +591,8 @@ export async function execTaskCore(input, machineContext) {
                 abortSignal  // Pass abort signal to nested cycle
             });
 
-            if (status === 'SUCCEEDED' && result?.responseResult?.response) {
-                lastResponse = result.responseResult.response;
+            if (status === 'SUCCEEDED' && result?.handlerResult?.response) {
+                lastResponse = result.handlerResult.response;
                 const usage = lastResponse.usage || {};
                 totalTokens += (usage.prompt || 0) + (usage.completion || 0);
             }
@@ -659,8 +660,17 @@ export async function execTaskCore(input, machineContext) {
         'Task execution completed'
     );
 
-    // Return the final response with task metadata
-    const response = {
+    logger.info({
+        event: 'execution.task.debug.instructions',
+        traceId,
+        data: {
+            hasInstructions: !!instructions,
+            instructionsKeys: instructions ? Object.keys(instructions) : null,
+            threadLength: instructions?.thread?.length || 0
+        }
+    }, 'Debug: instructions before return');
+
+    const result = {
         response: {
             output: lastResponse?.output || '',
             usage: {
@@ -675,14 +685,26 @@ export async function execTaskCore(input, machineContext) {
                 totalTokens,
                 totalToolCalls,
                 resolution
+            },
+            instructions: {
+                thread: currentThread
             }
         }
     };
 
     // Add error if one occurred
     if (errorMessage) {
-        response.response.error = errorMessage;
+        result.response.error = errorMessage;
     }
 
-    return response;
+    logger.info({
+        event: 'execution.task.debug.result',
+        traceId,
+        data: {
+            hasInstructionsInResult: !!result.response.instructions,
+            resultThreadLength: result.response.instructions?.thread?.length || 0
+        }
+    }, 'Debug: result before return');
+
+    return result;
 }

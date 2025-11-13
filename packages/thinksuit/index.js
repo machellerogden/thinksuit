@@ -20,3 +20,4 @@ export { evaluateRulesCore as evaluateRules } from './engine/handlers/evaluateRu
 export { detectSignalsCore as detectSignals } from './engine/handlers/detectSignals.js';
 export { loadModule } from './engine/run.js';
 export { callLLM } from './engine/providers/io.js';
+export { loadPresets, getPreset, savePreset, deletePreset } from './presets.js';

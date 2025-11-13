@@ -138,7 +138,15 @@
                             {#if message.role}
                                 <!-- Standard message with role -->
                                 <div class="font-semibold text-gray-600 mb-1">{message.role}</div>
-                                {#if message.content}
+                                {#if Array.isArray(message.content)}
+                                    {#each message.content as entry, j (j)}
+                                        {#if entry.text}
+                                            <div class="text-gray-700 whitespace-pre-wrap font-mono text-[10px] mb-1">
+                                                {entry.text}
+                                            </div>
+                                        {/if}
+                                    {/each}
+                                {:else if message.content}
                                     <div class="text-gray-700 whitespace-pre-wrap font-mono text-[10px]">
                                         {message.content}
                                     </div>

@@ -1048,21 +1048,53 @@
                             </div>
 
                             <div class="space-y-3">
-                                <!-- System Prompt -->
-                                <div>
-                                    <div class="text-xs font-semibold text-gray-700 mb-1">System</div>
-                                    <div class="text-xs bg-white p-2 rounded border border-gray-200 font-mono whitespace-pre-wrap">
-                                        {result.instructions.system}
+                                <!-- System Instructions -->
+                                {#if result.instructions.systemInstructions}
+                                    <div>
+                                        <div class="text-xs font-semibold text-gray-700 mb-1">System Instructions</div>
+                                        <div class="text-xs bg-blue-50 p-2 rounded border border-blue-200 font-mono whitespace-pre-wrap">
+                                            {result.instructions.systemInstructions}
+                                        </div>
                                     </div>
-                                </div>
+                                {/if}
 
-                                <!-- Primary Prompt -->
-                                <div>
-                                    <div class="text-xs font-semibold text-gray-700 mb-1">Primary</div>
-                                    <div class="text-xs bg-white p-2 rounded border border-gray-200 font-mono whitespace-pre-wrap">
-                                        {result.instructions.primary}
+                                <!-- Thread -->
+                                {#if result.instructions.thread}
+                                    <div>
+                                        <div class="text-xs font-semibold text-gray-700 mb-1">Thread ({result.instructions.thread.length} messages)</div>
+                                        <div class="space-y-2">
+                                            {#each result.instructions.thread as msg, idx}
+                                                <div class="text-xs bg-white p-2 rounded border border-gray-200">
+                                                    <div class="flex items-center gap-2 mb-1">
+                                                        <span class="text-gray-500 font-mono">[{idx}]</span>
+                                                        <span class="font-semibold {msg.role === 'user' ? 'text-blue-600' : msg.role === 'assistant' ? 'text-green-600' : 'text-purple-600'}">
+                                                            {msg.role || msg.type || 'unknown'}
+                                                        </span>
+                                                        {#if msg.semantic}
+                                                            <span class="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-mono">
+                                                                {msg.semantic}
+                                                            </span>
+                                                        {/if}
+                                                    </div>
+                                                    {#if typeof msg.content === 'string'}
+                                                        <div class="font-mono whitespace-pre-wrap">{msg.content}</div>
+                                                    {:else if msg.content && typeof msg.content === 'object'}
+                                                        <div class="font-mono text-xs text-gray-600">
+                                                            <div class="font-semibold mb-1">Content (object):</div>
+                                                            {#each Object.entries(msg.content) as [key, value]}
+                                                                <div class="ml-2">
+                                                                    <span class="text-gray-500">{key}:</span> {typeof value === 'string' ? value : JSON.stringify(value)}
+                                                                </div>
+                                                            {/each}
+                                                        </div>
+                                                    {:else}
+                                                        <div class="font-mono text-xs text-gray-400">(no content)</div>
+                                                    {/if}
+                                                </div>
+                                            {/each}
+                                        </div>
                                     </div>
-                                </div>
+                                {/if}
 
                                 <!-- Adaptations -->
                                 {#if result.instructions.adaptations}

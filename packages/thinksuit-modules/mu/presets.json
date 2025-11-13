@@ -68,9 +68,6 @@
       "strategy": "task",
       "role": "analyze",
       "tools": [],
-      "adaptations": [
-        "task-budget-awareness"
-      ],
       "resolution": {
         "maxCycles": 3,
         "maxTokens": 8000,
@@ -122,9 +119,8 @@
     "description": "Multi-stage investigation, analysis, and synthesis",
     "plan": {
       "name": "investigate-analyze-synthesize-fs",
-      "rationale": "We must first gather file information using tools (investigate), then reason about structure and patterns (analyze), and finally present a coherent report (synthesize). Building a thread preserves findings across steps; only the final synthesized report should be returned.",
+      "rationale": "We must first gather file information using tools (investigate), then reason about structure and patterns (analyze), and finally present a coherent report (synthesize). Thread accumulation preserves findings across steps; only the final synthesized report should be returned.",
       "strategy": "sequential",
-      "buildThread": true,
       "resultStrategy": "last",
       "sequence": [
         {
@@ -133,12 +129,6 @@
           "tools": [
             "list_directory",
             "read_file"
-          ],
-          "adaptations": [
-            "tools-available",
-            "task-execution",
-            "task-tool-guidance",
-            "task-budget-awareness"
           ],
           "resolution": {
             "maxCycles": 5,
@@ -152,9 +142,6 @@
           "role": "analyze",
           "strategy": "task",
           "tools": [],
-          "adaptations": [
-            "task-budget-awareness"
-          ],
           "resolution": {
             "maxCycles": 3,
             "maxTokens": 8000,

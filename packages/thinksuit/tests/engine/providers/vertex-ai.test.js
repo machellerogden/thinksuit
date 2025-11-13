@@ -80,8 +80,8 @@ describe('Provider Abstraction', () => {
 
                 const result = await provider.callLLM(mockMachineContext, {
                     model: 'gemini-2.5-pro',
+                    systemInstructions: 'You are a helpful assistant',
                     thread: [
-                        { role: 'system', content: 'You are a helpful assistant' },
                         { role: 'user', content: 'Hello world' }
                     ],
                     maxTokens: 1000,

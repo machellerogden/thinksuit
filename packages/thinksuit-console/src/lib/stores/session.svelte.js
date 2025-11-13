@@ -11,6 +11,7 @@ import { SESSION_STATUS } from 'thinksuit/constants/events';
 // Core state
 let activeSessionId = $state(null);
 let entries = $state([]);
+let frame = $state({ text: '' });
 let isLoading = $state(false);
 let loadingFrom = $state(null); // Track incremental load position
 let error = $state(null);
@@ -33,15 +34,17 @@ export async function loadSession(sessionId, fromIndex = null) {
         // Clear session
         activeSessionId = null;
         entries = [];
+        frame = { text: '' };
         error = null;
         forkNavigation = {};
         return;
     }
-    
+
     // If switching to a new session, reset everything
     if (sessionId !== activeSessionId) {
         activeSessionId = sessionId;
         entries = [];
+        frame = { text: '' };
         forkNavigation = {};
         fromIndex = null; // Force full load for new session
     }
@@ -77,8 +80,10 @@ export async function loadSession(sessionId, fromIndex = null) {
         } else {
             // Full load - replace all entries
             entries = data.entries || [];
+            // Load frame from session metadata
+            frame = data.metadata?.frame || { text: '' };
         }
-        
+
         // Load fork navigation data if this is a full load
         if (fromIndex === null) {
             await loadForkNavigation(sessionId);
@@ -158,14 +163,16 @@ export function getSession() {
         // Core state
         get id() { return activeSessionId; },
         get entries() { return entries; },
+        get frame() { return frame; },
+        set frame(value) { frame = value; },
         get thread() { return thread; },
         get error() { return error; },
         get forkNavigation() { return forkNavigation; },
-        
+
         // Loading state
         get isLoading() { return isLoading; },
         get loadingFrom() { return loadingFrom; },
-        
+
         // Derived state
         get status() { return status; },
         get isProcessing() { return isProcessing; },

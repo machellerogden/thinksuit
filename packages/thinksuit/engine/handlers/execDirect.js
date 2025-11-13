@@ -66,7 +66,7 @@ export async function execDirectCore(input, machineContext) {
     );
 
     // Use fallback instructions if none provided
-    if (!instructions || (!instructions.system && !instructions.primary)) {
+    if (!instructions || (!instructions.systemInstructions && !instructions.thread)) {
         logger.warn(
             {
                 traceId,
@@ -88,53 +88,10 @@ export async function execDirectCore(input, machineContext) {
             });
         }
 
-        // Combine system prompt with adaptations
-        let systemPrompt = instructions?.system || 'You are a helpful assistant.';
-        if (instructions?.adaptations) {
-            systemPrompt += '\n\n' + instructions.adaptations;
-        }
-        // Add length guidance if present
-        if (instructions?.lengthGuidance) {
-            systemPrompt += '\n\n' + instructions.lengthGuidance;
-        }
-        // Add tool instructions if present
-        if (instructions?.toolInstructions) {
-            systemPrompt += instructions.toolInstructions;
-        }
+        // Use thread from instructions
+        const thread = instructions?.thread || [];
 
-        // Build full thread with system message
-        const fullThread = [{ role: 'system', content: systemPrompt }];
-
-        // Add the conversation thread
-        if (thread && thread.length > 0) {
-            fullThread.push(...thread);
-        } else {
-            // Default if no thread provided
-            fullThread.push({ role: 'user', content: 'Please help me think through this.' });
-        }
-
-        // Add primary prompt only if this isn't a built conversation thread
-        // A built thread has content beyond the initial user input:
-        // - Traditional: alternating user/assistant messages
-        // - Provider-specific: structured items with type field (e.g., OpenAI Responses API)
-        // We detect this by checking if thread has any assistant messages or structured items
-        const hasBuiltConversation =
-            thread && thread.length > 1 &&
-            (thread.some((msg) => msg.role === 'assistant') ||
-             thread.some((item) => item.type && item.type !== 'message'));
-
-        if (instructions?.primary && !hasBuiltConversation) {
-            // If we have user messages, prepend primary to the first one
-            // Otherwise add as a new user message
-            const firstUserIdx = fullThread.findIndex((msg) => msg.role === 'user');
-            if (firstUserIdx > 0) {
-                fullThread[firstUserIdx].content =
-                    `${instructions.primary}\n\n${fullThread[firstUserIdx].content}`;
-            } else {
-                // Insert after system message
-                fullThread.splice(1, 0, { role: 'user', content: instructions.primary });
-            }
-        }
+        const systemInstructions = instructions?.systemInstructions || '';
 
         // Get temperature from module configuration
         const temperature = module ? getRoleTemperature(module, plan.role, 0.7) : 0.7;
@@ -142,12 +99,13 @@ export async function execDirectCore(input, machineContext) {
         // Call the LLM with config
         const startTime = Date.now();
         const llmParams = {
-            model: config?.model || 'gpt-4o-mini',
-            thread: fullThread, // Pass the full thread instead of system/user
+            model: config?.model,
+            systemInstructions,
+            thread,
             maxTokens: instructions?.maxTokens || 400,
             temperature
         };
-        
+
         // Pass tools to LLM if provided
         if (plan.tools) {
             llmParams.tools = plan.tools;
@@ -175,7 +133,7 @@ export async function execDirectCore(input, machineContext) {
             },
             'LLM request'
         );
-        
+
         // Get tool schemas if tools are being used
         const toolSchemas = {};
         if (llmParams.tools && machineContext.discoveredTools) {
@@ -193,16 +151,26 @@ export async function execDirectCore(input, machineContext) {
         const llmResponse = await callLLM(machineContext, llmParams, toolSchemas);
         const duration = Date.now() - startTime;
 
-        // Log raw API response if available
-        if (llmResponse.raw) {
+        // Log raw API data if available
+        if (llmResponse.raw.request) {
+            logger.debug({
+                event: PROCESSING_EVENTS.PROVIDER_API_RAW_REQUEST,
+                traceId,
+                boundaryType: BOUNDARY_TYPES.LLM_EXCHANGE,
+                boundaryId: llmBoundaryId,
+                parentBoundaryId: executionBoundaryId,
+                data: llmResponse.raw.request
+            }, `Provider API request - ${config?.provider}`);
+        }
+        if (llmResponse.raw.response) {
             logger.debug({
                 event: PROCESSING_EVENTS.PROVIDER_API_RAW_RESPONSE,
                 traceId,
                 boundaryType: BOUNDARY_TYPES.LLM_EXCHANGE,
                 boundaryId: llmBoundaryId,
                 parentBoundaryId: executionBoundaryId,
-                data: llmResponse.raw
-            }, 'Raw API response structure');
+                data: llmResponse.raw.response
+            }, `Provider API response - ${config?.provider}`);
         }
 
         // Log the LLM response at info level so it appears in sessions

@@ -5,11 +5,20 @@
 
 // Default instruction set when no module is provided
 export const DEFAULT_INSTRUCTIONS = {
-    system: 'You are a thinking companion.',
-    primary: 'Please help the user with their request.',
+    systemInstructions: 'You are a thinking companion.',
+    thread: [
+        { role: 'user', content: 'Please help the user with their request.' }
+    ],
     adaptations: '',
     lengthGuidance: 'Be concise but thorough.',
-    maxTokens: 400
+    toolInstructions: '',
+    maxTokens: 400,
+    metadata: {
+        role: 'assistant',
+        baseTokens: 400,
+        lengthLevel: 'standard',
+        adaptations: []
+    }
 };
 
 // Default role when none is specified

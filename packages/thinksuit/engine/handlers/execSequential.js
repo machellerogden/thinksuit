@@ -8,6 +8,25 @@ import { runCycle } from '../runCycle.js';
 import { EXECUTION_EVENTS, EVENT_ROLES, BOUNDARY_TYPES } from '../constants/events.js';
 import { InterruptError } from '../errors/InterruptError.js';
 
+// Default sequential framing prompts (fallbacks when module doesn't provide them)
+const DEFAULT_SEQUENTIAL_PROMPTS = {
+    planOverview: ({ stepCount, roleNames }) =>
+        `We're going to work in a sequence of ${stepCount} steps: ${roleNames.join(', ')}.`,
+    stepStart: ({ stepNumber, role, hasTools, isFirstStep }) => {
+        let message = `This is the start of step ${stepNumber}: ${role}.`;
+        if (hasTools) {
+            message += ' Tools are available for this step.';
+        }
+        if (!isFirstStep) {
+            const stepWord = stepNumber === 2 ? 'step' : 'steps';
+            message += ` Use context provided in previous ${stepWord}.`;
+        }
+        return message;
+    },
+    stepEnd: ({ stepNumber, role }) =>
+        `This is the end of step ${stepNumber}: ${role}.`
+};
+
 /**
  * Core sequential execution logic
  * @param {Object} input - { plan, instructions, thread, context, policy }
@@ -19,6 +38,7 @@ export async function execSequentialCore(input, machineContext) {
         plan = {},
         //instructions = {},
         thread = [],
+        userInput = '',
         context = {},
         policy = {}
     } = input;
@@ -48,8 +68,8 @@ export async function execSequentialCore(input, machineContext) {
     // Get result strategy from plan (default to 'last' for backward compatibility)
     const resultStrategy = plan.resultStrategy || 'last';
 
-    // Get buildThread flag
-    const buildThread = plan.buildThread || false;
+    // Get threadAccumulation flag (defaults to true)
+    const threadAccumulation = plan.threadAccumulation ?? true;
 
     const executionBoundaryId = `exec-sequential-${context.sessionId}-${Date.now()}`;
 
@@ -66,7 +86,7 @@ export async function execSequentialCore(input, machineContext) {
                 sequence,
                 depth: context.depth || 0,
                 resultStrategy,
-                buildThread
+                threadAccumulation
             }
         },
         'Starting sequential execution'
@@ -76,8 +96,20 @@ export async function execSequentialCore(input, machineContext) {
     let aggregateUsage = { prompt: 0, completion: 0 };
     let previousOutput = null;
 
-    // Build labeled conversation history for buildThread mode
-    const conversationHistory = [];
+    // Accumulated thread for threadAccumulation mode
+    let accumulatedThread = [...thread]; // Start with original thread
+
+    // Add sequential plan overview before starting steps
+    const roleNames = sequence.map(step => typeof step === 'string' ? step : step.role);
+    const planOverviewPrompt = module?.prompts?.['adapt.sequential-plan-overview'] || DEFAULT_SEQUENTIAL_PROMPTS.planOverview;
+    const planOverviewContent = typeof planOverviewPrompt === 'function'
+        ? planOverviewPrompt({ stepCount: sequence.length, roleNames })
+        : planOverviewPrompt;
+
+    accumulatedThread.push({
+        role: 'user',
+        content: planOverviewContent
+    });
 
     // Execute each role in sequence
     for (let i = 0; i < sequence.length; i++) {
@@ -137,30 +169,40 @@ export async function execSequentialCore(input, machineContext) {
             };
 
             // Build the thread for this step
-            let stepThread = [...thread]; // Start with original thread
+            let stepThread;
 
-            if (buildThread && conversationHistory.length > 0) {
-                // Build labeled conversation as a single user message
-                let conversationText = '';
+            if (threadAccumulation) {
+                // Use accumulated thread from previous steps
+                // Add step start marker to the thread the task will see
+                const stepStartPrompt = module?.prompts?.['adapt.sequential-step-start'] || DEFAULT_SEQUENTIAL_PROMPTS.stepStart;
+                const stepStartContent = typeof stepStartPrompt === 'function'
+                    ? stepStartPrompt({
+                        stepNumber,
+                        role,
+                        hasTools: stepTools && stepTools.length > 0,
+                        isFirstStep: stepNumber === 1
+                    })
+                    : stepStartPrompt;
 
-                // Add original user input if this is not the first step
-                if (thread.length > 0 && thread.at(-1).role === 'user') {
-                    conversationText = `[user]: ${thread.at(-1).content}\n\n`;
-                }
-
-                // Add all previous conversation history with labels
-                conversationHistory.forEach((entry) => {
-                    const label = (entry.adaptations && entry.adaptations.length > 0 ? entry.adaptations.join(',') : null) || entry.role || 'speaker';
-                    conversationText += `[${label}]: ${entry.output}\n\n`;
-                });
-
-                // Replace the thread with a single user message containing the labeled conversation
-                stepThread = [
-                    {
-                        role: 'user',
-                        content: conversationText.trim()
+                const stepStartMessage = {
+                    role: 'user',
+                    content: stepStartContent
+                };
+                stepThread = [...accumulatedThread, stepStartMessage];
+                logger.info({
+                    event: 'execution.sequential.debug.thread_build',
+                    traceId,
+                    data: {
+                        step: i,
+                        role,
+                        accumulatedThreadLength: accumulatedThread.length,
+                        stepThreadLength: stepThread.length,
+                        hasStepStartMarker: true
                     }
-                ];
+                }, `Building stepThread from accumulatedThread for step ${i}`);
+            } else {
+                // No threadAccumulation: start with original thread
+                stepThread = [...thread];
             }
 
             // Build child input for state machine
@@ -199,6 +241,7 @@ export async function execSequentialCore(input, machineContext) {
             const [status, childResult] = await runCycle({
                 logger: childLogger,
                 thread: stepThread, // Use the step-specific thread
+                input: i === 0 ? userInput : '', // Pass user input only to first step
                 module,
                 depth: childContext.depth,
                 branch: childContext.branch,
@@ -209,6 +252,7 @@ export async function execSequentialCore(input, machineContext) {
                 parentBoundaryId: stepBoundaryId, // Pass step boundary as parent for nested executions
                 selectedPlan: childInput.selectedPlan,
                 previousOutput: childContext.previousOutput,
+                compositionType: i === 0 ? 'default' : 'accumulation', // First step is default, subsequent are accumulation
                 machineDefinition: machineContext.machineDefinition,
                 handlers: machineContext.handlers,
                 config: childConfig,
@@ -217,8 +261,8 @@ export async function execSequentialCore(input, machineContext) {
             });
             const duration = Date.now() - startTime;
 
-            if (status === 'SUCCEEDED' && childResult?.responseResult?.response) {
-                const roleResponse = childResult.responseResult.response;
+            if (status === 'SUCCEEDED' && childResult?.handlerResult?.response) {
+                const roleResponse = childResult.handlerResult.response;
 
                 // Store result
                 results.push({
@@ -237,14 +281,82 @@ export async function execSequentialCore(input, machineContext) {
                 // Always pass output forward for next step
                 previousOutput = roleResponse.output;
 
-                // Build conversation history if requested
-                if (buildThread) {
-                    conversationHistory.push({
-                        role,
-                        adaptations,
-                        output: roleResponse.output
-                    });
+                // Accumulate thread if threadAccumulation is enabled
+                if (threadAccumulation) {
+                    logger.info({
+                        event: 'execution.sequential.debug.response_structure',
+                        traceId,
+                        data: {
+                            step: i,
+                            role,
+                            hasInstructions: !!roleResponse?.instructions,
+                            instructionsKeys: roleResponse?.instructions ? Object.keys(roleResponse.instructions) : null,
+                            threadLength: roleResponse?.instructions?.thread?.length || 0
+                        }
+                    }, `Checking response structure for step ${i}`);
+
+                    const composedThread = roleResponse?.instructions?.thread
+                        || childResult?.instructions?.thread
+                        || [];
+
+                    // composedThread includes stepThread (which has step start marker) + new framing
+                    // We only want the new framing messages (after stepThread)
+                    const newFramingMessages = composedThread.slice(stepThread.length);
+
+                    // stepThread already includes: accumulatedThread + stepStartMessage
+                    // So composedThread includes: accumulatedThread + stepStartMessage + newFraming
+                    // newFramingMessages = just the new framing
+                    // We need to add: stepStartMessage + newFraming + response + stepEndMessage
+
+                    // Build step start message with same content as passed to task
+                    const stepStartPrompt = module?.prompts?.['adapt.sequential-step-start'] || DEFAULT_SEQUENTIAL_PROMPTS.stepStart;
+                    const stepStartContent = typeof stepStartPrompt === 'function'
+                        ? stepStartPrompt({
+                            stepNumber,
+                            role,
+                            hasTools: stepTools && stepTools.length > 0,
+                            isFirstStep: stepNumber === 1
+                        })
+                        : stepStartPrompt;
+                    const stepStartMessage = {
+                        role: 'user',
+                        content: stepStartContent
+                    };
+
+                    accumulatedThread = [
+                        ...accumulatedThread,
+                        stepStartMessage,
+                        ...newFramingMessages,
+                        {
+                            role: 'assistant',
+                            content: roleResponse.output,
+                            semantic: 'response'
+                        }
+                    ];
+
+                    logger.info({
+                        event: 'execution.sequential.debug.thread_accumulated',
+                        traceId,
+                        data: {
+                            step: i,
+                            role,
+                            composedThreadLength: composedThread.length,
+                            accumulatedThreadLength: accumulatedThread.length,
+                            accumulatedThread
+                        }
+                    }, `Updated accumulatedThread after step ${i}`);
                 }
+
+                // Add step end marker
+                const stepEndPrompt = module?.prompts?.['adapt.sequential-step-end'] || DEFAULT_SEQUENTIAL_PROMPTS.stepEnd;
+                const stepEndContent = typeof stepEndPrompt === 'function'
+                    ? stepEndPrompt({ stepNumber, role })
+                    : stepEndPrompt;
+                const stepEndMessage = {
+                    role: 'user',
+                    content: stepEndContent
+                };
+                accumulatedThread.push(stepEndMessage);
 
                 // Log step completion
                 childLogger.info(

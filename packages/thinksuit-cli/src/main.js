@@ -7,6 +7,7 @@ import os from 'node:os';
 import MuteStream from 'mute-stream';
 import chalk from 'chalk';
 import { buildConfig } from '../../thinksuit/engine/config.js';
+import { loadPresets } from '../../thinksuit/presets.js';
 import pkg from '../package.json' with { type: 'json' };
 
 import { ControlDock } from './lib/control-dock.js';
@@ -37,15 +38,16 @@ async function main() {
         modules = defaultModules;
     }
 
-    // Get current module and its presets
+    // Load presets using centralized API (merges module + user presets)
     const moduleName = baseConfig.module || 'thinksuit/mu';
     const currentModule = modules[moduleName];
-    const presets = currentModule?.presets || {};
-    const presetList = Object.entries(presets).map(([id, preset]) => ({
-        id,
-        name: preset.name || id,
-        description: preset.description || ''
-    }));
+    const presetList = await loadPresets(moduleName, currentModule);
+
+    // Build presets lookup map for preset cycling
+    const presets = {};
+    for (const preset of presetList) {
+        presets[preset.id] = preset;
+    }
 
     // Setup history file path
     const historyDir = path.join(os.homedir(), '.thinksuit');
@@ -115,6 +117,7 @@ async function main() {
         thinkSuit: {
             sessionId: null,
             lastTraceId: null,
+            frame: baseConfig.frame || { text: '' },
             config: {
                 module: baseConfig.module,
                 modules: modules,

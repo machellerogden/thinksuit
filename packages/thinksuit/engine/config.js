@@ -33,6 +33,8 @@ function parseCLI(argv) {
       --max-fanout       Max parallel branches (default: 3)
       --max-children     Max child operations (default: 5)
       --session-id       Session ID to resume or create
+      --preset           Preset plan to use (from module presets)
+      --frame            Frame context text (persistent session context)
       --cwd              Working directory for tools (default: current directory)
       --allow-tool       Tool to allow (can be specified multiple times)
       --allow-tools      Comma-separated list of tools to allow
@@ -98,6 +100,14 @@ function parseCLI(argv) {
                 sessionId: {
                     type: 'string'
                     // No default - will generate if not provided
+                },
+                preset: {
+                    type: 'string'
+                    // No default - optional preset selection
+                },
+                frame: {
+                    type: 'string'
+                    // No default - optional frame context
                 },
                 cwd: {
                     type: 'string'
@@ -346,6 +356,7 @@ function buildConfig(options = {}) {
         },
         trace: cli.flags.trace || fileConfig.trace || defaults.trace,
         sessionId: cli.flags.sessionId || fileConfig.sessionId,
+        preset: cli.flags.preset || fileConfig.preset,
         cwd: cli.flags.cwd || fileConfig.cwd, // No default here
         allowedTools: (() => {
             const fromFlags = [
@@ -362,6 +373,7 @@ function buildConfig(options = {}) {
                 ? fileConfig.approvalTimeout
                 : defaults.approvalTimeout,
         input: cli.input[0] || '',
+        frame: cli.flags.frame ? { text: cli.flags.frame } : (fileConfig.frame || null),
         help: cli.flags.help,
         version: cli.flags.version,
         // Expose CLI object for help/version display

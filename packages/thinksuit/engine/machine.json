@@ -32,11 +32,6 @@
                     "Variable": "$.selectedPlan.strategy",
                     "StringEquals": "parallel",
                     "Next": "DoParallel"
-                },
-                {
-                    "Variable": "$.selectedPlan.strategy",
-                    "StringEquals": "task",
-                    "Next": "DoTask"
                 }
             ],
             "Default": "ComposeInstructions"
@@ -88,6 +83,10 @@
             "Resource": "composeInstructions",
             "Parameters": {
                 "plan.$": "$.planResult.plan",
+                "factMap.$": "$.evaluateRulesResult.factMap",
+                "thread.$": "$.thread",
+                "userInput.$": "$.userInput",
+                "compositionType.$": "$.compositionType",
                 "context.$": "$.context"
             },
             "ResultPath": "$.instructions",
@@ -129,7 +128,7 @@
                 "context.$": "$.context",
                 "policy.$": "$.policy"
             },
-            "ResultPath": "$.responseResult",
+            "ResultPath": "$.handlerResult",
             "Catch": [
                 {
                     "ErrorEquals": [
@@ -147,11 +146,12 @@
                 "plan.$": "$.planResult.plan",
                 "instructions.$": "$.instructions",
                 "thread.$": "$.thread",
+                "userInput.$": "$.userInput",
                 "context.$": "$.context",
                 "policy.$": "$.policy",
                 "module.$": "$.module"
             },
-            "ResultPath": "$.responseResult",
+            "ResultPath": "$.handlerResult",
             "Catch": [
                 {
                     "ErrorEquals": [
@@ -173,7 +173,7 @@
                 "policy.$": "$.policy",
                 "module.$": "$.module"
             },
-            "ResultPath": "$.responseResult",
+            "ResultPath": "$.handlerResult",
             "Catch": [
                 {
                     "ErrorEquals": [
@@ -191,11 +191,13 @@
                 "plan.$": "$.planResult.plan",
                 "instructions.$": "$.instructions",
                 "thread.$": "$.thread",
+                "userInput.$": "$.userInput",
                 "context.$": "$.context",
                 "policy.$": "$.policy",
-                "module.$": "$.module"
+                "module.$": "$.module",
+                "compositionType.$": "$.compositionType"
             },
-            "ResultPath": "$.responseResult",
+            "ResultPath": "$.handlerResult",
             "Catch": [
                 {
                     "ErrorEquals": [
@@ -212,7 +214,7 @@
             "Parameters": {
                 "lastError.$": "$.error"
             },
-            "ResultPath": "$.responseResult",
+            "ResultPath": "$.handlerResult",
             "OutputPath": "$",
             "End": true
         }

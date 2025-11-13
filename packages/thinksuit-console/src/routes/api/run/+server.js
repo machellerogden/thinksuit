@@ -16,6 +16,7 @@ export async function POST({ request }) {
             sessionId: providedSessionId,
             modulesPackage,
             selectedPlan,
+            frame,
             // Accept config overrides
             module,
             provider,
@@ -67,6 +68,7 @@ export async function POST({ request }) {
             input,
             sessionId: providedSessionId,  // May be undefined
             selectedPlan: selectedPlan || undefined,  // Manual plan override
+            frame: frame || null,  // Frame context
             module: module || baseConfig.module,
             modules,
             provider: provider || baseConfig.provider,

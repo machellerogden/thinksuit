@@ -14,8 +14,10 @@ describe('composeInstructions handler (engine contract)', () => {
         // Module only returns what it naturally computed, not derived stats
         mockModule = {
             composeInstructions: vi.fn(async ({ plan }) => ({
-                system: 'Mock system prompt',
-                primary: 'Mock primary prompt',
+                systemInstructions: 'Mock system prompt',
+                thread: [
+                    { role: 'user', content: 'Mock primary prompt' }
+                ],
                 adaptations: 'Mock adaptations',
                 lengthGuidance: 'Mock length guidance',
                 toolInstructions: '',
@@ -46,7 +48,7 @@ describe('composeInstructions handler (engine contract)', () => {
 
             expect(mockModule.composeInstructions).toHaveBeenCalledOnce();
             expect(mockModule.composeInstructions).toHaveBeenCalledWith(
-                { plan: input.plan, factMap: input.factMap },
+                { plan: input.plan, factMap: input.factMap, thread: [], input: '', frame: null },
                 mockModule
             );
         });
@@ -217,8 +219,10 @@ describe('composeInstructions handler (engine contract)', () => {
             });
 
             expect(result).toMatchObject({
-                system: 'Mock system prompt',
-                primary: 'Mock primary prompt',
+                systemInstructions: 'Mock system prompt',
+                thread: [
+                    { role: 'user', content: 'Mock primary prompt' }
+                ],
                 adaptations: 'Mock adaptations',
                 lengthGuidance: 'Mock length guidance',
                 toolInstructions: '',

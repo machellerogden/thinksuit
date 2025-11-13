@@ -9,6 +9,7 @@ import { createLogger } from './logger.js';
 import { loadModules } from './modules/loader.js';
 import { modules as defaultModules } from 'thinksuit-modules';
 import { flushAllSessionStreams } from './transports/session-router.js';
+import { getPreset } from '../presets.js';
 
 /**
  * Output message respecting CLI output mode
@@ -91,6 +92,26 @@ async function main() {
         modules = defaultModules;
     }
 
+    // Resolve preset if specified (interface-level concern)
+    let selectedPlan = config.selectedPlan; // May come from config file
+    if (config.preset) {
+        const moduleName = config.module || 'thinksuit/mu';
+        const currentModule = modules[moduleName];
+
+        const preset = await getPreset(config.preset, moduleName, currentModule);
+        if (!preset) {
+            console.error(`Error: Preset "${config.preset}" not found`);
+            console.error(`Run with --help to see available options`);
+            process.exit(1);
+        }
+
+        selectedPlan = preset.plan;
+        if (!selectedPlan) {
+            console.error(`Error: Preset "${config.preset}" has no plan defined`);
+            process.exit(1);
+        }
+    }
+
     // Map CLI config to schedule() config
     const scheduleConfig = {
         input,
@@ -112,6 +133,8 @@ async function main() {
         },
         trace: config.trace,
         sessionId: config.sessionId,
+        selectedPlan, // Pass resolved selectedPlan
+        frame: config.frame, // Pass frame context
         logger // Pass the pre-configured logger
     };
 

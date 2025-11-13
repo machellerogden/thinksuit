@@ -8,8 +8,18 @@ import { PROCESSING_EVENTS } from '../constants/events.js';
 
 // Transforms request for OpenAI-compatible chat completions API
 const transformRequest = (params) => {
+    // Start with system instructions as first message (if provided)
+    const messages = [];
+
+    if (params.systemInstructions) {
+        messages.push({
+            role: 'system',
+            content: params.systemInstructions
+        });
+    }
+
     // Transform thread to messages format
-    const messages = params.thread
+    const threadMessages = params.thread
         .filter(msg => {
             // Skip assistant messages that only contain tool calls (no content field)
             if (msg.role === 'assistant' && msg.tool_calls && !msg.content) {
@@ -36,6 +46,8 @@ const transformRequest = (params) => {
             // Regular messages pass through as-is
             return msg;
         });
+
+    messages.push(...threadMessages);
 
     const request = {
         model: params.model,

@@ -3,6 +3,7 @@
     import Modal from '$lib/components/ui/Modal.svelte';
     import { getSession } from '$lib/stores/session.svelte.js';
     import PlanViewer from './PlanViewer.svelte';
+    import FrameEditor from './FrameEditor.svelte';
     import { onMount } from 'svelte';
 
     let {
@@ -10,6 +11,7 @@
         trace = $bindable(false),
         cwd = $bindable(''),
         selectedPlan = $bindable(''),
+        frame = $bindable({ text: '' }),
         isSubmitting = $bindable(false),
         isCancelling = $bindable(false),
         onSubmit,
@@ -54,37 +56,28 @@
     let saveError = $state(null);
     let isSavingPreset = $state(false);
 
+    // Frame editor state
+    let frameExpanded = $state(false);
+
     const session = getSession();
 
     // Fetch module metadata, presets, and tools on mount
     onMount(async () => {
         isLoadingPresets = true;
         try {
-            // Load module metadata (includes presets)
+            // Load module metadata
             const metadataResponse = await fetch('/api/module/metadata');
             if (metadataResponse.ok) {
                 moduleMetadata = await metadataResponse.json();
+                const currentModule = `${moduleMetadata.namespace}/${moduleMetadata.name}`;
 
-                // Convert presets object to array
-                const modulePresets = Object.entries(moduleMetadata.presets || {}).map(([id, preset]) => ({
-                    id,
-                    name: preset.name || id,
-                    description: preset.description || '',
-                    plan: preset.plan,
-                    source: 'module'
-                }));
-
-                // Load user presets
-                const settingsResponse = await fetch('/api/console/settings');
-                if (settingsResponse.ok) {
-                    const settings = await settingsResponse.json();
-                    const currentModule = `${moduleMetadata.namespace}/${moduleMetadata.name}`;
-                    const moduleSettings = settings[currentModule] || {};
-                    userPresets = moduleSettings.presets || [];
+                // Load presets using new API (merges module + user presets)
+                const presetsResponse = await fetch(`/api/presets?module=${encodeURIComponent(currentModule)}`);
+                if (presetsResponse.ok) {
+                    const { presets } = await presetsResponse.json();
+                    allPresets = presets;
+                    userPresets = presets.filter(p => p.source === 'user');
                 }
-
-                // Merge presets: module presets first, then user presets
-                allPresets = [...modulePresets, ...userPresets.map(p => ({ ...p, source: 'user' }))];
             }
 
             // Load available tools
@@ -255,41 +248,30 @@
                 plan
             };
 
-            // Add to user presets
-            userPresets = [...userPresets, newPreset];
-
             // Get current module name
             const currentModule = `${moduleMetadata.namespace}/${moduleMetadata.name}`;
 
-            // Load current settings
-            const settingsResponse = await fetch('/api/console/settings');
-            const settings = settingsResponse.ok ? await settingsResponse.json() : {};
-
-            // Update module settings
-            settings[currentModule] = {
-                presets: userPresets
-            };
-
-            // Save to server
-            const response = await fetch('/api/console/settings', {
+            // Save to server using new API
+            const response = await fetch('/api/presets', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(settings)
+                body: JSON.stringify({
+                    module: currentModule,
+                    preset: newPreset
+                })
             });
 
             if (!response.ok) {
                 throw new Error('Failed to save preset');
             }
 
-            // Rebuild allPresets
-            const modulePresets = Object.entries(moduleMetadata.presets || {}).map(([id, preset]) => ({
-                id,
-                name: preset.name || id,
-                description: preset.description || '',
-                plan: preset.plan,
-                source: 'module'
-            }));
-            allPresets = [...modulePresets, ...userPresets.map(p => ({ ...p, source: 'user' }))];
+            // Reload presets from API
+            const presetsResponse = await fetch(`/api/presets?module=${encodeURIComponent(currentModule)}`);
+            if (presetsResponse.ok) {
+                const { presets } = await presetsResponse.json();
+                allPresets = presets;
+                userPresets = presets.filter(p => p.source === 'user');
+            }
 
             // Close dialog
             showSaveDialog = false;
@@ -316,41 +298,25 @@
         }
 
         try {
-            // Remove from user presets
-            userPresets = userPresets.filter(p => p.id !== presetId);
-
             // Get current module name
             const currentModule = `${moduleMetadata.namespace}/${moduleMetadata.name}`;
 
-            // Load current settings
-            const settingsResponse = await fetch('/api/console/settings');
-            const settings = settingsResponse.ok ? await settingsResponse.json() : {};
-
-            // Update module settings
-            settings[currentModule] = {
-                presets: userPresets
-            };
-
-            // Save to server
-            const response = await fetch('/api/console/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(settings)
+            // Delete using new API
+            const response = await fetch(`/api/presets?module=${encodeURIComponent(currentModule)}&id=${encodeURIComponent(presetId)}`, {
+                method: 'DELETE'
             });
 
             if (!response.ok) {
                 throw new Error('Failed to delete preset');
             }
 
-            // Rebuild allPresets
-            const modulePresets = Object.entries(moduleMetadata.presets || {}).map(([id, preset]) => ({
-                id,
-                name: preset.name || id,
-                description: preset.description || '',
-                plan: preset.plan,
-                source: 'module'
-            }));
-            allPresets = [...modulePresets, ...userPresets.map(p => ({ ...p, source: 'user' }))];
+            // Reload presets from API
+            const presetsResponse = await fetch(`/api/presets?module=${encodeURIComponent(currentModule)}`);
+            if (presetsResponse.ok) {
+                const { presets } = await presetsResponse.json();
+                allPresets = presets;
+                userPresets = presets.filter(p => p.source === 'user');
+            }
 
             // Clear selection if deleted preset was selected
             if (selectedPresetId === presetId) {
@@ -463,6 +429,41 @@
                 placeholder="/path/to/project (optional)"
                 disabled={isSubmitting}
             />
+        </div>
+
+        <!-- Frame Section -->
+        <div class="space-y-2 border border-gray-200 rounded-md p-3 bg-gray-50">
+            <button
+                type="button"
+                onclick={() => frameExpanded = !frameExpanded}
+                class="flex items-center justify-between w-full text-left"
+            >
+                <div class="flex items-center gap-2">
+                    <svg class="w-3 h-3 transition-transform {frameExpanded ? 'rotate-90' : ''}" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M6 6L14 10L6 14V6Z" />
+                    </svg>
+                    <span class="text-xs font-medium text-gray-700">Frame</span>
+                    {#if frame?.text}
+                        <span class="text-[10px] text-gray-500">({frame.text.length} chars)</span>
+                    {/if}
+                </div>
+                <span class="text-[10px] text-gray-500">Session context</span>
+            </button>
+
+            {#if frameExpanded}
+                <div class="pt-2">
+                    <FrameEditor
+                        bind:frame={frame}
+                        onSave={(newFrame) => { frame = newFrame; frameExpanded = false; }}
+                        onCancel={() => frameExpanded = false}
+                        disabled={isSubmitting}
+                    />
+                </div>
+            {:else if frame?.text}
+                <div class="text-xs text-gray-600 bg-white p-2 rounded border border-gray-200 font-mono line-clamp-2">
+                    {frame.text}
+                </div>
+            {/if}
         </div>
 
         <!-- Presets Section -->
@@ -778,21 +779,32 @@
                         </div>
 
                         <div class="space-y-3">
-                            <!-- System Prompt -->
-                            <div>
-                                <div class="text-xs font-semibold text-gray-700 mb-1">System</div>
-                                <div class="text-xs bg-white p-2 rounded border border-gray-200 font-mono whitespace-pre-wrap">
-                                    {result.instructions.system}
+                            <!-- System Instructions -->
+                            {#if result.instructions.systemInstructions}
+                                <div>
+                                    <div class="text-xs font-semibold text-gray-700 mb-1">System Instructions</div>
+                                    <div class="text-xs bg-blue-50 p-2 rounded border border-blue-200 font-mono whitespace-pre-wrap">
+                                        {result.instructions.systemInstructions}
+                                    </div>
                                 </div>
-                            </div>
+                            {/if}
 
-                            <!-- Primary Prompt -->
-                            <div>
-                                <div class="text-xs font-semibold text-gray-700 mb-1">Primary</div>
-                                <div class="text-xs bg-white p-2 rounded border border-gray-200 font-mono whitespace-pre-wrap">
-                                    {result.instructions.primary}
+                            <!-- Thread -->
+                            {#if result.instructions.thread}
+                                <div>
+                                    <div class="text-xs font-semibold text-gray-700 mb-1">Thread ({result.instructions.thread.length} messages)</div>
+                                    <div class="space-y-2">
+                                        {#each result.instructions.thread as msg, idx}
+                                            <div class="text-xs bg-white p-2 rounded border border-gray-200">
+                                                <div class="font-semibold mb-1 {msg.role === 'user' ? 'text-blue-600' : 'text-green-600'}">
+                                                    {msg.role}:
+                                                </div>
+                                                <div class="font-mono whitespace-pre-wrap">{msg.content}</div>
+                                            </div>
+                                        {/each}
+                                    </div>
                                 </div>
-                            </div>
+                            {/if}
 
                             <!-- Adaptations -->
                             {#if result.instructions.adaptations}

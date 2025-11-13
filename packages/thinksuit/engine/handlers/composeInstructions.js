@@ -19,8 +19,27 @@ function validateInstructionsResult(result) {
         return { valid: false, errors };
     }
 
-    // Required string fields
-    const requiredStrings = ['system', 'primary', 'adaptations', 'lengthGuidance', 'toolInstructions'];
+    // Required thread array
+    if (!Array.isArray(result.thread)) {
+        errors.push('thread must be an array');
+    } else if (result.thread.length === 0) {
+        errors.push('thread must contain at least one message');
+    } else {
+        // Validate each message in thread
+        for (let i = 0; i < result.thread.length; i++) {
+            const msg = result.thread[i];
+            if (!msg || typeof msg !== 'object') {
+                errors.push(`thread[${i}] must be an object`);
+            }
+            // Thread entries can have:
+            // - role + content (user/assistant/system messages)
+            // - type (tool_use, tool_result, etc.)
+            // Both are valid, so we don't enforce strict validation here
+        }
+    }
+
+    // Required string fields (for logging/UI)
+    const requiredStrings = ['adaptations', 'lengthGuidance', 'toolInstructions'];
     for (const field of requiredStrings) {
         if (typeof result[field] !== 'string') {
             errors.push(`${field} must be a string`);
@@ -57,14 +76,16 @@ function validateInstructionsResult(result) {
 /**
  * Engine wrapper for instruction composition
  * Delegates composition logic to module while providing infrastructure
- * @param {Object} input - { plan, factMap, context }
+ * @param {Object} input - { plan, factMap, thread, userInput, context }
  * @param {Object} machineContext - { execLogger, module }
- * @returns {Object} - { system, primary, adaptations, lengthGuidance, toolInstructions, maxTokens, metadata }
+ * @returns {Object} - { systemInstructions, thread, adaptations, lengthGuidance, toolInstructions, maxTokens, metadata }
  */
 export async function composeInstructionsCore(input, machineContext) {
-    const { plan = {}, factMap = {} } = input;
+    const { plan = {}, factMap = {}, thread = [], userInput = '', compositionType = 'default' } = input;
     const traceId = input.context?.traceId;
     const sessionId = input.context?.sessionId;
+    const frame = input.context?.frame || null;
+    const cwd = input.context?.cwd || null;
     const logger = machineContext.execLogger;
     const module = machineContext?.module;
 
@@ -86,8 +107,7 @@ export async function composeInstructionsCore(input, machineContext) {
                 strategy: plan.strategy,
                 role: plan.role,
                 sequence: plan.sequence,
-                moduleVersion: module?.version,
-                usingModuleFromContext: !!machineContext?.module
+                moduleVersion: module?.version
             }
         },
         'Starting instruction composition'
@@ -107,8 +127,21 @@ export async function composeInstructionsCore(input, machineContext) {
         return DEFAULT_INSTRUCTIONS;
     }
 
+    // Debug: log what we're passing to module.composeInstructions
+    logger.info({
+        event: 'pipeline.instruction_composition.debug.module_input',
+        traceId,
+        data: {
+            role: plan.role,
+            compositionType,
+            threadLength: thread?.length || 0,
+            hasUserInput: !!userInput,
+            thread
+        }
+    }, `Calling module.composeInstructions with thread length ${thread?.length || 0}`);
+
     // Call module's composition logic
-    const moduleResult = await module.composeInstructions({ plan, factMap }, module);
+    const moduleResult = await module.composeInstructions({ plan, factMap, thread, input: userInput, frame, compositionType, cwd }, module);
 
     // Validate the module returned the expected shape
     const validation = validateInstructionsResult(moduleResult);
@@ -163,10 +196,10 @@ export async function composeInstructionsCore(input, machineContext) {
                 signalCount,
                 adaptationCount,
                 toolsAvailable: plan.tools || [],
-                // Include actual composed instructions for UI display
+                // Include thread, indices and metadata for UI display
                 instructions: {
-                    system: result.system,
-                    primary: result.primary,
+                    thread: result.thread,
+                    indices: result.indices,
                     adaptations: result.adaptations,
                     lengthGuidance: result.lengthGuidance,
                     toolInstructions: result.toolInstructions

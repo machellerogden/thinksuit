@@ -236,7 +236,7 @@ describe('run/internals', () => {
 
         it('should format successful execution result', () => {
             const result = {
-                responseResult: {
+                handlerResult: {
                     response: {
                         output: 'Test output',
                         usage: { tokens: 100 }

@@ -79,6 +79,7 @@ export function normalizeConfig(config) {
         trace: config.trace || false,
         sessionId: config.sessionId,
         selectedPlan: config.selectedPlan, // Manual plan override
+        frame: config.frame || null, // Frame context { text: string } | null
         cwd: config.cwd,
         allowedDirectories,
         mcpServers: config.mcpServers,
@@ -324,13 +325,14 @@ export async function withMcpLifecycle(module, config, logger) {
  * @param {Object} params - Execution parameters
  * @returns {Promise<Array>} [status, result] tuple
  */
-export async function executeOnce({ finalConfig, logger, module, machineDefinition, discoveredTools, thread, abortSignal, turnBoundaryId, historicalSignals, currentTurnIndex }) {
+export async function executeOnce({ finalConfig, logger, module, machineDefinition, discoveredTools, thread, input, abortSignal, turnBoundaryId, historicalSignals, currentTurnIndex }) {
     const handlers = initializeHandlers();
 
     try {
         return await runCycle({
             logger,
             thread,
+            input,
             module,
             sessionId: finalConfig.sessionId,
             traceId: logger.bindings().traceId,
@@ -342,7 +344,9 @@ export async function executeOnce({ finalConfig, logger, module, machineDefiniti
             abortSignal,
             historicalSignals, // Pass historical signals to runCycle
             currentTurnIndex, // Pass current turn index to runCycle
-            selectedPlan: finalConfig.selectedPlan // Pass selected plan to runCycle
+            selectedPlan: finalConfig.selectedPlan, // Pass selected plan to runCycle
+            frame: finalConfig.frame, // Pass frame to runCycle
+            compositionType: 'default' // Default composition from run.js
         });
     } catch (error) {
         logger.error(
@@ -388,12 +392,12 @@ export function formatFinalResult(status, result, sessionId, logger, turnBoundar
             partialData: result?.partialData || null
         };
     } else {
-        const output = result?.responseResult?.response?.output || result?.fallback?.output;
+        const output = result?.handlerResult?.response?.output || result?.fallback?.output;
         finalResult = {
             success: !!output,
             response: output || 'No response generated',
             sessionId,
-            usage: result?.responseResult?.response?.usage,
+            usage: result?.handlerResult?.response?.usage,
             error: result?.error
         };
     }

@@ -34,6 +34,7 @@ export async function runCycle({
     // Core inputs
     logger,
     thread,
+    input,
     module,
 
     // Context
@@ -51,6 +52,8 @@ export async function runCycle({
     selectedPlan = null,
     previousOutput = null,
     abortSignal = null,  // AbortSignal for interruption
+    frame = null,  // Frame context { text: string } | null
+    compositionType = 'default',  // Composition type: 'default', 'continuation', 'accumulation'
 
     // System dependencies
     machineDefinition,
@@ -104,8 +107,10 @@ export async function runCycle({
     const orchestrationBoundaryId = `orchestration-${sessionId}-${branch}-${Date.now()}`;
 
     // Build input for state machine
-    const input = {
+    const machineInput = {
         thread,
+        userInput: input || '',
+        compositionType,
         context: {
             depth,
             branch,
@@ -114,7 +119,9 @@ export async function runCycle({
             previousOutput,
             parentBoundaryId: orchestrationBoundaryId, // Pipeline handlers should nest under orchestration
             historicalSignals: historicalSignals || [], // Pass historical signals through context
-            currentTurnIndex: currentTurnIndex || 1 // Pass current turn index through context
+            currentTurnIndex: currentTurnIndex || 1, // Pass current turn index through context
+            frame: frame || null, // Pass frame through context
+            cwd: config.cwd || null // Pass working directory for prompt context if configured
         },
         policy: config.policy || {},
         // Include selected plan if provided
@@ -154,7 +161,7 @@ export async function runCycle({
         }
 
         // Execute machine - Trajectory will pass the signal to handlers
-        [status, result] = await executeMachine(machineDefinition, machineContext, input);
+        [status, result] = await executeMachine(machineDefinition, machineContext, machineInput);
         const duration = Date.now() - startTime;
 
         // Check if result is an interrupt

@@ -53,6 +53,7 @@ import {
  * @param {boolean} [config.trace=false] - Enable tracing
  * @param {string} [config.sessionId] - Session ID to use or resume
  * @param {Object} [config.logger] - Optional pre-configured logger instance
+ * @param {Object|null} [config.frame] - Optional frame context { text: string }
  * @returns {Promise<Object>} Execution result
  */
 export async function run(config) {
@@ -79,12 +80,7 @@ export async function run(config) {
         historicalSignals = await loadSessionSignals(finalConfig.sessionId);
     }
 
-    // Build full thread with user input
-    const fullThread = [
-        ...thread, // Include conversation history
-        { role: 'user', content: finalConfig.input }
-    ];
-
+    // Thread is history only - input passed separately
     // Calculate current turn index (previous turns + 1)
     const currentTurnIndex = thread.filter(msg => msg.role === 'user').length + 1;
 
@@ -131,7 +127,8 @@ export async function run(config) {
             module,
             machineDefinition,
             discoveredTools,
-            thread: fullThread,
+            thread,
+            input: finalConfig.input,
             abortSignal,
             turnBoundaryId,
             historicalSignals,

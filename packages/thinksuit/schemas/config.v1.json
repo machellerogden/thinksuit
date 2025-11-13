@@ -100,6 +100,35 @@
     "approvalTimeout": {
       "type": "integer",
       "description": "Tool approval timeout in milliseconds (-1 to disable, default: 43200000 = 12 hours)"
+    },
+    "presets": {
+      "type": "object",
+      "description": "User-defined presets organized by module",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Unique preset identifier"
+            },
+            "name": {
+              "type": "string",
+              "description": "Display name for the preset"
+            },
+            "description": {
+              "type": "string",
+              "description": "Description of what this preset does"
+            },
+            "plan": {
+              "type": "object",
+              "description": "Execution plan configuration"
+            }
+          },
+          "required": ["id", "name", "plan"]
+        }
+      }
     }
   },
   "additionalProperties": false

@@ -17,6 +17,7 @@
 
     // Local state for expandable instruction sections
     let showSystem = $state(false);
+    let showThread = $state(false);
     let showAdaptations = $state(false);
     let showLengthGuidance = $state(false);
     let showToolInstructions = $state(false);
@@ -127,8 +128,8 @@
         <div class="space-y-2 pt-2 border-t border-gray-200">
             <div class="text-xs font-semibold text-gray-700">Composed Instructions</div>
 
-            <!-- System Prompt -->
-            {#if instructions.system}
+            <!-- System Instructions -->
+            {#if instructions.systemInstructions}
                 <div class="space-y-1">
                     <button
                         onclick={() => showSystem = !showSystem}
@@ -137,21 +138,87 @@
                         <svg class="w-3 h-3 transition-transform {showSystem ? 'rotate-90' : ''}" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M6 6L14 10L6 14V6Z" />
                         </svg>
-                        <span class="font-medium">System Prompt</span>
+                        <span class="font-medium">System Instructions ({instructions.systemInstructions.length} chars)</span>
                     </button>
                     {#if showSystem}
-                        <div class="ml-5 bg-gray-50 rounded p-2 text-xs text-gray-700 max-h-64 overflow-y-auto border border-gray-200">
-                            <pre class="whitespace-pre-wrap font-mono text-[10px]">{instructions.system}</pre>
+                        <div class="ml-5 bg-blue-50 rounded p-3 text-xs text-gray-800 max-h-64 overflow-y-auto border border-blue-200">
+                            <pre class="whitespace-pre-wrap font-mono text-[10px]">{instructions.systemInstructions}</pre>
                         </div>
                     {/if}
                 </div>
             {/if}
 
-            <!-- Primary Instruction -->
-            {#if instructions.primary}
-                <div class="ml-0 bg-blue-50 rounded p-2 text-xs text-blue-800 border border-blue-200">
-                    <div class="font-medium text-blue-900 mb-1">Primary Instruction:</div>
-                    <pre class="whitespace-pre-wrap font-mono text-[10px]">{instructions.primary}</pre>
+            <!-- Thread Structure -->
+            {#if instructions.thread && instructions.thread.length > 0}
+                {@const indices = instructions.indices || {}}
+                <div class="space-y-1">
+                    <button
+                        onclick={() => showThread = !showThread}
+                        class="flex items-center gap-2 text-xs text-gray-600 hover:text-gray-800 transition-colors w-full"
+                    >
+                        <svg class="w-3 h-3 transition-transform {showThread ? 'rotate-90' : ''}" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M6 6L14 10L6 14V6Z" />
+                        </svg>
+                        <span class="font-medium">Thread ({instructions.thread.length} messages)</span>
+                    </button>
+                    {#if showThread}
+                        <div class="ml-5 space-y-2">
+                            {#each instructions.thread as msg, idx (idx)}
+                                {@const isSystemInstruction = idx === indices.systemInstruction}
+                                {@const isFrameSet = idx === indices.frameSet}
+                                {@const isFrameAck = idx === indices.frameAck}
+                                {@const isPrimaryPrompt = idx === indices.primaryPrompt}
+                                {@const isConversationMsg = indices.conversationStart >= 0 && idx >= indices.conversationStart && idx <= indices.conversationEnd}
+                                {@const isUserInput = idx === indices.userInput}
+
+                                <div class="bg-gray-50 rounded p-2 text-xs border {
+                                    isSystemInstruction ? 'border-blue-400 bg-blue-50' :
+                                    isFrameSet || isFrameAck ? 'border-purple-400 bg-purple-50' :
+                                    isPrimaryPrompt ? 'border-indigo-400 bg-indigo-50' :
+                                    isUserInput ? 'border-green-400 bg-green-50' :
+                                    isConversationMsg ? 'border-gray-300 bg-white' :
+                                    'border-gray-200'
+                                }">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="font-mono text-[10px] text-gray-500">[{idx}]</span>
+                                        <div class="font-semibold text-gray-700">
+                                            {#if msg.role === 'system'}
+                                                <span class="text-blue-600">System</span>
+                                            {:else if msg.role === 'user'}
+                                                <span class="text-blue-600">User</span>
+                                            {:else if msg.role === 'assistant'}
+                                                <span class="text-green-600">Assistant</span>
+                                            {/if}
+                                        </div>
+                                        {#if msg.semantic}
+                                            <span class="text-[10px] px-1.5 py-0.5 rounded font-mono {
+                                                msg.semantic === 'system_instruction' ? 'bg-blue-200 text-blue-800' :
+                                                msg.semantic === 'frame_set' || msg.semantic === 'frame_ack' ? 'bg-purple-200 text-purple-800' :
+                                                msg.semantic === 'primary_instruction' ? 'bg-indigo-200 text-indigo-800' :
+                                                msg.semantic === 'input' ? 'bg-green-200 text-green-800' :
+                                                'bg-amber-200 text-amber-800'
+                                            }">
+                                                {msg.semantic}
+                                            </span>
+                                        {/if}
+                                    </div>
+                                    {#if Array.isArray(msg.content)}
+                                        {#each msg.content as part, pidx (pidx)}
+                                            {#if part.text}
+                                                <pre class="whitespace-pre-wrap font-mono text-[10px] text-gray-700">{part.text}</pre>
+                                            {/if}
+                                        {/each}
+                                    {:else if typeof msg.content === 'string'}
+                                        <pre class="whitespace-pre-wrap font-mono text-[10px] text-gray-700">{msg.content}</pre>
+                                    {:else}
+                                        <div class="text-[10px] text-gray-500 italic">
+                                            (non-string content: {msg.type || 'unknown type'})
+                                        </div>
+                                    {/if}
+                                </div>
+                            {/each}
+                        </div>
+                    {/if}
                 </div>
             {/if}
 

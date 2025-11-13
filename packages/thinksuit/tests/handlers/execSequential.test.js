@@ -40,7 +40,7 @@ describe('execSequential handler', () => {
             .mockResolvedValueOnce([
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: {
                             output: 'Explorer output',
                             usage: { prompt: 100, completion: 50 }
@@ -51,7 +51,7 @@ describe('execSequential handler', () => {
             .mockResolvedValueOnce([
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: {
                             output: 'Analyzer output',
                             usage: { prompt: 120, completion: 60 }
@@ -125,7 +125,7 @@ describe('execSequential handler', () => {
             .mockResolvedValueOnce([
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: {
                             output: 'Step 2 output',
                             usage: { prompt: 100, completion: 50 }
@@ -161,7 +161,7 @@ describe('execSequential handler', () => {
         runCycle.mockRejectedValueOnce(new Error('Network error')).mockResolvedValueOnce([
             'SUCCEEDED',
             {
-                responseResult: {
+                handlerResult: {
                     response: {
                         output: 'Recovery output',
                         usage: { prompt: 100, completion: 50 }
@@ -197,7 +197,7 @@ describe('execSequential handler', () => {
         runCycle.mockResolvedValue([
             'SUCCEEDED',
             {
-                responseResult: {
+                handlerResult: {
                     response: { output: 'Test', usage: { prompt: 10, completion: 5 } }
                 }
             }

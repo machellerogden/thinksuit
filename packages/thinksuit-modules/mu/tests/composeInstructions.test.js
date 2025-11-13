@@ -13,8 +13,11 @@ describe('composeInstructions', () => {
             const plan = { role: 'capture' };
             const result = await composeInstructions({ plan, factMap: {} }, mu);
 
-            expect(result.system).toBe(mu.prompts['system.capture']);
-            expect(result.primary).toBe(mu.prompts['primary.capture']);
+            expect(result.systemInstructions).toBe(mu.prompts['system.capture']);
+            // Primary prompt is now part of the thread, not a separate field
+            expect(result.thread).toBeDefined();
+            expect(result.thread.length).toBeGreaterThan(0);
+            expect(result.thread[0].content).toBe(mu.prompts['primary.capture']);
         });
 
         it('should use default role when role not found', async () => {
@@ -165,8 +168,11 @@ describe('composeInstructions', () => {
                 const plan = { role: roleName };
                 const result = await composeInstructions({ plan, factMap: {} }, mu);
 
-                expect(result.system).toBe(mu.prompts[`system.${roleName}`]);
-                expect(result.primary).toBe(mu.prompts[`primary.${roleName}`]);
+                expect(result.systemInstructions).toBe(mu.prompts[`system.${roleName}`]);
+                // Primary prompt is now in the thread
+                expect(result.thread).toBeDefined();
+                expect(result.thread.length).toBeGreaterThan(0);
+                expect(result.thread[0].content).toBe(mu.prompts[`primary.${roleName}`]);
                 expect(result.metadata.role).toBe(roleName);
                 expect(typeof result.maxTokens).toBe('number');
             });

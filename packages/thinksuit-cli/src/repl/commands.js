@@ -45,6 +45,11 @@ export async function* statusCommand(args, session) {
         yield fx('output', `  ${chalk.bold('Session:')} ${chalk.dim('(none - use /session to start)')}`);
     }
 
+    // Show frame if set
+    if (thinkSuit.frame?.text) {
+        yield fx('output', `  ${chalk.bold('Frame:')} ${chalk.dim(`(${thinkSuit.frame.text.length} chars)`)}`);
+    }
+
     // Show selected preset
     if (session.presetCycling?.selectedPlan) {
         const presetInfo = session.presetCycling.presetList[session.presetCycling.currentIndex];
@@ -289,6 +294,7 @@ export async function* executeCommand(args, session) {
             policy: thinkSuit.config.policy,
             trace: thinkSuit.config.trace,
             sessionId: thinkSuit.sessionId,
+            frame: thinkSuit.frame,
             logger,
             ...(session.presetCycling?.selectedPlan && { selectedPlan: session.presetCycling.selectedPlan })
         };
@@ -418,12 +424,53 @@ function formatEventMessage(event) {
 }
 
 /**
+ * :frame [show|edit|clear] - Manage session frame context
+ */
+export async function* frameCommand(args, session) {
+    const subcommand = args[0];
+
+    if (!subcommand || subcommand === 'show') {
+        // Show current frame
+        if (session.thinkSuit.frame?.text) {
+            yield fx('output', chalk.bold.cyan('Frame:'));
+            yield fx('output', '');
+            yield fx('output', indentLines(session.thinkSuit.frame.text, 2));
+        } else {
+            yield fx('output', chalk.dim('No frame set'));
+        }
+    } else if (subcommand === 'edit') {
+        // Edit frame (for now, just show message about text editor)
+        yield fx('output', chalk.yellow('Frame editing via text editor not yet implemented'));
+        yield fx('output', chalk.dim('Use --frame argument when starting CLI for now'));
+    } else if (subcommand === 'clear') {
+        // Clear frame
+        if (session.thinkSuit.frame?.text) {
+            const confirmed = yield fx('confirm', chalk.yellow('Clear current frame?'));
+            if (!confirmed) {
+                yield fx('output', chalk.dim('Frame not cleared'));
+                return true;
+            }
+            session.thinkSuit.frame = { text: '' };
+            yield fx('output', chalk.green('Frame cleared'));
+        } else {
+            yield fx('output', chalk.dim('No frame to clear'));
+        }
+    } else {
+        yield fx('error', `Unknown frame subcommand: ${subcommand}`);
+        yield fx('output', chalk.dim('Usage: :frame [show|edit|clear]'));
+    }
+
+    return true;
+}
+
+/**
  * Default command registry
  */
 export const defaultCommands = {
     'session': sessionCommand,
     'status': statusCommand,
     'config': configCommand,
+    'frame': frameCommand,
     'clear': clearCommand,
     'help': helpCommand,
     'execute': executeCommand

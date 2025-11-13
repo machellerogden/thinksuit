@@ -16,8 +16,18 @@ const MODEL_METADATA = {
 
 // Transforms request for Responses API
 const transformRequest = (params) => {
+    // Start with system instructions as first message (OpenAI Responses API expects system as first message)
+    const transformedInput = [];
+
+    if (params.systemInstructions) {
+        transformedInput.push({
+            role: 'system',
+            content: params.systemInstructions
+        });
+    }
+
     // Transform thread to handle mixed formats
-    const transformedInput = params.thread
+    const threadMessages = params.thread
         .filter(msg => {
             // Skip assistant messages that only contain tool calls (no content field)
             // These are part of the response, not the next input
@@ -48,6 +58,8 @@ const transformRequest = (params) => {
             // Regular messages pass through as-is
             return msg;
         });
+
+    transformedInput.push(...threadMessages);
 
     const request = {
         model: params.model,
@@ -173,7 +185,7 @@ const transformResponse = (apiResponse) => {
     if (toolCalls.length > 0) {
         finishReason = 'tool_use';
     } else if (apiResponse.status === 'completed') {
-        finishReason = 'complete';
+        finishReason = 'end_turn';
     }
 
     return {
@@ -216,18 +228,14 @@ export const createOpenAIProvider = (config) => {
             }
             const apiResponse = await client.responses.create(apiRequest, options);
 
-            // Log raw response
-            execLogger.debug({
-                event: PROCESSING_EVENTS.PROVIDER_API_RAW_RESPONSE,
-                msg: 'OpenAI API raw response',
-                data: apiResponse
-            });
-
             // Transform response to uniform format
             const transformed = transformResponse(apiResponse);
             return {
                 ...transformed,
-                raw: apiResponse
+                raw: {
+                    request: apiRequest,
+                    response: apiResponse
+                }
             };
         },
 

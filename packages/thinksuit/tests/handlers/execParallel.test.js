@@ -79,7 +79,7 @@ describe('execParallel handler', () => {
             return [
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: {
                             output: `${role} output`,
                             usage: { prompt: 100, completion: 50 },
@@ -140,7 +140,7 @@ describe('execParallel handler', () => {
             .mockResolvedValueOnce([
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: {
                             output: 'Success 1',
                             usage: { prompt: 100, completion: 50 }
@@ -152,7 +152,7 @@ describe('execParallel handler', () => {
             .mockResolvedValueOnce([
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: {
                             output: 'Success 2',
                             usage: { prompt: 80, completion: 40 }
@@ -187,7 +187,7 @@ describe('execParallel handler', () => {
             .mockResolvedValueOnce([
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: {
                             output: 'Success',
                             usage: { prompt: 100, completion: 50 }
@@ -228,7 +228,7 @@ describe('execParallel handler', () => {
         runCycle.mockResolvedValueOnce([
             'SUCCEEDED',
             {
-                responseResult: {
+                handlerResult: {
                     response: {
                         output: 'Output',
                         usage: { prompt: 50, completion: 25 }
@@ -255,7 +255,7 @@ describe('execParallel handler', () => {
         runCycle.mockResolvedValueOnce([
             'SUCCEEDED',
             {
-                responseResult: {
+                handlerResult: {
                     response: {
                         output: 'Test output',
                         usage: { prompt: 100, completion: 50 }

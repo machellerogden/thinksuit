@@ -1,0 +1,99 @@
+{
+    "$id": "thinksuit/instructions.v1",
+    "type": "object",
+    "properties": {
+        "systemInstructions": {
+            "type": "string",
+            "minLength": 1,
+            "description": "System-level instructions for the LLM"
+        },
+        "thread": {
+            "type": "object",
+            "properties": {
+                "messages": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "oneOf": [
+                            {
+                                "description": "Standard message with role",
+                                "properties": {
+                                    "role": {
+                                        "enum": ["user", "assistant", "tool"]
+                                    },
+                                    "content": {
+                                        "description": "Content - string for user/assistant, any type for tool"
+                                    },
+                                    "semantic": {
+                                        "type": "string",
+                                        "description": "Semantic label for internal use"
+                                    }
+                                },
+                                "required": ["role"],
+                                "additionalProperties": true
+                            },
+                            {
+                                "description": "Typed message (e.g., function_call_output)",
+                                "properties": {
+                                    "type": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": ["type"],
+                                "additionalProperties": true
+                            }
+                        ]
+                    }
+                },
+                "indices": {
+                    "type": "object",
+                    "description": "Indices tracking key message positions"
+                }
+            },
+            "required": ["messages", "indices"],
+            "additionalProperties": false
+        },
+        "adaptations": {
+            "type": "string",
+            "description": "Adaptation instructions for the LLM"
+        },
+        "lengthGuidance": {
+            "type": "string",
+            "description": "Length guidance for the response"
+        },
+        "toolInstructions": {
+            "type": "string",
+            "description": "Tool usage instructions"
+        },
+        "maxTokens": {
+            "type": "number",
+            "minimum": 1,
+            "description": "Maximum tokens for the response"
+        },
+        "metadata": {
+            "type": "object",
+            "properties": {
+                "role": {
+                    "type": "string"
+                },
+                "baseTokens": {
+                    "type": "number"
+                },
+                "lengthLevel": {
+                    "type": "string"
+                },
+                "adaptations": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": ["role", "baseTokens", "lengthLevel"],
+            "additionalProperties": true
+        }
+    },
+    "required": ["systemInstructions", "thread", "adaptations", "lengthGuidance", "toolInstructions", "maxTokens", "metadata"],
+    "additionalProperties": true
+}

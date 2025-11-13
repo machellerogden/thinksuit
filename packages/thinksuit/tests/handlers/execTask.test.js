@@ -85,7 +85,7 @@ describe('execTask handler', () => {
             runCycle.mockResolvedValueOnce([
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: {
                             output: 'Task completed successfully',
                             usage: { prompt: 100, completion: 50 },
@@ -144,7 +144,7 @@ describe('execTask handler', () => {
             runCycle.mockResolvedValueOnce([
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: {
                             output: 'Let me read the main file',
                             usage: { prompt: 100, completion: 50 },
@@ -160,7 +160,7 @@ describe('execTask handler', () => {
             runCycle.mockResolvedValueOnce([
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: {
                             output: 'The architecture follows a modular pattern...',
                             usage: { prompt: 200, completion: 100 },
@@ -204,7 +204,7 @@ describe('execTask handler', () => {
             runCycle.mockResolvedValueOnce([
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: {
                             output: 'Reading file...',
                             finishReason: 'tool_use',
@@ -217,7 +217,7 @@ describe('execTask handler', () => {
             runCycle.mockResolvedValueOnce([
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: {
                             output: 'Analysis complete',
                             finishReason: 'complete'
@@ -274,7 +274,7 @@ describe('execTask handler', () => {
 
             // Mock cycles that always want to continue
             const continuingResponse = {
-                responseResult: {
+                handlerResult: {
                     response: {
                         output: 'Still working...',
                         usage: { prompt: 100, completion: 50 },
@@ -312,7 +312,7 @@ describe('execTask handler', () => {
             runCycle.mockResolvedValueOnce([
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: {
                             output: 'First analysis',
                             usage: { prompt: 150, completion: 50 },
@@ -326,7 +326,7 @@ describe('execTask handler', () => {
             runCycle.mockResolvedValueOnce([
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: {
                             output: 'Second analysis',
                             usage: { prompt: 100, completion: 50 },
@@ -371,7 +371,7 @@ describe('execTask handler', () => {
             runCycle.mockResolvedValueOnce([
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: {
                             output: 'Using tools',
                             finishReason: 'tool_use',
@@ -402,7 +402,7 @@ describe('execTask handler', () => {
             runCycle.mockResolvedValueOnce([
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: {
                             output: 'Starting analysis',
                             finishReason: 'tool_use'
@@ -449,7 +449,7 @@ describe('execTask handler', () => {
             runCycle.mockResolvedValueOnce([
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: {
                             output: 'Partial analysis',
                             finishReason: 'tool_use'
@@ -484,7 +484,7 @@ describe('execTask handler', () => {
             runCycle.mockResolvedValue([
                 'SUCCEEDED',
                 {
-                    responseResult: {
+                    handlerResult: {
                         response: {
                             output: 'Done',
                             finishReason: 'complete'

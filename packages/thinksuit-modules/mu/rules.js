@@ -33,9 +33,6 @@ const plans = {
     strategy: 'task',
     role: 'analyze',
     tools: [],
-    adaptations: [
-      'task-budget-awareness'
-    ],
     resolution: {
       maxCycles: 3,
       maxTokens: 8000,

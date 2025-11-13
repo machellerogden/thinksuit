@@ -18,8 +18,17 @@ process.on('message', async (request) => {
         });
         const tokenizer = await AutoTokenizer.from_pretrained(modelId);
 
-        // Transform thread
-        const messages = params.thread
+        // Transform thread - start with system instructions if provided
+        const messages = [];
+
+        if (params.systemInstructions) {
+            messages.push({
+                role: 'system',
+                content: params.systemInstructions
+            });
+        }
+
+        const threadMessages = params.thread
             .filter(msg => msg.role !== 'assistant' || msg.content)
             .map(msg => {
                 if (msg.role === 'tool') {
@@ -27,6 +36,8 @@ process.on('message', async (request) => {
                 }
                 return { role: msg.role, content: msg.content || '' };
             });
+
+        messages.push(...threadMessages);
 
         // Transform tools
         const tools = params.tools?.map(toolName => {
@@ -146,7 +157,7 @@ function parseToolCalls(text) {
                     type: 'function',
                     function: {
                         name: call.name,
-                        arguments: JSON.stringify(call.arguments)
+                        arguments: typeof call.arguments === 'string' ? call.arguments : JSON.stringify(call.arguments)
                     }
                 });
             }

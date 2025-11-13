@@ -22,6 +22,7 @@ import { createInterruptController } from './errors/InterruptError.js';
  * @param {Object} [config.logging] - Logging configuration
  * @param {boolean} [config.trace=false] - Enable tracing
  * @param {Object} [config.logger] - Optional pre-configured logger instance
+ * @param {Object|null} [config.frame] - Optional frame context { text: string }
  * @returns {Promise<{sessionId: string, scheduled: boolean, isNew: boolean, isForked: boolean, execution: Promise, interrupt: Function, reason?: string}>}
  */
 export async function schedule(config) {

@@ -56,8 +56,9 @@
                 "formatted"
             ]
         },
-        "buildThread": {
-            "type": "boolean"
+        "threadAccumulation": {
+            "type": "boolean",
+            "default": true
         },
         "strategy": {
             "enum": [

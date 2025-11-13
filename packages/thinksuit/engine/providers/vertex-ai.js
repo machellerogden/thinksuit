@@ -45,20 +45,21 @@ const FINISH_REASON_MAP = {
 
 // Transform ThinkSuit thread to Vertex AI contents array
 const transformRequest = (params) => {
-    const { thread, model, maxTokens, temperature, stop, tools, toolSchemas } = params;
+    const { systemInstructions, thread, model, maxTokens, temperature, stop, tools, toolSchemas } = params;
 
-    // Separate system instruction from conversation
+    // System instruction is now passed separately (not in thread)
     let systemInstruction = null;
+    if (systemInstructions) {
+        systemInstruction = {
+            role: 'user', // Vertex AI uses 'user' role for systemInstruction
+            parts: [{ text: systemInstructions }]
+        };
+    }
+
     const contents = [];
 
     for (const msg of thread) {
-        if (msg.role === 'system') {
-            // Vertex AI expects systemInstruction separate from contents
-            systemInstruction = {
-                role: 'user', // Vertex AI uses 'user' role for systemInstruction
-                parts: [{ text: msg.content }]
-            };
-        } else if (msg.role === 'user') {
+        if (msg.role === 'user') {
             contents.push({
                 role: 'user',
                 parts: [{ text: msg.content }]

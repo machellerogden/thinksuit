@@ -38,8 +38,13 @@ const prompts = {
     'primary.analyze':
     'Break down the subject systematically. Identify components, relationships, and constraints. Report findings with precision.',
 
-    'primary.investigate':
-    'Investigate thoroughly using available tools. First discover what exists, then examine contents. If you list files or directories, read their contents to understand them. Present findings based on actual examination, not just discovery.',
+    'primary.investigate': ({ cwd }) => {
+        let base = 'Investigate thoroughly using available tools. First discover what exists, then examine contents. If you list files or directories, read their contents to understand them. Present findings based on actual examination, not just discovery.';
+        if (cwd) {
+            base = `You are working in: ${cwd}\n\n${base}`;
+        }
+        return base;
+    },
 
     'primary.synthesize':
     'Integrate the available information into a coherent whole. Resolve conflicts, align components, and propose a unified path forward.',
@@ -61,8 +66,53 @@ const prompts = {
     'adapt.task-tool-guidance':
     'Use tools to accomplish the task completely. Read before writing. Verify before committing. Report what you did.',
 
-    'adapt.task-budget-awareness':
-    'Work efficiently. Focus on what matters most. Stop when the task is complete.',
+    'adapt.task-continue':
+    'Continue.',
+
+    'adapt.task-complete':
+    'I have completed my task.',
+
+    'adapt.task-synthesis':
+    'What did you discover?',
+
+    // ─── Sequential Execution Prompts ───────────────────────────────────
+
+    'adapt.sequential-plan-overview': ({ stepCount, roleNames }) =>
+    `We're going to work in a sequence of ${stepCount} steps: ${roleNames.join(', ')}.`,
+
+    'adapt.sequential-step-start': ({ stepNumber, role, hasTools, isFirstStep }) => {
+        let message = `This is the start of step ${stepNumber}: ${role}.`;
+        if (hasTools) {
+            message += ' Tools are available for this step.';
+        }
+        if (!isFirstStep) {
+            const stepWord = stepNumber === 2 ? 'step' : 'steps';
+            message += ` Use context provided in previous ${stepWord}.`;
+        }
+        return message;
+    },
+
+    'adapt.sequential-step-end': ({ stepNumber, role }) =>
+    `This is the end of step ${stepNumber}: ${role}.`,
+
+    'adapt.task-execution-alignment': () => [
+        {
+            role: 'user',
+            content: `Work on the task using available tools.`
+        },
+        {
+            role: 'assistant',
+            content: `How will I know when you want synthesis?`
+        },
+        {
+            role: 'user',
+            content: `I'll ask directly. Until then, continue your work.`
+        },
+        {
+            role: 'assistant',
+            content: `Understood. I'll work until you request findings.`
+        }
+    ],
 
     // ─── Length Guidance ────────────────────────────────────────────────────
 

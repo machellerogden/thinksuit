@@ -129,7 +129,7 @@ stateDiagram-v2
     Initialize --> CheckLimits
 
     CheckLimits --> ExecuteCycle: Resources available
-    CheckLimits --> ForceSynthesis: Limits reached
+    CheckLimits --> Synthesis: Limits reached
 
     ExecuteCycle --> ProcessResponse
 
@@ -144,7 +144,7 @@ stateDiagram-v2
     UpdateContext --> CheckLimits
 
     Complete --> [*]
-    ForceSynthesis --> [*]
+    Synthesis --> [*]
 ```
 
 **Detailed Task Execution Flow:**
@@ -189,7 +189,7 @@ sequenceDiagram
     end
 
     alt Resources exhausted
-        Task->>Task: Force synthesis
+        Task->>Task: Do Synthesis
         Task->>LLM: Final synthesis with context
         LLM-->>Task: Best-effort response
     end

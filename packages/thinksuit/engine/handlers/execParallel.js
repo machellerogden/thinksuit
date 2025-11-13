@@ -185,8 +185,8 @@ export async function execParallelCore(input, machineContext) {
             });
             const duration = Date.now() - startTime;
 
-            if (status === 'SUCCEEDED' && childResult?.responseResult?.response) {
-                const roleResponse = childResult.responseResult.response;
+            if (status === 'SUCCEEDED' && childResult?.handlerResult?.response) {
+                const roleResponse = childResult.handlerResult.response;
 
                 childLogger.info(
                     {

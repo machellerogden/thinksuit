@@ -351,6 +351,51 @@ Create a JSON config file (default: `~/.thinksuit.json`):
 
 **Note:** For Vertex AI, ensure you've authenticated with `gcloud auth application-default login` and set `GOOGLE_CLOUD_PROJECT` environment variable.
 
+### Presets
+
+Presets allow you to save and reuse execution plans. They are stored in `~/.thinksuit.json` under the `presets` field, organized by module:
+
+```json
+{
+    "presets": {
+        "thinksuit/mu": [
+            {
+                "id": "my-custom-preset",
+                "name": "My Custom Preset",
+                "description": "A preset for common tasks with specific tools",
+                "plan": {
+                    "strategy": "task",
+                    "role": "execute",
+                    "tools": ["read_file", "write_file", "edit_file"],
+                    "resolution": {
+                        "maxCycles": 8,
+                        "maxTokens": 12000,
+                        "maxToolCalls": 20
+                    },
+                    "lengthLevel": "standard"
+                }
+            }
+        ]
+    }
+}
+```
+
+**Using presets:**
+
+```bash
+# Use a preset from the command line
+thinksuit-exec --preset my-custom-preset "Analyze this code"
+
+# Presets combine module-defined presets with user-defined presets
+# Module presets are built into the module
+# User presets are defined in ~/.thinksuit.json
+```
+
+**Creating presets:**
+
+- Use the ThinkSuit Console UI to create and save presets interactively
+- Or manually edit `~/.thinksuit.json` and add presets to the `presets[moduleName]` array
+
 See `config.example.json` for a complete example.
 
 ## Development
