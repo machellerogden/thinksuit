@@ -67,7 +67,8 @@ describe('execDirect handler', () => {
             output: 'Test response from LLM',
             usage: { prompt: 100, completion: 50 },
             model: 'gpt-4o-mini',
-            finishReason: 'stop'
+            finishReason: 'stop',
+            raw: {}
         });
     });
 

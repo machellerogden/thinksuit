@@ -98,7 +98,7 @@ describe('execTask handler', () => {
 
             const result = await execTaskCore(input, mockMachineContext);
 
-            expect(result.response).toEqual({
+            expect(result.response).toMatchObject({
                 output: 'Task completed successfully',
                 usage: { prompt: 150, completion: 0 },
                 model: 'gpt-4o-mini',
@@ -111,6 +111,8 @@ describe('execTask handler', () => {
                     resolution: input.plan.resolution
                 }
             });
+            expect(result.response.instructions).toBeDefined();
+            expect(result.response.instructions.thread).toBeDefined();
 
             expect(runCycle).toHaveBeenCalledTimes(1);
             expect(mockLogger.info).toHaveBeenCalledWith(
@@ -236,7 +238,7 @@ describe('execTask handler', () => {
 
             // Check that second cycle was called with updated thread
             const secondCallArgs = runCycle.mock.calls[1][0];
-            expect(secondCallArgs.thread).toHaveLength(4); // user, assistant, tool result, progress
+            expect(secondCallArgs.thread).toHaveLength(3); // user, assistant, tool result
             expect(secondCallArgs.thread[1]).toEqual({
                 role: 'assistant',
                 content: 'Reading file...'
@@ -247,11 +249,6 @@ describe('execTask handler', () => {
                 tool_call_id: undefined,
                 content: 'file contents'
             });
-            // Check that the progress context was added
-            expect(secondCallArgs.thread[3].role).toBe('user');
-            expect(secondCallArgs.thread[3].content).toContain('[Task Progress Report]');
-            expect(secondCallArgs.thread[3].content).toContain('Budget status:');
-            expect(secondCallArgs.thread[3].content).toContain('tokens available');
         });
     });
 

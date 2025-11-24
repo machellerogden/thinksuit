@@ -104,7 +104,7 @@ describe('Provider Abstraction', () => {
                     completion: 50
                 });
                 expect(result.model).toBe('gpt-4-0613');
-                expect(result.finishReason).toBe('complete');
+                expect(result.finishReason).toBe('end_turn');
                 expect(result.outputItems).toBeDefined();
                 expect(result.raw).toBeDefined();
             });
@@ -286,7 +286,7 @@ describe('Provider Abstraction', () => {
                 expect(result.output).toBe('');
                 // With the current mock, no function_call items in output, so toolCalls will be undefined
                 // The mock has 'tools' at top level but the transformer looks for function_call in output array
-                expect(result.finishReason).toBe('complete');
+                expect(result.finishReason).toBe('end_turn');
             });
         });
 

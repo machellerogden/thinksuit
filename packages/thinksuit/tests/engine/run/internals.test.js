@@ -499,16 +499,22 @@ describe('run/internals', () => {
             expect(initializeHandlers).toHaveBeenCalled();
             expect(runCycle).toHaveBeenCalledWith({
                 abortSignal: undefined,
+                compositionType: 'default',
+                config: params.finalConfig,
+                currentTurnIndex: undefined,
+                discoveredTools: params.discoveredTools,
+                frame: undefined,
+                handlers: mockHandlers,
+                historicalSignals: undefined,
+                input: undefined,
                 logger: mockLogger,
-                thread: params.thread,
+                machineDefinition: params.machineDefinition,
                 module: params.module,
                 parentBoundaryId: undefined,
+                selectedPlan: undefined,
                 sessionId: 'test-session',
-                traceId: 'test-trace-id',
-                machineDefinition: params.machineDefinition,
-                handlers: mockHandlers,
-                config: params.finalConfig,
-                discoveredTools: params.discoveredTools
+                thread: params.thread,
+                traceId: 'test-trace-id'
             });
             expect(result).toEqual(['SUCCEEDED', { response: 'test' }]);
         });

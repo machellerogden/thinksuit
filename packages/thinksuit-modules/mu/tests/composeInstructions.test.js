@@ -13,11 +13,13 @@ describe('composeInstructions', () => {
             const plan = { role: 'capture' };
             const result = await composeInstructions({ plan, factMap: {} }, mu);
 
-            expect(result.systemInstructions).toBe(mu.prompts['system.capture']);
-            // Primary prompt is now part of the thread, not a separate field
+            // System instructions are now in the thread at indices.systemInstruction
             expect(result.thread).toBeDefined();
-            expect(result.thread.length).toBeGreaterThan(0);
-            expect(result.thread[0].content).toBe(mu.prompts['primary.capture']);
+            expect(result.indices.systemInstruction).toBeGreaterThanOrEqual(0);
+            expect(result.thread[result.indices.systemInstruction].content).toContain(mu.prompts['system.capture']);
+            // Primary prompt is in the thread at indices.primaryPrompt
+            expect(result.indices.primaryPrompt).toBeGreaterThanOrEqual(0);
+            expect(result.thread[result.indices.primaryPrompt].content).toBe(mu.prompts['primary.capture']);
         });
 
         it('should use default role when role not found', async () => {
@@ -168,11 +170,17 @@ describe('composeInstructions', () => {
                 const plan = { role: roleName };
                 const result = await composeInstructions({ plan, factMap: {} }, mu);
 
-                expect(result.systemInstructions).toBe(mu.prompts[`system.${roleName}`]);
-                // Primary prompt is now in the thread
+                // System instructions are now in the thread at indices.systemInstruction
                 expect(result.thread).toBeDefined();
-                expect(result.thread.length).toBeGreaterThan(0);
-                expect(result.thread[0].content).toBe(mu.prompts[`primary.${roleName}`]);
+                expect(result.indices.systemInstruction).toBeGreaterThanOrEqual(0);
+                expect(result.thread[result.indices.systemInstruction].content).toContain(mu.prompts[`system.${roleName}`]);
+                // Primary prompt is in the thread at indices.primaryPrompt
+                expect(result.indices.primaryPrompt).toBeGreaterThanOrEqual(0);
+                const primaryPrompt = mu.prompts[`primary.${roleName}`];
+                const expectedPrimary = typeof primaryPrompt === 'function'
+                    ? primaryPrompt({ plan, factMap: {}, tools: [], role: roleName, adaptations: [], lengthLevel: 'standard' })
+                    : primaryPrompt;
+                expect(result.thread[result.indices.primaryPrompt].content).toBe(expectedPrimary);
                 expect(result.metadata.role).toBe(roleName);
                 expect(typeof result.maxTokens).toBe('number');
             });

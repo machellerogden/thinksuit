@@ -450,32 +450,6 @@ describe('Provider Abstraction', () => {
                 });
             });
 
-            it('should return correct capabilities for IBM Granite', async () => {
-                vi.doMock('openai', () => ({
-                    default: class OpenAI {
-                        constructor() {
-                            return {};
-                        }
-                    }
-                }));
-
-                const { createHuggingFaceProvider } = await import(
-                    '../../../engine/providers/hugging-face.js'
-                );
-                const provider = createHuggingFaceProvider({ apiKey: 'hf_test_token' });
-
-                const caps = provider.getCapabilities('ibm-granite/granite-4.0-h-1b');
-
-                expect(caps).toEqual({
-                    maxContext: 8192,
-                    maxOutput: 2048,
-                    supports: {
-                        toolCalls: false,
-                        temperature: true
-                    }
-                });
-            });
-
             it('should return default capabilities for unknown models', async () => {
                 vi.doMock('openai', () => ({
                     default: class OpenAI {

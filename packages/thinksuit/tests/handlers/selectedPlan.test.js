@@ -32,7 +32,7 @@ describe('Selected Plan routing (deterministic execution)', () => {
         expect(useSelectedState.Type).toBe('Pass');
         expect(useSelectedState.Parameters['plan.$']).toBe('$.selectedPlan');
         expect(useSelectedState.ResultPath).toBe('$.planResult');
-        expect(useSelectedState.Next).toBe('ComposeInstructions');
+        expect(useSelectedState.Next).toBe('RouteSelectedPlan');
     });
 
     it('should not have forcedPlan parameters in any state', () => {
@@ -54,7 +54,7 @@ describe('Selected Plan routing (deterministic execution)', () => {
 
             // Verify UseSelectedPlan goes directly to ComposeInstructions
             const useSelectedState = machineDefinition.States.UseSelectedPlan;
-            expect(useSelectedState.Next).toBe('ComposeInstructions');
+            expect(useSelectedState.Next).toBe('RouteSelectedPlan');
 
             // Verify DetectSignals is only reached through Default route
             const checkState = machineDefinition.States.CheckSelectedPlan;

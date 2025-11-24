@@ -48,7 +48,7 @@ describe('composeInstructions handler (engine contract)', () => {
 
             expect(mockModule.composeInstructions).toHaveBeenCalledOnce();
             expect(mockModule.composeInstructions).toHaveBeenCalledWith(
-                { plan: input.plan, factMap: input.factMap, thread: [], input: '', frame: null },
+                { plan: input.plan, factMap: input.factMap, thread: [], input: '', frame: null, compositionType: 'default', cwd: null },
                 mockModule
             );
         });
