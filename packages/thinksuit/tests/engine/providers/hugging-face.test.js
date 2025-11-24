@@ -105,7 +105,7 @@ describe('Provider Abstraction', () => {
                         completion: 50
                     },
                     model: 'moonshotai/Kimi-K2-Thinking:novita',
-                    finishReason: 'complete',
+                    finishReason: 'end_turn',
                     toolCalls: undefined,
                     raw: expect.any(Object)
                 });

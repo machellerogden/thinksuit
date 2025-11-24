@@ -147,9 +147,9 @@ const transformResponse = (apiResponse) => {
         }
     }));
 
-    // Map finish reason to standard format
+    // Map finish reason to ThinkSuit canonical values
     const finishReasonMap = {
-        'stop': 'complete',
+        'stop': 'end_turn',
         'length': 'max_tokens',
         'tool_calls': 'tool_use',
         'content_filter': 'safety',

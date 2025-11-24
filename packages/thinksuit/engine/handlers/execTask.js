@@ -203,15 +203,18 @@ export async function execTaskCore(input, machineContext) {
                     continueTask = false;
                 } else {
                     // Use provider's finishReason to determine continuation
-                    const isToolUse = finishReason === 'tool_use' || finishReason === 'tool_calls';
+                    // All providers normalize to canonical values: end_turn, tool_use, max_tokens, continue
+                    const isToolUse = finishReason === 'tool_use';
                     const shouldStop = finishReason === 'max_tokens';
-                    const isTextResponse = finishReason === 'stop' || finishReason === 'end_turn';
+                    const isTextResponse = finishReason === 'end_turn';
+                    const shouldContinue = finishReason === 'continue';
 
                     // Continue if:
                     // - Tool use (normal flow)
+                    // - Model signaled continue (Anthropic pause_turn)
                     // - Text response with budget remaining (prompt to continue)
                     // - Max tokens reached (let synthesis happen)
-                    continueTask = isToolUse || shouldStop || (isTextResponse && cycleCount < resolution.maxCycles);
+                    continueTask = isToolUse || shouldContinue || shouldStop || (isTextResponse && cycleCount < resolution.maxCycles);
                 }
 
                 // Update thread for next cycle if continuing

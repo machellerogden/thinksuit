@@ -30,9 +30,9 @@ const MODEL_METADATA = {
     }
 };
 
-// Map Vertex AI finish reasons to ThinkSuit standards
+// Map Vertex AI finish reasons to ThinkSuit canonical values
 const FINISH_REASON_MAP = {
-    STOP: 'complete',
+    STOP: 'end_turn',
     MAX_TOKENS: 'max_tokens',
     SAFETY: 'safety',
     RECITATION: 'recitation',

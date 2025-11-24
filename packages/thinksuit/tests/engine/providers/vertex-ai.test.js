@@ -112,7 +112,7 @@ describe('Provider Abstraction', () => {
                     completion: 50
                 });
                 expect(result.model).toBe('gemini-2.5-pro-001');
-                expect(result.finishReason).toBe('complete');
+                expect(result.finishReason).toBe('end_turn');
                 expect(result.raw).toBeDefined();
             });
 

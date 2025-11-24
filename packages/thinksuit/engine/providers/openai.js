@@ -180,12 +180,14 @@ const transformResponse = (apiResponse) => {
             }
         }));
 
-    // Determine finish reason
+    // Determine finish reason - map to ThinkSuit canonical values
     let finishReason = 'unknown';
     if (toolCalls.length > 0) {
         finishReason = 'tool_use';
     } else if (apiResponse.status === 'completed') {
         finishReason = 'end_turn';
+    } else if (apiResponse.status === 'incomplete') {
+        finishReason = 'max_tokens';
     }
 
     return {
