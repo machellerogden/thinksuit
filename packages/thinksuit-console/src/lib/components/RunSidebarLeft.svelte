@@ -72,7 +72,7 @@
     <SessionList
         {selectedSessionId}
         baseRoute="run/sessions"
-        defaultView="thread"
+        defaultView="workbench"
         {searchFilter}
         collapsed={ui.leftSidebarCollapsed}
         {selectMode}

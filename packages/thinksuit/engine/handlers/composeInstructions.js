@@ -127,19 +127,6 @@ export async function composeInstructionsCore(input, machineContext) {
         return DEFAULT_INSTRUCTIONS;
     }
 
-    // Debug: log what we're passing to module.composeInstructions
-    logger.info({
-        event: 'pipeline.instruction_composition.debug.module_input',
-        traceId,
-        data: {
-            role: plan.role,
-            compositionType,
-            threadLength: thread?.length || 0,
-            hasUserInput: !!userInput,
-            thread
-        }
-    }, `Calling module.composeInstructions with thread length ${thread?.length || 0}`);
-
     // Call module's composition logic
     const moduleResult = await module.composeInstructions({ plan, factMap, thread, input: userInput, frame, compositionType, cwd }, module);
 

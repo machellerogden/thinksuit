@@ -2,19 +2,23 @@
     import { Button } from '$lib/components/ui/index.js';
     import SessionThread from '$lib/components/SessionThread.svelte';
     import SessionInspector from '$lib/components/SessionInspector.svelte';
+    import SessionWorkbench from '$lib/components/workbench/SessionWorkbench.svelte';
     import SessionControls from '$lib/components/SessionControls.svelte';
     import RunSidebarLeft from '$lib/components/RunSidebarLeft.svelte';
     import RunSidebarRight from '$lib/components/RunSidebarRight.svelte';
-    import { canSubmitToSession, loadSession } from '$lib/stores/session.svelte.js';
+    import { canSubmitToSession, loadSession, getSession } from '$lib/stores/session.svelte.js';
+    import { EXECUTION_EVENTS } from 'thinksuit/constants/events';
     import { registerHotkey } from '$lib/stores/hotkeys.svelte.js';
     import { subscribeToSessionEvents } from '$lib/utils/sessionEvents.js';
     import { onDestroy, onMount } from 'svelte';
+
+    const session = getSession();
 
     let { params = {} } = $props();
 
     // Extract session ID, view, and eventId from route params
     let routeSessionId = $derived(params.id || null);
-    let routeView = $derived(params.view || 'thread');
+    let routeView = $derived(params.view || 'workbench');
     let routeEventId = $derived(params.eventId || null);
 
     let input = $state('');
@@ -149,7 +153,7 @@
 
                 if (result.sessionId) {
                     console.log(`Session ${result.sessionId} status: ${result.status}`);
-                    window.location.hash = `#/run/sessions/${result.sessionId}/thread`;
+                    window.location.hash = `#/run/sessions/${result.sessionId}/workbench`;
 
                     // Trigger sidebar refresh to show new session
                     window.dispatchEvent(new CustomEvent('sessions-refresh'));
@@ -208,9 +212,15 @@
         }
     });
 
-    // Re-subscribe when route session changes
+    // Load session and subscribe when route session changes
+    let previousRouteSessionId = null;
     $effect(() => {
+        // Only run when routeSessionId actually changes
+        if (routeSessionId === previousRouteSessionId) return;
+        previousRouteSessionId = routeSessionId;
+
         if (routeSessionId) {
+            loadSession(routeSessionId);
             subscribeToSessionUpdates(routeSessionId);
         } else {
             // No session - clear everything
@@ -224,6 +234,69 @@
             // Clear approval queue
             approvalQueue = [];
         }
+    });
+
+    // Handle incremental session loading from SSE events
+    $effect(() => {
+        function handleSessionUpdate(event) {
+            if (event.detail.sessionId === routeSessionId && routeSessionId === session.id) {
+                loadSession(routeSessionId, session.entries.length);
+            }
+        }
+
+        window.addEventListener('session-updated', handleSessionUpdate);
+
+        return () => {
+            window.removeEventListener('session-updated', handleSessionUpdate);
+        };
+    });
+
+    // Build approval queue from session entries
+    $effect(() => {
+        if (!session.entries || session.entries.length === 0) {
+            approvalQueue = [];
+            return;
+        }
+
+        const approvalStatuses = new Map();
+
+        for (const entry of session.entries) {
+            if (entry.event === EXECUTION_EVENTS.TOOL_APPROVAL_REQUESTED && entry.approvalId) {
+                if (!approvalStatuses.has(entry.approvalId)) {
+                    approvalStatuses.set(entry.approvalId, {
+                        status: 'pending',
+                        tool: entry.data?.tool,
+                        args: entry.data?.args,
+                        sessionId: entry.sessionId || routeSessionId,
+                        time: entry.time
+                    });
+                }
+            } else if (entry.event === EXECUTION_EVENTS.TOOL_APPROVED && entry.approvalId) {
+                const existing = approvalStatuses.get(entry.approvalId);
+                if (existing) {
+                    existing.status = 'approved';
+                }
+            } else if (entry.event === EXECUTION_EVENTS.TOOL_DENIED && entry.approvalId) {
+                const existing = approvalStatuses.get(entry.approvalId);
+                if (existing) {
+                    existing.status = 'denied';
+                }
+            }
+        }
+
+        const newQueue = [];
+        for (const [approvalId, data] of approvalStatuses.entries()) {
+            newQueue.push({
+                approvalId,
+                tool: data.tool,
+                args: data.args,
+                sessionId: data.sessionId,
+                status: data.status,
+                time: data.time
+            });
+        }
+
+        approvalQueue = newQueue;
     });
 
     // Navigation helper
@@ -285,6 +358,14 @@
                         <Button
                             variant="subtle"
                             size="xs"
+                            active={routeView === 'workbench'}
+                            onclick={() => navigateToView('workbench')}
+                        >
+                            Workbench
+                        </Button>
+                        <Button
+                            variant="subtle"
+                            size="xs"
                             active={routeView === 'thread'}
                             onclick={() => navigateToView('thread')}
                         >
@@ -307,8 +388,10 @@
                 {#if routeSessionId}
                     {#if routeView === 'inspect'}
                         <SessionInspector sessionId={routeSessionId} />
+                    {:else if routeView === 'workbench'}
+                        <SessionWorkbench sessionId={routeSessionId} />
                     {:else}
-                        <SessionThread sessionId={routeSessionId} targetEventId={routeEventId} bind:approvalQueue />
+                        <SessionThread sessionId={routeSessionId} targetEventId={routeEventId} />
                     {/if}
                 {:else}
                     <div class="h-full flex items-center justify-center p-8">

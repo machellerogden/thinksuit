@@ -19,18 +19,18 @@ export function deriveSessionStatus(entries) {
     const lastEntry = entries[entries.length - 1];
 
     // Check if only PENDING event (initialized)
-    if (entries.length === 1 && firstEntry.event === SESSION_EVENTS.PENDING) {
+    if (entries.length === 1 && firstEntry?.event === SESSION_EVENTS.PENDING) {
         return SESSION_STATUS.INITIALIZED;
     }
 
     // Check if ready (last event is in READY_EVENTS set)
     // READY_EVENTS includes SESSION_EVENTS.RESPONSE and SESSION_EVENTS.PENDING
-    if (lastEntry && READY_EVENTS.has(lastEntry.event)) {
+    if (lastEntry && READY_EVENTS.has(lastEntry?.event)) {
         return SESSION_STATUS.READY;
     }
 
     // If has input but no response yet - busy
-    if (entries.some((e) => e.event === SESSION_EVENTS.INPUT)) {
+    if (entries.some((e) => e?.event === SESSION_EVENTS.INPUT)) {
         return SESSION_STATUS.BUSY;
     }
 

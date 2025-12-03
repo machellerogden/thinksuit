@@ -29,10 +29,15 @@
     });
 </script>
 
+<svelte:head>
+    <title>Thinksuit Console</title>
+</svelte:head>
+
 <div class="h-screen flex flex-col" style={mainPadding}>
     <Navigation />
     <div class="flex-1 overflow-hidden">
         <HashRouter {routes} />
     </div>
 </div>
+
 <AppDrawer />

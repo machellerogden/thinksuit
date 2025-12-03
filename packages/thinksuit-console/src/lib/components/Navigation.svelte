@@ -5,7 +5,7 @@
 
     const session = getSession();
 
-    let runHref = $derived(session.id ? `#/run/sessions/${session.id}/thread` : '#/run');
+    let runHref = $derived(session.id ? `#/run/sessions/${session.id}/workbench` : '#/run');
     let expanded = $state(false);
 </script>
 

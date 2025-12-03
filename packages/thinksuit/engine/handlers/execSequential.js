@@ -189,17 +189,6 @@ export async function execSequentialCore(input, machineContext) {
                     content: stepStartContent
                 };
                 stepThread = [...accumulatedThread, stepStartMessage];
-                logger.info({
-                    event: 'execution.sequential.debug.thread_build',
-                    traceId,
-                    data: {
-                        step: i,
-                        role,
-                        accumulatedThreadLength: accumulatedThread.length,
-                        stepThreadLength: stepThread.length,
-                        hasStepStartMarker: true
-                    }
-                }, `Building stepThread from accumulatedThread for step ${i}`);
             } else {
                 // No threadAccumulation: start with original thread
                 stepThread = [...thread];
@@ -283,18 +272,6 @@ export async function execSequentialCore(input, machineContext) {
 
                 // Accumulate thread if threadAccumulation is enabled
                 if (threadAccumulation) {
-                    logger.info({
-                        event: 'execution.sequential.debug.response_structure',
-                        traceId,
-                        data: {
-                            step: i,
-                            role,
-                            hasInstructions: !!roleResponse?.instructions,
-                            instructionsKeys: roleResponse?.instructions ? Object.keys(roleResponse.instructions) : null,
-                            threadLength: roleResponse?.instructions?.thread?.length || 0
-                        }
-                    }, `Checking response structure for step ${i}`);
-
                     const composedThread = roleResponse?.instructions?.thread
                         || childResult?.instructions?.thread
                         || [];
@@ -333,18 +310,6 @@ export async function execSequentialCore(input, machineContext) {
                             semantic: 'response'
                         }
                     ];
-
-                    logger.info({
-                        event: 'execution.sequential.debug.thread_accumulated',
-                        traceId,
-                        data: {
-                            step: i,
-                            role,
-                            composedThreadLength: composedThread.length,
-                            accumulatedThreadLength: accumulatedThread.length,
-                            accumulatedThread
-                        }
-                    }, `Updated accumulatedThread after step ${i}`);
                 }
 
                 // Add step end marker

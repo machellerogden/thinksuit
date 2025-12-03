@@ -663,16 +663,6 @@ export async function execTaskCore(input, machineContext) {
         'Task execution completed'
     );
 
-    logger.info({
-        event: 'execution.task.debug.instructions',
-        traceId,
-        data: {
-            hasInstructions: !!instructions,
-            instructionsKeys: instructions ? Object.keys(instructions) : null,
-            threadLength: instructions?.thread?.length || 0
-        }
-    }, 'Debug: instructions before return');
-
     const result = {
         response: {
             output: lastResponse?.output || '',
@@ -699,15 +689,6 @@ export async function execTaskCore(input, machineContext) {
     if (errorMessage) {
         result.response.error = errorMessage;
     }
-
-    logger.info({
-        event: 'execution.task.debug.result',
-        traceId,
-        data: {
-            hasInstructionsInResult: !!result.response.instructions,
-            resultThreadLength: result.response.instructions?.thread?.length || 0
-        }
-    }, 'Debug: result before return');
 
     return result;
 }

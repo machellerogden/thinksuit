@@ -1,8 +1,7 @@
 <script>
     import { SvelteSet } from 'svelte/reactivity';
     import { EmptyState, Badge, Button, JSONView } from '$lib/components/ui/index.js';
-    import { getSession, loadSession } from '$lib/stores/session.svelte.js';
-    import { EXECUTION_EVENTS } from 'thinksuit/constants/events';
+    import { getSession } from '$lib/stores/session.svelte.js';
     import SignalDetectionView from '$lib/components/session/boundary/SignalDetectionView.svelte';
     import RuleEvaluationView from '$lib/components/session/boundary/RuleEvaluationView.svelte';
     import FactAggregationView from '$lib/components/session/boundary/FactAggregationView.svelte';
@@ -13,7 +12,7 @@
     import GenericEventView from '$lib/components/session/boundary/GenericEventView.svelte';
     import MessageEvent from '$lib/components/session/MessageEvent.svelte';
 
-    let { sessionId = null, targetEventId = null, approvalQueue = $bindable([]) } = $props();
+    let { sessionId = null, targetEventId = null } = $props();
 
     // Constants
     const USER_SCROLL_OVERRIDE_DURATION = 500;
@@ -135,7 +134,7 @@
         }
     }
 
-    // Load session when props change
+    // Reset scroll state when session or target changes
     $effect(() => {
         if (sessionId && (sessionId !== previousSessionId || targetEventId !== previousTargetEventId)) {
             isInitialLoad = true;
@@ -143,25 +142,17 @@
             nearBottom = !targetEventId;
             userScrollOverride = false;
             clearTimeout(scrollTimeout);
-            loadSession(sessionId);
             previousSessionId = sessionId;
             previousTargetEventId = targetEventId;
         } else if (!sessionId) {
-            loadSession(null);
             previousSessionId = null;
             previousTargetEventId = null;
             isInitialLoad = true;
         }
     });
 
-    // Listen for session updates
+    // Listen for user input submission to scroll to bottom
     $effect(() => {
-        function handleSessionUpdate(event) {
-            if (event.detail.sessionId === sessionId && sessionId === session.id) {
-                loadSession(sessionId, session.entries.length);
-            }
-        }
-
         function handleUserSubmit(event) {
             if (event.detail.sessionId === sessionId) {
                 userScrollOverride = false;
@@ -174,69 +165,12 @@
             }
         }
 
-        window.addEventListener('session-updated', handleSessionUpdate);
         window.addEventListener('user-submitted-input', handleUserSubmit);
 
         return () => {
-            window.removeEventListener('session-updated', handleSessionUpdate);
             window.removeEventListener('user-submitted-input', handleUserSubmit);
         };
     });
-
-    // Monitor for tool approval requests and maintain queue
-    $effect(() => {
-        if (!session.entries || session.entries.length === 0) {
-            approvalQueue = [];
-            return;
-        }
-
-        /* eslint-disable-next-line svelte/prefer-svelte-reactivity */
-        const approvalStatuses = new Map(); // approvalId -> status
-
-        // Scan entries to find all approval states
-        for (const entry of session.entries) {
-            if (entry.event === EXECUTION_EVENTS.TOOL_APPROVAL_REQUESTED && entry.approvalId) {
-                // Default to pending unless we see a completion event later
-                if (!approvalStatuses.has(entry.approvalId)) {
-                    approvalStatuses.set(entry.approvalId, {
-                        status: 'pending',
-                        tool: entry.data?.tool,
-                        args: entry.data?.args,
-                        sessionId: entry.sessionId || sessionId,
-                        time: entry.time
-                    });
-                }
-            } else if (entry.event === EXECUTION_EVENTS.TOOL_APPROVED && entry.approvalId) {
-                const existing = approvalStatuses.get(entry.approvalId);
-                if (existing) {
-                    existing.status = 'approved';
-                }
-            } else if (entry.event === EXECUTION_EVENTS.TOOL_DENIED && entry.approvalId) {
-                const existing = approvalStatuses.get(entry.approvalId);
-                if (existing) {
-                    existing.status = 'denied';
-                }
-            }
-        }
-
-        // Build new queue with updated statuses
-        const newQueue = [];
-
-        // Add/update approvals
-        for (const [approvalId, data] of approvalStatuses.entries()) {
-            newQueue.push({
-                approvalId,
-                tool: data.tool,
-                args: data.args,
-                sessionId: data.sessionId,
-                status: data.status,
-                time: data.time
-            });
-        }
-
-        approvalQueue = newQueue;
-    });
-
 
     async function copyToClipboard(text) {
         try {
