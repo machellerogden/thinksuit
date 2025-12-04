@@ -120,12 +120,12 @@ describe('run/internals', () => {
             expect(() => normalizeConfig(config)).toThrow('OpenAI API key is required');
         });
 
-        it('should throw error when Google Cloud project is missing for Vertex AI provider', () => {
+        it('should throw error when Google Cloud project is missing for Google provider', () => {
             const config = {
                 input: 'test',
                 sessionId: 'test-session',
-                provider: 'vertex-ai',
-                providerConfig: { vertexAi: {} }
+                provider: 'google',
+                providerConfig: { google: {} }
             };
 
             expect(() => normalizeConfig(config)).toThrow('Google Cloud project ID is required');

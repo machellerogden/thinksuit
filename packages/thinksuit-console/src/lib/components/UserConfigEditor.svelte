@@ -390,7 +390,7 @@
                                 <Input
                                     name="allowed-tools-input"
                                     bind:value={allowedTools}
-                                    placeholder="read_file, list_directory, execute_command"
+                                    placeholder="read_text_file, list_directory, execute_command"
                                 />
                             </label>
                             <p class="text-xs text-gray-500 mt-1">

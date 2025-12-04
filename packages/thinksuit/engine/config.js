@@ -385,9 +385,9 @@ function buildConfig(options = {}) {
         openai: {
             apiKey: process.env.OPENAI_API_KEY
         },
-        vertexAi: {
+        google: {
             projectId: process.env.GOOGLE_CLOUD_PROJECT,
-            location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1'
+            location: process.env.GOOGLE_CLOUD_LOCATION || 'global'
         },
         anthropic: {
             apiKey: process.env.ANTHROPIC_API_KEY
@@ -409,7 +409,7 @@ function buildConfig(options = {}) {
         environment: {
             openai: !!process.env.OPENAI_API_KEY,
             anthropic: !!process.env.ANTHROPIC_API_KEY,
-            vertexAi: !!process.env.GOOGLE_CLOUD_PROJECT,
+            google: !!process.env.GOOGLE_CLOUD_PROJECT,
             huggingFace: !!process.env.HF_TOKEN,
             debug: !!process.env.DEBUG,
             trace: !!process.env.THINKSUIT_TRACE,

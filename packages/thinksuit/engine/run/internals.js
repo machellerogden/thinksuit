@@ -94,9 +94,9 @@ export function normalizeConfig(config) {
     }
 
     // Validate provider-specific authentication
-    if (finalConfig.provider === 'vertex-ai') {
-        if (!finalConfig.providerConfig?.vertexAi?.projectId) {
-            throw new Error('Google Cloud project ID is required for Vertex AI provider (set GOOGLE_CLOUD_PROJECT)');
+    if (finalConfig.provider === 'google') {
+        if (!finalConfig.providerConfig?.google?.projectId) {
+            throw new Error('Google Cloud project ID is required for Google provider (set GOOGLE_CLOUD_PROJECT)');
         }
     } else if (finalConfig.provider === 'openai') {
         if (!finalConfig.providerConfig?.openai?.apiKey) {

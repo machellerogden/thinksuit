@@ -86,7 +86,7 @@ describe('Mu Rules', () => {
             expect(executionPlans[0].data.role).toBe('investigate');
             expect(executionPlans[0].data.strategy).toBe('task');
             expect(executionPlans[0].data.tools).toBeDefined();
-            expect(executionPlans[0].data.tools).toContain('read_file');
+            expect(executionPlans[0].data.tools).toContain('read_text_file');
             expect(executionPlans[0].data.resolution).toBeDefined();
             expect(executionPlans[0].data.resolution.maxCycles).toBe(5);
         });

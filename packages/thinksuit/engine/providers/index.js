@@ -1,5 +1,5 @@
 import { createOpenAIProvider } from './openai.js';
-import { createVertexAIProvider } from './vertex-ai.js';
+import { createGoogleProvider } from './google.js';
 import { createHuggingFaceProvider } from './hugging-face.js';
 import { createONNXProvider } from './onnx.js';
 
@@ -13,11 +13,11 @@ const PROVIDER_REGISTRY = {
         requiresConfig: (config) => !!config?.apiKey,
         description: 'OpenAI API (GPT models)'
     },
-    'vertex-ai': {
-        factory: createVertexAIProvider,
-        configKey: 'vertexAi',
+    'google': {
+        factory: createGoogleProvider,
+        configKey: 'google',
         requiresConfig: (config) => !!config?.projectId,
-        description: 'Google Vertex AI (Gemini models)'
+        description: 'Google (Gemini models via Vertex AI)'
     },
     'hugging-face': {
         factory: createHuggingFaceProvider,

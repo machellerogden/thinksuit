@@ -56,7 +56,7 @@
   },
   "homepage": "https://github.com/machellerogden/thinksuit/tree/main/packages/thinksuit#readme",
   "dependencies": {
-    "@google-cloud/vertexai": "^1.10.0",
+    "@google/genai": "^1.31.0",
     "@huggingface/transformers": "^3.7.6",
     "@modelcontextprotocol/sdk": "^1.19.1",
     "chokidar": "^4.0.3",

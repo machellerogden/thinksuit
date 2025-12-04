@@ -72,7 +72,9 @@ const mu = {
     // Tool dependencies - what tools this module needs from MCP servers
     // The system will validate these are available after MCP server startup
     toolDependencies: [
-        { name: 'read_file', description: 'Read file contents' },
+        { name: 'read_text_file', description: 'Read text file contents' },
+        { name: 'read_media_file', description: 'Read binary/media file contents' },
+        { name: 'read_multiple_files', description: 'Read multiple files at once' },
         { name: 'write_file', description: 'Create or overwrite files' },
         { name: 'edit_file', description: 'Modify existing files' },
         { name: 'list_directory', description: 'List directory contents' },

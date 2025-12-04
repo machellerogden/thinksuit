@@ -77,7 +77,7 @@ describe('Layered Config Loading', () => {
     it('should layer project config over global config', async () => {
         const globalConfig = {
             module: 'global-module',
-            provider: 'vertex-ai',
+            provider: 'google',
             model: 'global-model'
         };
         const projectConfig = {
@@ -95,7 +95,7 @@ describe('Layered Config Loading', () => {
         });
 
         expect(config.module).toBe('project-module');  // Project wins
-        expect(config.provider).toBe('vertex-ai'); // Global preserved
+        expect(config.provider).toBe('google'); // Global preserved
         expect(config.model).toBe('project-model');    // Project wins
         expect(config._sources.files).toHaveLength(2);
         expect(config._sources.files[0].type).toBe('global');

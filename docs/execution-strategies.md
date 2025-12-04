@@ -261,7 +261,7 @@ Each strategy has different resource implications:
     { "role": "analyzer", "strategy": "direct" },
     { "role": "synthesizer", "strategy": "direct" }
   ],
-  "tools": ["list_directory", "read_file"],
+  "tools": ["list_directory", "read_text_file", "read_media_file", "read_multiple_files"],
   "buildThread": true,
   "resultStrategy": "last",
   "maxTokens": 3000
@@ -278,7 +278,7 @@ Each strategy has different resource implications:
     { "role": "explorer", "strategy": "task" },
     { "role": "critic", "strategy": "direct" }
   ],
-  "tools": ["search_files", "read_file"],
+  "tools": ["search_files", "read_text_file", "read_media_file", "read_multiple_files"],
   "resultStrategy": "label",
   "maxTokens": 2000
 }
@@ -297,7 +297,7 @@ Each strategy has different resource implications:
     "maxToolCalls": 25,
     "timeoutMs": 180000
   },
-  "tools": ["read_file", "write_file", "search_files"]
+  "tools": ["read_text_file", "read_media_file", "read_multiple_files", "write_file", "search_files"]
 }
 ```
 
@@ -313,7 +313,7 @@ Sequential and Parallel strategies can embed tool-using steps by specifying 'tas
     { "role": "explorer", "strategy": "task" },  // Can use tools
     { "role": "analyzer", "strategy": "direct" }  // Cannot use tools
   ],
-  "tools": ["list_directory", "read_file"],
+  "tools": ["list_directory", "read_text_file", "read_media_file", "read_multiple_files"],
   "buildThread": true
 }
 ```

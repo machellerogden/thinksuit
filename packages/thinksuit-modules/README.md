@@ -37,7 +37,7 @@ The mu module supports two ways to select roles:
 {
     strategy: 'direct',
     role: 'investigate',
-    tools: ['read_file', 'search'],
+    tools: ['read_text_file', 'read_media_file', 'read_multiple_files', 'search'],
     lengthLevel: 'standard'
 }
 ```

@@ -102,7 +102,9 @@ export default {
 
     // Tool dependencies (validated at startup)
     toolDependencies: [
-        { name: 'read_file', description: 'Read file contents' },
+        { name: 'read_text_file', description: 'Read text file contents' },
+        { name: 'read_media_file', description: 'Read binary/media file contents' },
+        { name: 'read_multiple_files', description: 'Read multiple files at once' },
         { name: 'write_file', description: 'Create or overwrite files' }
     ],
 

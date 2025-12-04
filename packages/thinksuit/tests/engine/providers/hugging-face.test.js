@@ -132,7 +132,7 @@ describe('Provider Abstraction', () => {
                                                     id: 'call_abc123',
                                                     type: 'function',
                                                     function: {
-                                                        name: 'read_file',
+                                                        name: 'read_text_file',
                                                         arguments: '{"path": "/tmp/test.txt"}'
                                                     }
                                                 }
@@ -170,9 +170,9 @@ describe('Provider Abstraction', () => {
                         { role: 'user', content: 'Read the file /tmp/test.txt' }
                     ],
                     maxTokens: 1000,
-                    tools: ['read_file'],
+                    tools: ['read_text_file'],
                     toolSchemas: {
-                        read_file: {
+                        read_text_file: {
                             description: 'Read a file',
                             inputSchema: {
                                 type: 'object',
@@ -192,7 +192,7 @@ describe('Provider Abstraction', () => {
                             {
                                 type: 'function',
                                 function: {
-                                    name: 'read_file',
+                                    name: 'read_text_file',
                                     description: 'Read a file',
                                     parameters: {
                                         type: 'object',
@@ -214,7 +214,7 @@ describe('Provider Abstraction', () => {
                         id: 'call_abc123',
                         type: 'function',
                         function: {
-                            name: 'read_file',
+                            name: 'read_text_file',
                             arguments: '{"path": "/tmp/test.txt"}'
                         }
                     }
@@ -276,7 +276,7 @@ describe('Provider Abstraction', () => {
                                     id: 'call_abc123',
                                     type: 'function',
                                     function: {
-                                        name: 'read_file',
+                                        name: 'read_text_file',
                                         arguments: '{"path": "/tmp/test.txt"}'
                                     }
                                 }

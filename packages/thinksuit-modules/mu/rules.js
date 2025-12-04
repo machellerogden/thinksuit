@@ -48,7 +48,7 @@ const plans = {
     role: 'investigate',
     tools: [
       'list_directory',
-      'read_file',
+      'read_text_file', 'read_media_file', 'read_multiple_files',
       'search'
     ],
     resolution: {
@@ -72,7 +72,7 @@ const plans = {
     strategy: 'task',
     role: 'execute',
     tools: [
-      'read_file',
+      'read_text_file', 'read_media_file', 'read_multiple_files',
       'write_file',
       'edit_file',
       'list_directory'

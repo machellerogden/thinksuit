@@ -104,7 +104,7 @@ When ThinkSuit needs to use tools (file operations, etc.), the CLI presents an i
 ```
 ⚠ Tool Approval Required
 ────────────────────────────────
-Tool: read_file
+Tool: read_text_file
 Arguments:
   path: /path/to/file.txt
 ────────────────────────────────

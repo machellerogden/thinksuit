@@ -101,7 +101,7 @@ describe('composeInstructions', () => {
         it('should include tool instructions when tools are present', async () => {
             const plan = {
                 role: 'investigate',
-                tools: ['read_file', 'search']
+                tools: ['read_text_file', 'read_media_file', 'read_multiple_files', 'search']
             };
             const result = await composeInstructions({ plan, factMap: {} }, mu);
 

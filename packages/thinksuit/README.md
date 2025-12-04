@@ -366,7 +366,7 @@ Presets allow you to save and reuse execution plans. They are stored in `~/.thin
                 "plan": {
                     "strategy": "task",
                     "role": "execute",
-                    "tools": ["read_file", "write_file", "edit_file"],
+                    "tools": ["read_text_file", "read_media_file", "read_multiple_files", "write_file", "edit_file"],
                     "resolution": {
                         "maxCycles": 8,
                         "maxTokens": 12000,

@@ -12,13 +12,17 @@
  * @example
  * const module = {
  *     toolDependencies: [
- *         { name: 'read_file', description: 'Read file contents' },
+ *         { name: 'read_text_file', description: 'Read text file contents' },
+ *         { name: 'read_media_file', description: 'Read binary/media file contents' },
+ *         { name: 'read_multiple_files', description: 'Read multiple files at once' },
  *         { name: 'write_file', description: 'Write file contents' }
  *     ]
  * };
  *
  * const discoveredTools = {
- *     read_file: { name: 'read_file', ... },
+ *     read_text_file: { name: 'read_text_file', ... },
+ *     read_media_file: { name: 'read_media_file', ... },
+ *     read_multiple_files: { name: 'read_multiple_files', ... },
  *     list_directory: { name: 'list_directory', ... }
  * };
  *

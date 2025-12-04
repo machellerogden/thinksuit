@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 
 import { createOpenAIProvider } from '../../engine/providers/openai.js';
-import { createVertexAIProvider } from '../../engine/providers/vertex-ai.js';
+import { createGoogleProvider } from '../../engine/providers/google.js';
 import { callLLM } from '../../engine/providers/io.js';
 
 // Integration tests that call real APIs
@@ -166,26 +166,26 @@ describe.skipIf(!shouldRunIntegration)('Function calling', () => {
     }, 10000);
 });
 
-describe.skipIf(!shouldRunIntegration)('Vertex AI Provider Integration', () => {
+describe.skipIf(!shouldRunIntegration)('Google Provider Integration', () => {
     let provider;
     let machineContext;
 
     beforeAll(() => {
         if (!process.env.GOOGLE_CLOUD_PROJECT) {
-            throw new Error('GOOGLE_CLOUD_PROJECT must be set to run Vertex AI integration tests');
+            throw new Error('GOOGLE_CLOUD_PROJECT must be set to run Google provider integration tests');
         }
 
-        const vertexAiConfig = {
+        const googleConfig = {
             projectId: process.env.GOOGLE_CLOUD_PROJECT,
             location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1'
         };
 
-        provider = createVertexAIProvider(vertexAiConfig);
+        provider = createGoogleProvider(googleConfig);
 
         machineContext = {
             config: {
-                provider: 'vertex-ai',
-                vertexAi: vertexAiConfig
+                provider: 'google',
+                google: googleConfig
             },
             execLogger: {
                 debug: () => {},
@@ -253,8 +253,8 @@ describe.skipIf(!shouldRunIntegration)('Vertex AI Provider Integration', () => {
 
         it('should work through callLLM function with token clamping', async () => {
             const config = {
-                provider: 'vertex-ai',
-                vertexAi: {
+                provider: 'google',
+                google: {
                     projectId: process.env.GOOGLE_CLOUD_PROJECT,
                     location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1'
                 }

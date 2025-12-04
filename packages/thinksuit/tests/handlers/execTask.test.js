@@ -54,8 +54,18 @@ describe('execTask handler', () => {
             handlers: {},
             machineDefinition: {},
             discoveredTools: {
-                'read_file': {
-                    name: 'read_file',
+                'read_text_file': {
+                    name: 'read_text_file',
+                    description: 'Read file contents',
+                    server: 'test-server'
+                },
+                'read_media_file': {
+                    name: 'read_media_file',
+                    description: 'Read file contents',
+                    server: 'test-server'
+                },
+                'read_multiple_files': {
+                    name: 'read_multiple_files',
                     description: 'Read file contents',
                     server: 'test-server'
                 }
@@ -68,7 +78,7 @@ describe('execTask handler', () => {
             const input = {
                 plan: {
                     role: 'explorer',
-                    tools: ['read_file'],
+                    tools: ['read_text_file', 'read_media_file', 'read_multiple_files'],
                     resolution: {
                         maxCycles: 3,
                         maxTokens: 5000,
@@ -129,7 +139,7 @@ describe('execTask handler', () => {
             const input = {
                 plan: {
                     role: 'analyzer',
-                    tools: ['read_file', 'list_directory'],
+                    tools: ['read_text_file', 'read_media_file', 'read_multiple_files', 'list_directory'],
                     resolution: {
                         maxCycles: 4,
                         maxTokens: 8000,
@@ -152,7 +162,7 @@ describe('execTask handler', () => {
                             usage: { prompt: 100, completion: 50 },
                             model: 'gpt-4o-mini',
                             finishReason: 'tool_use',
-                            toolCalls: [{ name: 'read_file', args: { path: 'index.js' } }]
+                            toolCalls: [{ name: 'read_text_file', args: { path: 'index.js' } }]
                         }
                     }
                 }
@@ -188,7 +198,7 @@ describe('execTask handler', () => {
             const input = {
                 plan: {
                     role: 'explorer',
-                    tools: ['read_file']
+                    tools: ['read_text_file', 'read_media_file', 'read_multiple_files']
                 },
                 thread: [{ role: 'user', content: 'Explore this' }],
                 context: { depth: 0 },
@@ -210,7 +220,7 @@ describe('execTask handler', () => {
                         response: {
                             output: 'Reading file...',
                             finishReason: 'tool_use',
-                            toolCalls: [{ function: { name: 'read_file', arguments: 'test.txt' } }]
+                            toolCalls: [{ function: { name: 'read_text_file', arguments: 'test.txt' } }]
                         }
                     }
                 }
@@ -351,7 +361,7 @@ describe('execTask handler', () => {
             const input = {
                 plan: {
                     role: 'explorer',
-                    tools: ['read_file'],
+                    tools: ['read_text_file', 'read_media_file', 'read_multiple_files'],
                     resolution: {
                         maxCycles: 10,
                         maxTokens: 10000,
@@ -372,7 +382,7 @@ describe('execTask handler', () => {
                         response: {
                             output: 'Using tools',
                             finishReason: 'tool_use',
-                            toolCalls: [{ name: 'read_file' }, { name: 'read_file' }]
+                            toolCalls: [{ name: 'read_text_file' }, { name: 'read_text_file' }]
                         }
                     }
                 }
@@ -470,7 +480,7 @@ describe('execTask handler', () => {
             const input = {
                 plan: {
                     role: 'explorer',
-                    tools: ['read_file'],
+                    tools: ['read_text_file', 'read_media_file', 'read_multiple_files'],
                     resolution: { maxCycles: 3 }
                 },
                 thread: [],
@@ -500,7 +510,7 @@ describe('execTask handler', () => {
             });
             expect(callArgs.selectedPlan.strategy).toBe('direct');
             expect(callArgs.selectedPlan.role).toBe('explorer');
-            expect(callArgs.selectedPlan.tools).toEqual(['read_file']);
+            expect(callArgs.selectedPlan.tools).toEqual(['read_text_file', 'read_media_file', 'read_multiple_files']);
         });
     });
 });

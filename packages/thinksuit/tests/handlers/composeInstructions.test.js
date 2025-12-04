@@ -91,7 +91,7 @@ describe('composeInstructions handler (engine contract)', () => {
                 plan: {
                     strategy: 'task',
                     role: 'assistant',
-                    tools: ['read_file', 'write_file']
+                    tools: ['read_text_file', 'read_media_file', 'read_multiple_files', 'write_file']
                 },
                 factMap: {},
                 context: { traceId: 'test-trace', sessionId: 'test-session' }
@@ -102,7 +102,7 @@ describe('composeInstructions handler (engine contract)', () => {
                 module: mockModule
             });
 
-            expect(result.metadata.toolsAvailable).toEqual(['read_file', 'write_file']);
+            expect(result.metadata.toolsAvailable).toEqual(['read_text_file', 'read_media_file', 'read_multiple_files', 'write_file']);
         });
 
         it('should default toolsAvailable to empty array when no tools', async () => {

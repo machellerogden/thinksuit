@@ -17,7 +17,7 @@ npm run start                                     # Start interactive session wi
 npm run exec -- "Your input here"                  # Basic usage (creates new session)
 npm run exec -- --session-id 20250821T164513435Z-xXKTbcJ2 "Follow-up"   # Resume
 npm run exec -- --trace "Input" 2>&1 | tail -20    # Enable detailed tracing (shows sessionId/traceId)
-npm run exec -- --allow-tool read_file --allow-tool write_file "Input"  # Restrict tools
+npm run exec -- --allow-tool read_text_file --allow-tool read_media_file --allow-tool read_multiple_files --allow-tool write_file "Input"  # Restrict tools
 npm run exec -- --allow-dir /path/to/project "Input"  # Restrict filesystem access
 npm run exec -- --help                             # Show help
 
@@ -209,7 +209,7 @@ THINKSUIT_CONFIG="~/config.json"  # Custom config path
     "trace": false,
     "cwd": "/path/to/working/directory",
     "allowedDirectories": ["/path/to/working/directory", "/another/allowed/path"],
-    "allowedTools": ["read_file", "write_file", "list_directory"]
+    "allowedTools": ["read_text_file", "read_media_file", "read_multiple_files", "write_file", "list_directory"]
 }
 ```
 

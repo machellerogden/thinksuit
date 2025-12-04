@@ -1,11 +1,16 @@
-import { VertexAI } from '@google-cloud/vertexai';
+import { GoogleGenAI } from '@google/genai';
 import { PROCESSING_EVENTS } from '../constants/events.js';
 
 // Model metadata for capabilities
 const MODEL_METADATA = {
     'gemini-2.5-pro': {
         maxContext: 1000000,
-        maxOutput: 8192,
+        maxOutput: 65535,
+        supports: { toolCalls: true, temperature: true }
+    },
+    'gemini-2.5-flash': {
+        maxContext: 1000000,
+        maxOutput: 65535,
         supports: { toolCalls: true, temperature: true }
     },
     'gemini-2.0-flash': {
@@ -30,7 +35,7 @@ const MODEL_METADATA = {
     }
 };
 
-// Map Vertex AI finish reasons to ThinkSuit canonical values
+// Map Google GenAI finish reasons to ThinkSuit canonical values
 const FINISH_REASON_MAP = {
     STOP: 'end_turn',
     MAX_TOKENS: 'max_tokens',
@@ -40,18 +45,24 @@ const FINISH_REASON_MAP = {
     BLOCKLIST: 'blocklist',
     PROHIBITED_CONTENT: 'prohibited_content',
     SPII: 'spii',
-    MALFORMED_FUNCTION_CALL: 'malformed_function_call'
+    MALFORMED_FUNCTION_CALL: 'malformed_function_call',
+    MODEL_ARMOR: 'model_armor',
+    UNEXPECTED_TOOL_CALL: 'unexpected_tool_call',
+    IMAGE_SAFETY: 'image_safety',
+    IMAGE_PROHIBITED_CONTENT: 'image_prohibited_content',
+    IMAGE_RECITATION: 'image_recitation',
+    NO_IMAGE: 'no_image'
 };
 
-// Transform ThinkSuit thread to Vertex AI contents array
+// Transform ThinkSuit thread to Google GenAI contents array
 const transformRequest = (params) => {
     const { systemInstructions, thread, model, maxTokens, temperature, stop, tools, toolSchemas } = params;
 
-    // System instruction is now passed separately (not in thread)
+    // System instruction is passed in config
     let systemInstruction = null;
     if (systemInstructions) {
         systemInstruction = {
-            role: 'user', // Vertex AI uses 'user' role for systemInstruction
+            role: 'user',
             parts: [{ text: systemInstructions }]
         };
     }
@@ -86,13 +97,12 @@ const transformRequest = (params) => {
 
             if (parts.length > 0) {
                 contents.push({
-                    role: 'model', // Vertex AI uses 'model' instead of 'assistant'
+                    role: 'model', // Google GenAI uses 'model' instead of 'assistant'
                     parts
                 });
             }
         } else if (msg.role === 'tool') {
             // Convert tool result to functionResponse
-            // Find the corresponding function call in the previous message
             const functionName = msg.name || 'unknown';
             contents.push({
                 role: 'function',
@@ -110,18 +120,8 @@ const transformRequest = (params) => {
         }
     }
 
-    // Build the request
-    const request = {
-        contents
-    };
-
-    // Add systemInstruction if present
-    if (systemInstruction) {
-        request.systemInstruction = systemInstruction;
-    }
-
-    // Build generationConfig
-    const generationConfig = {
+    // Build config object for the new SDK
+    const config = {
         maxOutputTokens: maxTokens
     };
 
@@ -130,29 +130,27 @@ const transformRequest = (params) => {
 
     // Add temperature if supported
     if (temperature !== undefined && modelInfo.supports.temperature) {
-        generationConfig.temperature = temperature;
+        config.temperature = temperature;
     }
 
     // Add stop sequences if provided
     if (stop && stop.length > 0) {
-        generationConfig.stopSequences = stop;
+        config.stopSequences = stop;
     }
 
     // Add structured output schema if provided
     if (params.responseFormat) {
-        generationConfig.responseSchema = params.responseFormat.schema;
-        generationConfig.responseMimeType = 'application/json';
+        config.responseSchema = params.responseFormat.schema;
+        config.responseMimeType = 'application/json';
     }
 
-    request.generationConfig = generationConfig;
-
-    // Transform tools to Vertex AI format
+    // Transform tools to Google GenAI format
     if (tools && tools.length > 0 && modelInfo.supports.toolCalls) {
         const functionDeclarations = tools.map((toolName) => {
             const schema = toolSchemas?.[toolName];
 
             if (schema) {
-                // Use MCP-provided schema, but strip out $schema property that Vertex AI doesn't accept
+                // Use MCP-provided schema, but strip out $schema property
                 const parameters = schema.inputSchema || {
                     type: 'object',
                     properties: {}
@@ -164,14 +162,14 @@ const transformRequest = (params) => {
                 return {
                     name: toolName,
                     description: schema.description || `Execute ${toolName}`,
-                    parameters: cleanParameters
+                    parametersJsonSchema: cleanParameters
                 };
             } else {
                 // Fallback to generic format
                 return {
                     name: toolName,
                     description: `Execute ${toolName}`,
-                    parameters: {
+                    parametersJsonSchema: {
                         type: 'object',
                         properties: {
                             args: { type: 'string', description: 'Arguments for the tool' }
@@ -181,17 +179,26 @@ const transformRequest = (params) => {
             }
         });
 
-        request.tools = [{ functionDeclarations }];
+        config.tools = [{ functionDeclarations }];
     }
 
-    return request;
+    // Add system instruction to config if present
+    if (systemInstruction) {
+        config.systemInstruction = systemInstruction;
+    }
+
+    return {
+        model,
+        contents,
+        config
+    };
 };
 
-// Transform Vertex AI response to uniform format
+// Transform Google GenAI response to uniform format
 const transformResponse = (apiResponse) => {
-    // Vertex AI returns candidates array
+    // Check for valid response structure
     if (!apiResponse.candidates || apiResponse.candidates.length === 0) {
-        console.error('Invalid Vertex AI response structure:', apiResponse);
+        console.error('Invalid Google GenAI response structure:', apiResponse);
         return {
             output: '',
             usage: { prompt: 0, completion: 0 },
@@ -214,7 +221,7 @@ const transformResponse = (apiResponse) => {
     const toolCalls = content.parts
         .filter((part) => part.functionCall)
         .map((part, index) => ({
-            id: `call_${index}`, // Generate ID since Vertex AI doesn't provide one
+            id: `call_${index}`, // Generate ID since Google GenAI doesn't provide one
             type: 'function',
             function: {
                 name: part.functionCall.name,
@@ -241,15 +248,16 @@ const transformResponse = (apiResponse) => {
 };
 
 // Main provider factory function
-export const createVertexAIProvider = (config) => {
-    const { projectId, location = 'us-central1' } = config;
+export const createGoogleProvider = (config) => {
+    const { projectId, location = 'global' } = config;
 
     if (!projectId) {
-        throw new Error('E_PROVIDER: Vertex AI requires projectId configuration');
+        throw new Error('E_PROVIDER: Google provider requires projectId configuration');
     }
 
-    // Initialize Vertex AI client (uses ADC automatically)
-    const vertexAI = new VertexAI({
+    // Initialize Google GenAI client with Vertex AI backend
+    const ai = new GoogleGenAI({
+        vertexai: true,
         project: projectId,
         location: location
     });
@@ -258,29 +266,23 @@ export const createVertexAIProvider = (config) => {
         async callLLM(machineContext, params) {
             const { execLogger, abortSignal } = machineContext;
 
-            // Get the generative model
-            const model = vertexAI.getGenerativeModel({
-                model: params.model
-            });
-
             // Transform params to API request format
             const apiRequest = transformRequest(params);
 
             // Log raw request
             execLogger.info({
                 event: PROCESSING_EVENTS.PROVIDER_API_RAW_REQUEST,
-                msg: 'Vertex AI API raw request',
+                msg: 'Google GenAI API raw request',
                 data: apiRequest
             });
 
             try {
-                // Call Vertex AI with abort signal support
+                // Call Google GenAI with abort signal support
                 let apiResponse;
 
                 if (abortSignal) {
-                    // Vertex AI SDK doesn't natively support AbortSignal
-                    // We need to wrap the call and handle interruption
-                    const callPromise = model.generateContent(apiRequest);
+                    // Wrap the call to handle interruption
+                    const callPromise = ai.models.generateContent(apiRequest);
 
                     apiResponse = await Promise.race([
                         callPromise,
@@ -294,28 +296,25 @@ export const createVertexAIProvider = (config) => {
                         })
                     ]);
                 } else {
-                    apiResponse = await model.generateContent(apiRequest);
+                    apiResponse = await ai.models.generateContent(apiRequest);
                 }
-
-                // Extract the response object
-                const response = apiResponse.response;
 
                 // Log raw response
                 execLogger.info({
                     event: PROCESSING_EVENTS.PROVIDER_API_RAW_RESPONSE,
-                    msg: 'Vertex AI API raw response',
-                    data: response
+                    msg: 'Google GenAI API raw response',
+                    data: apiResponse
                 });
 
                 // Transform response to uniform format
-                const transformed = transformResponse(response);
+                const transformed = transformResponse(apiResponse);
                 return {
                     ...transformed,
-                    raw: response
+                    raw: apiResponse
                 };
             } catch (error) {
                 // Enhance error message with context
-                throw new Error(`Vertex AI API call failed: ${error.message}`);
+                throw new Error(`Google GenAI API call failed: ${error.message}`);
             }
         },
 

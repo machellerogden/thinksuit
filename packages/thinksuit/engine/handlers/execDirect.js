@@ -27,7 +27,7 @@ export async function execDirectCore(input, machineContext) {
 
     // Check if IO config is available (provider-specific)
     const hasValidConfig =
-        (config?.provider === 'vertex-ai' && config?.providerConfig?.vertexAi?.projectId) ||
+        (config?.provider === 'google' && config?.providerConfig?.google?.projectId) ||
         (config?.provider === 'openai' && config?.providerConfig?.openai?.apiKey) ||
         (config?.provider === 'anthropic' && config?.providerConfig?.anthropic?.apiKey) ||
         (config?.provider === 'hugging-face' && config?.providerConfig?.huggingFace?.apiKey) ||

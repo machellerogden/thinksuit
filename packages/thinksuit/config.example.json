@@ -7,7 +7,7 @@
         "openai": {
             "apiKey": "sk-..."
         },
-        "vertexAi": {
+        "google": {
             "projectId": "your-gcp-project-id",
             "location": "us-central1"
         },
@@ -21,7 +21,7 @@
     "maxDepth": 5,
     "maxFanout": 3,
     "allowedTools": [
-        "read_file",
+        "read_text_file", "read_media_file", "read_multiple_files",
         "list_directory"
     ],
     "allowedDirectories": [
@@ -39,7 +39,7 @@
                     "strategy": "task",
                     "role": "execute",
                     "tools": [
-                        "read_file",
+                        "read_text_file", "read_media_file", "read_multiple_files",
                         "write_file",
                         "edit_file",
                         "list_directory"

@@ -4,9 +4,11 @@ The `thinksuit/mu` module provides filesystem tools via the MCP (Model Context P
 
 ## Default Enabled Tools
 
-These 8 tools are enabled by default when using the core module:
+These 10 tools are enabled by default when using the core module:
 
-- **`read_file`** - Read the complete contents of a file
+- **`read_text_file`** - Read text file contents
+- **`read_media_file`** - Read binary/media file contents
+- **`read_multiple_files`** - Read multiple files at once
 - **`write_file`** - Create a new file or overwrite an existing one
 - **`edit_file`** - Modify specific parts of an existing file
 - **`list_directory`** - List files and subdirectories in a directory
@@ -19,9 +21,6 @@ These 8 tools are enabled by default when using the core module:
 
 These additional tools are discovered from the MCP filesystem server and can be enabled via the `--tools` flag:
 
-- **`read_text_file`** - Optimized reading for text files with encoding detection
-- **`read_media_file`** - Read binary/media files with base64 encoding
-- **`read_multiple_files`** - Batch read multiple files in a single operation
 - **`list_directory_with_sizes`** - List directory with file sizes and metadata
 - **`get_file_info`** - Get detailed metadata about a specific file
 - **`list_allowed_directories`** - Show which directories the MCP server can access
@@ -35,10 +34,10 @@ These additional tools are discovered from the MCP filesystem server and can be 
 npm run exec -- "List the files in this directory"
 
 # Specify specific tools
-npm run exec -- --tools=read_file,list_directory "Show me what's here"
+npm run exec -- --tools=read_text_file,read_media_file,read_multiple_files,list_directory "Show me what's here"
 
 # Use all available tools
-npm run exec -- --tools=read_file,write_file,edit_file,list_directory,directory_tree,create_directory,move_file,search_files,read_text_file,read_media_file,read_multiple_files,list_directory_with_sizes,get_file_info,list_allowed_directories "Analyze this codebase"
+npm run exec -- --tools=read_text_file,read_media_file,read_multiple_files,write_file,edit_file,list_directory,directory_tree,create_directory,move_file,search_files,list_directory_with_sizes,get_file_info,list_allowed_directories "Analyze this codebase"
 ```
 
 ### Tool Discovery
@@ -89,7 +88,9 @@ mcpServers: {
 },
 tools: [
     // filesystem tools
-    'read_file',
+    'read_text_file',
+    'read_media_file',
+    'read_multiple_files',
     'write_file',
     // git tools
     'git_status',

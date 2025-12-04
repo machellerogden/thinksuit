@@ -1,9 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 describe('Provider Abstraction', () => {
-    describe('Vertex AI Provider', () => {
-        let mockGenerativeModel;
-        let mockVertexAI;
+    describe('Google Provider', () => {
+        let mockGenerateContent;
         let mockMachineContext;
 
         beforeEach(async () => {
@@ -13,8 +12,8 @@ describe('Provider Abstraction', () => {
             // Create mock machine context with logger
             mockMachineContext = {
                 config: {
-                    provider: 'vertex-ai',
-                    googleCloud: {
+                    provider: 'google',
+                    google: {
                         projectId: 'test-project',
                         location: 'us-central1'
                     }
@@ -27,53 +26,47 @@ describe('Provider Abstraction', () => {
                 }
             };
 
-            // Mock generative model
-            mockGenerativeModel = {
-                generateContent: vi.fn()
-            };
-
-            // Mock VertexAI class
-            mockVertexAI = {
-                getGenerativeModel: vi.fn().mockReturnValue(mockGenerativeModel)
-            };
+            // Mock generateContent function
+            mockGenerateContent = vi.fn();
         });
 
         describe('callLLM interface', () => {
             it('should transform standard request correctly for gemini-2.5-pro', async () => {
-                // Mock Vertex AI response
-                mockGenerativeModel.generateContent.mockResolvedValue({
-                    response: {
-                        candidates: [
-                            {
-                                content: {
-                                    parts: [{ text: 'Test response' }]
-                                },
-                                finishReason: 'STOP'
-                            }
-                        ],
-                        usageMetadata: {
-                            promptTokenCount: 100,
-                            candidatesTokenCount: 50
-                        },
-                        modelVersion: 'gemini-2.5-pro-001'
-                    }
+                // Mock Google GenAI response
+                mockGenerateContent.mockResolvedValue({
+                    candidates: [
+                        {
+                            content: {
+                                parts: [{ text: 'Test response' }]
+                            },
+                            finishReason: 'STOP'
+                        }
+                    ],
+                    usageMetadata: {
+                        promptTokenCount: 100,
+                        candidatesTokenCount: 50
+                    },
+                    modelVersion: 'gemini-2.5-pro-001'
                 });
 
-                // Mock VertexAI constructor
-                vi.doMock('@google-cloud/vertexai', () => ({
-                    VertexAI: class VertexAI {
+                // Mock GoogleGenAI constructor
+                vi.doMock('@google/genai', () => ({
+                    GoogleGenAI: class GoogleGenAI {
                         constructor(config) {
+                            expect(config.vertexai).toBe(true);
                             expect(config.project).toBe('test-project');
                             expect(config.location).toBe('us-central1');
-                            return mockVertexAI;
                         }
+                        models = {
+                            generateContent: mockGenerateContent
+                        };
                     }
                 }));
 
-                const { createVertexAIProvider } = await import(
-                    '../../../engine/providers/vertex-ai.js'
+                const { createGoogleProvider } = await import(
+                    '../../../engine/providers/google.js'
                 );
-                const provider = createVertexAIProvider({
+                const provider = createGoogleProvider({
                     projectId: 'test-project',
                     location: 'us-central1'
                 });
@@ -90,18 +83,19 @@ describe('Provider Abstraction', () => {
                 });
 
                 // Check the API was called with correct transform
-                expect(mockGenerativeModel.generateContent).toHaveBeenCalledWith(
+                expect(mockGenerateContent).toHaveBeenCalledWith(
                     expect.objectContaining({
-                        systemInstruction: {
-                            role: 'user',
-                            parts: [{ text: 'You are a helpful assistant' }]
-                        },
+                        model: 'gemini-2.5-pro',
                         contents: [{ role: 'user', parts: [{ text: 'Hello world' }] }],
-                        generationConfig: {
+                        config: expect.objectContaining({
+                            systemInstruction: {
+                                role: 'user',
+                                parts: [{ text: 'You are a helpful assistant' }]
+                            },
                             maxOutputTokens: 1000,
                             temperature: 0.7,
                             stopSequences: ['\n\n']
-                        }
+                        })
                     })
                 );
 
@@ -117,36 +111,35 @@ describe('Provider Abstraction', () => {
             });
 
             it('should handle responses without system prompt', async () => {
-                mockGenerativeModel.generateContent.mockResolvedValue({
-                    response: {
-                        candidates: [
-                            {
-                                content: {
-                                    parts: [{ text: 'Response' }]
-                                },
-                                finishReason: 'STOP'
-                            }
-                        ],
-                        usageMetadata: {
-                            promptTokenCount: 50,
-                            candidatesTokenCount: 25
-                        },
-                        modelVersion: 'gemini-2.5-pro'
-                    }
+                mockGenerateContent.mockResolvedValue({
+                    candidates: [
+                        {
+                            content: {
+                                parts: [{ text: 'Response' }]
+                            },
+                            finishReason: 'STOP'
+                        }
+                    ],
+                    usageMetadata: {
+                        promptTokenCount: 50,
+                        candidatesTokenCount: 25
+                    },
+                    modelVersion: 'gemini-2.5-pro'
                 });
 
-                vi.doMock('@google-cloud/vertexai', () => ({
-                    VertexAI: class VertexAI {
-                        constructor() {
-                            return mockVertexAI;
-                        }
+                vi.doMock('@google/genai', () => ({
+                    GoogleGenAI: class GoogleGenAI {
+                        constructor() {}
+                        models = {
+                            generateContent: mockGenerateContent
+                        };
                     }
                 }));
 
-                const { createVertexAIProvider } = await import(
-                    '../../../engine/providers/vertex-ai.js'
+                const { createGoogleProvider } = await import(
+                    '../../../engine/providers/google.js'
                 );
-                const provider = createVertexAIProvider({
+                const provider = createGoogleProvider({
                     projectId: 'test-project',
                     location: 'us-central1'
                 });
@@ -157,53 +150,52 @@ describe('Provider Abstraction', () => {
                     maxTokens: 500
                 });
 
-                const callArgs = mockGenerativeModel.generateContent.mock.calls[0][0];
+                const callArgs = mockGenerateContent.mock.calls[0][0];
 
-                // Should only have user message, no systemInstruction
-                expect(callArgs.systemInstruction).toBeUndefined();
+                // Should only have user message, no systemInstruction in config
+                expect(callArgs.config.systemInstruction).toBeUndefined();
                 expect(callArgs.contents).toEqual([
                     { role: 'user', parts: [{ text: 'Just a user message' }] }
                 ]);
             });
 
             it('should handle tool calls when provided', async () => {
-                mockGenerativeModel.generateContent.mockResolvedValue({
-                    response: {
-                        candidates: [
-                            {
-                                content: {
-                                    parts: [
-                                        {
-                                            functionCall: {
-                                                name: 'test_tool',
-                                                args: { param: 'value' }
-                                            }
+                mockGenerateContent.mockResolvedValue({
+                    candidates: [
+                        {
+                            content: {
+                                parts: [
+                                    {
+                                        functionCall: {
+                                            name: 'test_tool',
+                                            args: { param: 'value' }
                                         }
-                                    ]
-                                },
-                                finishReason: 'STOP'
-                            }
-                        ],
-                        usageMetadata: {
-                            promptTokenCount: 200,
-                            candidatesTokenCount: 100
-                        },
-                        modelVersion: 'gemini-2.5-pro'
-                    }
+                                    }
+                                ]
+                            },
+                            finishReason: 'STOP'
+                        }
+                    ],
+                    usageMetadata: {
+                        promptTokenCount: 200,
+                        candidatesTokenCount: 100
+                    },
+                    modelVersion: 'gemini-2.5-pro'
                 });
 
-                vi.doMock('@google-cloud/vertexai', () => ({
-                    VertexAI: class VertexAI {
-                        constructor() {
-                            return mockVertexAI;
-                        }
+                vi.doMock('@google/genai', () => ({
+                    GoogleGenAI: class GoogleGenAI {
+                        constructor() {}
+                        models = {
+                            generateContent: mockGenerateContent
+                        };
                     }
                 }));
 
-                const { createVertexAIProvider } = await import(
-                    '../../../engine/providers/vertex-ai.js'
+                const { createGoogleProvider } = await import(
+                    '../../../engine/providers/google.js'
                 );
-                const provider = createVertexAIProvider({
+                const provider = createGoogleProvider({
                     projectId: 'test-project',
                     location: 'us-central1'
                 });
@@ -232,25 +224,27 @@ describe('Provider Abstraction', () => {
                     maxTokens: 1000
                 });
 
-                // Should transform tools to Vertex AI format
-                expect(mockGenerativeModel.generateContent).toHaveBeenCalledWith(
+                // Should transform tools to Google GenAI format with parametersJsonSchema
+                expect(mockGenerateContent).toHaveBeenCalledWith(
                     expect.objectContaining({
-                        tools: [
-                            {
-                                functionDeclarations: [
-                                    {
-                                        name: 'test_tool',
-                                        description: 'A test tool',
-                                        parameters: {
-                                            type: 'object',
-                                            properties: {
-                                                param: { type: 'string' }
+                        config: expect.objectContaining({
+                            tools: [
+                                {
+                                    functionDeclarations: [
+                                        {
+                                            name: 'test_tool',
+                                            description: 'A test tool',
+                                            parametersJsonSchema: {
+                                                type: 'object',
+                                                properties: {
+                                                    param: { type: 'string' }
+                                                }
                                             }
                                         }
-                                    }
-                                ]
-                            }
-                        ]
+                                    ]
+                                }
+                            ]
+                        })
                     })
                 );
 
@@ -267,36 +261,35 @@ describe('Provider Abstraction', () => {
             });
 
             it('should handle assistant messages with tool calls in thread', async () => {
-                mockGenerativeModel.generateContent.mockResolvedValue({
-                    response: {
-                        candidates: [
-                            {
-                                content: {
-                                    parts: [{ text: 'Continuing conversation' }]
-                                },
-                                finishReason: 'STOP'
-                            }
-                        ],
-                        usageMetadata: {
-                            promptTokenCount: 150,
-                            candidatesTokenCount: 50
-                        },
-                        modelVersion: 'gemini-2.5-pro'
-                    }
+                mockGenerateContent.mockResolvedValue({
+                    candidates: [
+                        {
+                            content: {
+                                parts: [{ text: 'Continuing conversation' }]
+                            },
+                            finishReason: 'STOP'
+                        }
+                    ],
+                    usageMetadata: {
+                        promptTokenCount: 150,
+                        candidatesTokenCount: 50
+                    },
+                    modelVersion: 'gemini-2.5-pro'
                 });
 
-                vi.doMock('@google-cloud/vertexai', () => ({
-                    VertexAI: class VertexAI {
-                        constructor() {
-                            return mockVertexAI;
-                        }
+                vi.doMock('@google/genai', () => ({
+                    GoogleGenAI: class GoogleGenAI {
+                        constructor() {}
+                        models = {
+                            generateContent: mockGenerateContent
+                        };
                     }
                 }));
 
-                const { createVertexAIProvider } = await import(
-                    '../../../engine/providers/vertex-ai.js'
+                const { createGoogleProvider } = await import(
+                    '../../../engine/providers/google.js'
                 );
-                const provider = createVertexAIProvider({
+                const provider = createGoogleProvider({
                     projectId: 'test-project',
                     location: 'us-central1'
                 });
@@ -322,7 +315,7 @@ describe('Provider Abstraction', () => {
                     maxTokens: 500
                 });
 
-                const callArgs = mockGenerativeModel.generateContent.mock.calls[0][0];
+                const callArgs = mockGenerateContent.mock.calls[0][0];
 
                 // Check thread transformation
                 expect(callArgs.contents).toHaveLength(3);
@@ -359,21 +352,21 @@ describe('Provider Abstraction', () => {
 
         describe('getCapabilities', () => {
             it('should return correct capabilities for known models', async () => {
-                vi.doMock('@google-cloud/vertexai', () => ({
-                    VertexAI: class VertexAI {}
+                vi.doMock('@google/genai', () => ({
+                    GoogleGenAI: class GoogleGenAI {}
                 }));
 
-                const { createVertexAIProvider } = await import(
-                    '../../../engine/providers/vertex-ai.js'
+                const { createGoogleProvider } = await import(
+                    '../../../engine/providers/google.js'
                 );
-                const provider = createVertexAIProvider({
+                const provider = createGoogleProvider({
                     projectId: 'test-project',
                     location: 'us-central1'
                 });
 
                 expect(provider.getCapabilities('gemini-2.5-pro')).toEqual({
                     maxContext: 1000000,
-                    maxOutput: 8192,
+                    maxOutput: 65535,
                     supports: { toolCalls: true, temperature: true }
                 });
 
@@ -391,14 +384,14 @@ describe('Provider Abstraction', () => {
             });
 
             it('should return default capabilities for unknown models', async () => {
-                vi.doMock('@google-cloud/vertexai', () => ({
-                    VertexAI: class VertexAI {}
+                vi.doMock('@google/genai', () => ({
+                    GoogleGenAI: class GoogleGenAI {}
                 }));
 
-                const { createVertexAIProvider } = await import(
-                    '../../../engine/providers/vertex-ai.js'
+                const { createGoogleProvider } = await import(
+                    '../../../engine/providers/google.js'
                 );
-                const provider = createVertexAIProvider({
+                const provider = createGoogleProvider({
                     projectId: 'test-project',
                     location: 'us-central1'
                 });
@@ -413,33 +406,33 @@ describe('Provider Abstraction', () => {
 
         describe('Error handling', () => {
             it('should throw error if projectId is missing', async () => {
-                vi.doMock('@google-cloud/vertexai', () => ({
-                    VertexAI: class VertexAI {}
+                vi.doMock('@google/genai', () => ({
+                    GoogleGenAI: class GoogleGenAI {}
                 }));
 
-                const { createVertexAIProvider } = await import(
-                    '../../../engine/providers/vertex-ai.js'
+                const { createGoogleProvider } = await import(
+                    '../../../engine/providers/google.js'
                 );
 
                 expect(() => {
-                    createVertexAIProvider({});
-                }).toThrow('E_PROVIDER: Vertex AI requires projectId configuration');
+                    createGoogleProvider({});
+                }).toThrow('E_PROVIDER: Google provider requires projectId configuration');
             });
         });
     });
 
     describe('Provider Factory', () => {
-        it('should create Vertex AI provider', async () => {
-            vi.doMock('@google-cloud/vertexai', () => ({
-                VertexAI: class VertexAI {}
+        it('should create Google provider', async () => {
+            vi.doMock('@google/genai', () => ({
+                GoogleGenAI: class GoogleGenAI {}
             }));
 
             const { createProvider } = await import('../../../engine/providers/index.js');
 
             const provider = createProvider({
-                provider: 'vertex-ai',
+                provider: 'google',
                 providerConfig: {
-                    vertexAi: {
+                    google: {
                         projectId: 'test-project',
                         location: 'us-central1'
                     }
