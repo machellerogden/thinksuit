@@ -50,8 +50,8 @@ export async function* statusCommand(args, session) {
         const frameInfo = session.frameCycling.frameList[session.frameCycling.currentIndex];
         yield fx('output', `  ${chalk.bold('Frame:')} ${frameInfo.name}${frameInfo.description ? ` - ${frameInfo.description}` : ''}`);
     } else if (thinkSuit.frame?.text) {
-        // Fallback to inline frame from config
-        yield fx('output', `  ${chalk.bold('Frame:')} ${chalk.dim(`(inline - ${thinkSuit.frame.text.length} chars)`)}`);
+        // Frame from --frame CLI flag
+        yield fx('output', `  ${chalk.bold('Frame:')} ${thinkSuit.frame.name}${thinkSuit.frame.description ? ` - ${thinkSuit.frame.description}` : ''}`);
     } else {
         yield fx('output', `  ${chalk.bold('Frame:')} ${chalk.dim('(none)')}`);
     }
@@ -444,7 +444,7 @@ export async function* frameCommand(args, session) {
     if (!subcommand || subcommand === 'show') {
         // Show current frame
         if (session.thinkSuit.frame?.text) {
-            yield fx('output', chalk.bold.cyan('Frame:'));
+            yield fx('output', chalk.bold.cyan(`Frame: ${session.thinkSuit.frame.name || '(unnamed)'}`));
             yield fx('output', '');
             yield fx('output', indentLines(session.thinkSuit.frame.text, 2));
         } else {
@@ -462,7 +462,7 @@ export async function* frameCommand(args, session) {
                 yield fx('output', chalk.dim('Frame not cleared'));
                 return true;
             }
-            session.thinkSuit.frame = { text: '' };
+            session.thinkSuit.frame = null;
             yield fx('output', chalk.green('Frame cleared'));
         } else {
             yield fx('output', chalk.dim('No frame to clear'));

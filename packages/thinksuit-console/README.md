@@ -92,6 +92,11 @@ thinksuit-console/
 - URL-based routing for deep linking
 - Collapsible sidebar with search
 
+### Session Controls
+- Interactive preset and frame management
+- Create, edit, and delete user presets and frames
+- Configure execution parameters (model, tools, depth, etc.)
+
 ### Data Visualization
 - Color-coded data types (Signals, Roles, Plans, etc.)
 - Expandable detail views

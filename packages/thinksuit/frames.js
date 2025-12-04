@@ -7,6 +7,7 @@ import { DEFAULT_CONFIG_FILE } from './engine/constants/defaults.js';
 /**
  * Load frames for a given module
  * Merges module frames with user-defined frames from config file
+ * User frames are stored as a flat array (module-agnostic)
  *
  * @param {string} moduleName - Full module name (e.g., 'thinksuit/mu')
  * @param {Object} module - Module object with frames property
@@ -27,15 +28,15 @@ export async function loadFrames(moduleName, module) {
         });
     }
 
-    // 2. Load user frames from config file
+    // 2. Load user frames from config file (flat array, module-agnostic)
     const configPath = join(homedir(), DEFAULT_CONFIG_FILE);
     try {
         await access(configPath, constants.F_OK);
         const configContent = await readFile(configPath, 'utf-8');
         const config = JSON.parse(configContent);
 
-        // User frames are stored per-module
-        const userFrames = config.frames?.[moduleName] || [];
+        // User frames stored as flat array
+        const userFrames = Array.isArray(config.frames) ? config.frames : [];
         for (const frame of userFrames) {
             frames.push({
                 ...frame,
@@ -67,12 +68,12 @@ export async function getFrame(frameId, moduleName, module) {
 
 /**
  * Save a user frame to config file
+ * Frames are stored as a flat array (module-agnostic)
  *
- * @param {string} moduleName - Full module name
  * @param {Object} frame - Frame object { id, name, description, text }
  * @returns {Promise<Object>} { success: boolean, error?: string }
  */
-export async function saveFrame(moduleName, frame) {
+export async function saveFrame(frame) {
     const configPath = join(homedir(), DEFAULT_CONFIG_FILE);
 
     try {
@@ -89,33 +90,27 @@ export async function saveFrame(moduleName, frame) {
             }
         }
 
-        // Ensure frames structure exists
-        if (!config.frames) {
-            config.frames = {};
-        }
-        if (!config.frames[moduleName]) {
-            config.frames[moduleName] = [];
+        // Ensure frames is a flat array
+        if (!Array.isArray(config.frames)) {
+            config.frames = [];
         }
 
         // Check if frame with this ID already exists
-        const existingIndex = config.frames[moduleName].findIndex(f => f.id === frame.id);
+        const existingIndex = config.frames.findIndex(f => f.id === frame.id);
+
+        const frameData = {
+            id: frame.id,
+            name: frame.name,
+            description: frame.description || '',
+            text: frame.text
+        };
 
         if (existingIndex >= 0) {
             // Update existing frame
-            config.frames[moduleName][existingIndex] = {
-                id: frame.id,
-                name: frame.name,
-                description: frame.description || '',
-                text: frame.text
-            };
+            config.frames[existingIndex] = frameData;
         } else {
             // Add new frame
-            config.frames[moduleName].push({
-                id: frame.id,
-                name: frame.name,
-                description: frame.description || '',
-                text: frame.text
-            });
+            config.frames.push(frameData);
         }
 
         // Write back to file
@@ -131,11 +126,10 @@ export async function saveFrame(moduleName, frame) {
  * Delete a user frame from config file
  * Module frames cannot be deleted
  *
- * @param {string} moduleName - Full module name
  * @param {string} frameId - Frame ID to delete
  * @returns {Promise<Object>} { success: boolean, error?: string }
  */
-export async function deleteFrame(moduleName, frameId) {
+export async function deleteFrame(frameId) {
     const configPath = join(homedir(), DEFAULT_CONFIG_FILE);
 
     try {
@@ -148,17 +142,17 @@ export async function deleteFrame(moduleName, frameId) {
         const configContent = await readFile(configPath, 'utf-8');
         const config = JSON.parse(configContent);
 
-        if (!config.frames?.[moduleName]) {
-            return { success: false, error: 'No frames found for this module' };
+        if (!Array.isArray(config.frames)) {
+            return { success: false, error: 'No frames found' };
         }
 
         // Find and remove frame
-        const index = config.frames[moduleName].findIndex(f => f.id === frameId);
+        const index = config.frames.findIndex(f => f.id === frameId);
         if (index < 0) {
             return { success: false, error: 'Frame not found' };
         }
 
-        config.frames[moduleName].splice(index, 1);
+        config.frames.splice(index, 1);
 
         // Write back to file
         await writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');

@@ -33,8 +33,8 @@ function parseCLI(argv) {
       --max-fanout       Max parallel branches (default: 3)
       --max-children     Max child operations (default: 5)
       --session-id       Session ID to resume or create
-      --preset           Preset plan to use (from module presets)
-      --frame            Frame context text (persistent session context)
+      --preset           Preset name to use
+      --frame            Frame name to use
       --cwd              Working directory for tools (default: current directory)
       --allow-tool       Tool to allow (can be specified multiple times)
       --allow-tools      Comma-separated list of tools to allow
@@ -373,7 +373,7 @@ function buildConfig(options = {}) {
                 ? fileConfig.approvalTimeout
                 : defaults.approvalTimeout,
         input: cli.input[0] || '',
-        frame: cli.flags.frame ? { text: cli.flags.frame } : (fileConfig.frame || null),
+        frame: cli.flags.frame || fileConfig.frame,
         help: cli.flags.help,
         version: cli.flags.version,
         // Expose CLI object for help/version display

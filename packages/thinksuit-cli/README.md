@@ -65,6 +65,20 @@ Create `~/.thinksuit.json`:
 
 You can also configure via environment variables or CLI flags. See the [thinksuit engine documentation](../thinksuit/README.md) for complete configuration options.
 
+## CLI Flags
+
+The CLI accepts the following flags at startup:
+
+```bash
+thinksuit --preset my-preset      # Start with a specific preset
+thinksuit --frame code-review     # Start with a specific frame
+thinksuit --model gpt-4o          # Override model
+thinksuit --provider vertex-ai    # Override provider
+thinksuit --trace                 # Enable tracing
+```
+
+See the [thinksuit engine documentation](../thinksuit/README.md) for all available flags.
+
 ## REPL Commands
 
 The CLI supports several built-in commands:
@@ -86,6 +100,14 @@ The CLI supports several built-in commands:
 ```
 
 **Available config keys:** `module`, `provider`, `model`, `tools`, `maxdepth`, `maxfanout`
+
+### Frame Management
+
+```
+:frame                # Show current frame
+:frame show           # Show current frame content
+:frame clear          # Clear current frame
+```
 
 ### Utilities
 
@@ -144,6 +166,8 @@ The CLI is designed to respect your terminal. All conversation history remains i
 - `CTRL+C` (twice) - Exit REPL (first press shows hint, 3-second timeout)
 - `ESC` - Interrupt ThinkSuit execution when busy
 - `Enter` - Submit input
+- `Shift+Tab` - Cycle through available presets
+- `CTRL+N` / `CTRL+P` - Cycle through available frames
 
 ## Examples
 

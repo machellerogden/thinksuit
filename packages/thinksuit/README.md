@@ -290,6 +290,8 @@ ThinkSuit supports multiple configuration sources with the following precedence:
 --max-fanout      Max parallel branches (default: 3)
 --max-children    Max child operations (default: 5)
 --session-id      Session ID to resume or validate
+--preset          Preset name to use (from module or user presets)
+--frame           Frame name to use (persistent context)
 --trace           Enable execution tracing
 --silent          Suppress all logging
 --verbose, -v     Verbose logging
@@ -397,6 +399,48 @@ thinksuit-exec --preset my-custom-preset "Analyze this code"
 - Or manually edit `~/.thinksuit.json` and add presets to the `presets[moduleName]` array
 
 See `config.example.json` for a complete example.
+
+### Frames
+
+Frames provide persistent context that applies to all interactions within a session. Unlike presets (which define execution plans), frames inject contextual information into the system instructions.
+
+Frames are stored in `~/.thinksuit.json` as a flat array (not module-namespaced):
+
+```json
+{
+    "frames": [
+        {
+            "id": "code-review",
+            "name": "Code Review Context",
+            "description": "Context for reviewing pull requests",
+            "text": "You are reviewing code in a TypeScript monorepo. Focus on type safety, error handling, and maintainability."
+        },
+        {
+            "id": "docs-writer",
+            "name": "Documentation Writer",
+            "description": "Context for writing documentation",
+            "text": "Write clear, concise documentation. Use examples where helpful. Target audience is developers familiar with JavaScript."
+        }
+    ]
+}
+```
+
+**Using frames:**
+
+```bash
+# Use a frame from the command line
+thinksuit-exec --frame code-review "Review this function"
+
+# Frames can be combined with presets
+thinksuit-exec --frame docs-writer --preset task "Document this module"
+```
+
+**Creating frames:**
+
+- Use the ThinkSuit Console UI to create and save frames interactively
+- Or manually edit `~/.thinksuit.json` and add frames to the `frames` array
+
+Modules can also define built-in frames which are merged with user frames at runtime.
 
 ## Development
 

@@ -8,7 +8,7 @@ import MuteStream from 'mute-stream';
 import chalk from 'chalk';
 import { buildConfig } from '../../thinksuit/engine/config.js';
 import { loadPresets } from '../../thinksuit/presets.js';
-import { loadFrames } from '../../thinksuit/frames.js';
+import { loadFrames, getFrame } from '../../thinksuit/frames.js';
 import pkg from '../package.json' with { type: 'json' };
 
 import { ControlDock } from './lib/control-dock.js';
@@ -50,13 +50,23 @@ async function main() {
         presets[preset.id] = preset;
     }
 
-    // Load frames using centralized API (merges module + user frames)
+    // Load frames (merges module frames with user frames)
     const frameList = await loadFrames(moduleName, currentModule);
 
     // Build frames lookup map for frame cycling
     const frames = {};
     for (const frame of frameList) {
         frames[frame.id] = frame;
+    }
+
+    // Resolve frame if specified by name via CLI/config
+    let initialFrame = null;
+    if (baseConfig.frame) {
+        initialFrame = await getFrame(baseConfig.frame, moduleName, currentModule);
+        if (!initialFrame) {
+            console.error(chalk.red(`Error: Frame "${baseConfig.frame}" not found`));
+            process.exit(1);
+        }
     }
 
     // Setup history file path
@@ -127,7 +137,7 @@ async function main() {
         thinkSuit: {
             sessionId: null,
             lastTraceId: null,
-            frame: baseConfig.frame || { text: '' },
+            frame: initialFrame,
             config: {
                 module: baseConfig.module,
                 modules: modules,

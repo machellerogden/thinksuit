@@ -31,7 +31,7 @@ export async function GET({ url }) {
             return json({ error: `Module ${moduleName} not found` }, { status: 404 });
         }
 
-        // Load merged frames
+        // Load merged frames (module frames + user frames)
         const frames = await loadFrames(moduleName, module);
 
         return json({ frames });
@@ -43,22 +43,22 @@ export async function GET({ url }) {
 
 /**
  * POST /api/frames
- * Save a user frame
- * Body: { module: string, frame: { id, name, description, text } }
+ * Save a user frame (module-agnostic)
+ * Body: { frame: { id, name, description, text } }
  */
 export async function POST({ request }) {
     try {
-        const { module, frame } = await request.json();
+        const { frame } = await request.json();
 
-        if (!module || !frame) {
-            return json({ error: 'Module and frame required' }, { status: 400 });
+        if (!frame) {
+            return json({ error: 'Frame required' }, { status: 400 });
         }
 
         if (!frame.id || !frame.name || !frame.text) {
             return json({ error: 'Frame must have id, name, and text' }, { status: 400 });
         }
 
-        const result = await saveFrame(module, frame);
+        const result = await saveFrame(frame);
 
         if (!result.success) {
             return json({ error: result.error }, { status: 500 });
@@ -72,19 +72,18 @@ export async function POST({ request }) {
 }
 
 /**
- * DELETE /api/frames?module=thinksuit/mu&id=my-frame
+ * DELETE /api/frames?id=my-frame
  * Delete a user frame (module frames cannot be deleted)
  */
 export async function DELETE({ url }) {
     try {
-        const moduleName = url.searchParams.get('module');
         const frameId = url.searchParams.get('id');
 
-        if (!moduleName || !frameId) {
-            return json({ error: 'Module name and frame ID required' }, { status: 400 });
+        if (!frameId) {
+            return json({ error: 'Frame ID required' }, { status: 400 });
         }
 
-        const result = await deleteFrame(moduleName, frameId);
+        const result = await deleteFrame(frameId);
 
         if (!result.success) {
             return json({ error: result.error }, { status: 500 });

@@ -365,19 +365,19 @@ describe('Provider Abstraction', () => {
                 });
 
                 expect(provider.getCapabilities('gemini-2.5-pro')).toEqual({
-                    maxContext: 1000000,
-                    maxOutput: 65535,
+                    maxContext: 1048576,
+                    maxOutput: 65536,
                     supports: { toolCalls: true, temperature: true }
                 });
 
                 expect(provider.getCapabilities('gemini-2.0-flash')).toEqual({
-                    maxContext: 1000000,
+                    maxContext: 1048576,
                     maxOutput: 8192,
                     supports: { toolCalls: true, temperature: true }
                 });
 
                 expect(provider.getCapabilities('gemini-1.5-pro')).toEqual({
-                    maxContext: 2000000,
+                    maxContext: 2097152,
                     maxOutput: 8192,
                     supports: { toolCalls: true, temperature: true }
                 });

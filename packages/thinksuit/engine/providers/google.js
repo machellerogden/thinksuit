@@ -2,34 +2,40 @@ import { GoogleGenAI } from '@google/genai';
 import { PROCESSING_EVENTS } from '../constants/events.js';
 
 // Model metadata for capabilities
+// Sources: https://ai.google.dev/gemini-api/docs/models
 const MODEL_METADATA = {
+    'gemini-3-pro-preview': {
+        maxContext: 1048576,
+        maxOutput: 65536,
+        supports: { toolCalls: true, temperature: true }
+    },
     'gemini-2.5-pro': {
-        maxContext: 1000000,
-        maxOutput: 65535,
+        maxContext: 1048576,
+        maxOutput: 65536,
         supports: { toolCalls: true, temperature: true }
     },
     'gemini-2.5-flash': {
-        maxContext: 1000000,
-        maxOutput: 65535,
+        maxContext: 1048576,
+        maxOutput: 65536,
         supports: { toolCalls: true, temperature: true }
     },
     'gemini-2.0-flash': {
-        maxContext: 1000000,
+        maxContext: 1048576,
         maxOutput: 8192,
         supports: { toolCalls: true, temperature: true }
     },
     'gemini-2.0-flash-lite': {
-        maxContext: 1000000,
+        maxContext: 1048576,
         maxOutput: 8192,
         supports: { toolCalls: true, temperature: true }
     },
     'gemini-1.5-pro': {
-        maxContext: 2000000,
+        maxContext: 2097152,
         maxOutput: 8192,
         supports: { toolCalls: true, temperature: true }
     },
     'gemini-1.5-flash': {
-        maxContext: 1000000,
+        maxContext: 1048576,
         maxOutput: 8192,
         supports: { toolCalls: true, temperature: true }
     }

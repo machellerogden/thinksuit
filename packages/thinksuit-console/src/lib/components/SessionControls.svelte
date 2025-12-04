@@ -28,7 +28,7 @@
 
     // Preset display state
     let presetsExpanded = $state(false);
-    const MAX_VISIBLE_PRESETS = 5;
+    const MAX_VISIBLE_PRESETS = 3;
 
     // Preset editor modal state
     let showPresetEditor = $state(false);
@@ -156,7 +156,7 @@
                     userPresets = presets.filter(p => p.source === 'user');
                 }
 
-                // Load frames
+                // Load frames (merges module frames with user frames)
                 const framesResponse = await fetch(`/api/frames?module=${encodeURIComponent(currentModule)}`);
                 if (framesResponse.ok) {
                     const { frames } = await framesResponse.json();
@@ -352,15 +352,10 @@
                 text: frame.text
             };
 
-            const currentModule = `${moduleMetadata.namespace}/${moduleMetadata.name}`;
-
             const response = await fetch('/api/frames', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    module: currentModule,
-                    frame: newFrame
-                })
+                body: JSON.stringify({ frame: newFrame })
             });
 
             if (!response.ok) {
@@ -368,6 +363,7 @@
             }
 
             // Reload frames
+            const currentModule = `${moduleMetadata.namespace}/${moduleMetadata.name}`;
             const framesResponse = await fetch(`/api/frames?module=${encodeURIComponent(currentModule)}`);
             if (framesResponse.ok) {
                 const { frames } = await framesResponse.json();
@@ -403,9 +399,7 @@
         }
 
         try {
-            const currentModule = `${moduleMetadata.namespace}/${moduleMetadata.name}`;
-
-            const response = await fetch(`/api/frames?module=${encodeURIComponent(currentModule)}&id=${encodeURIComponent(frameId)}`, {
+            const response = await fetch(`/api/frames?id=${encodeURIComponent(frameId)}`, {
                 method: 'DELETE'
             });
 
@@ -414,6 +408,7 @@
             }
 
             // Reload frames
+            const currentModule = `${moduleMetadata.namespace}/${moduleMetadata.name}`;
             const framesResponse = await fetch(`/api/frames?module=${encodeURIComponent(currentModule)}`);
             if (framesResponse.ok) {
                 const { frames } = await framesResponse.json();
@@ -866,7 +861,7 @@
                 bind:this={textareaComponent}
                 id="input"
                 bind:value={input}
-                rows={8}
+                rows={6}
                 placeholder="Enter your message..."
                 disabled={isSubmitting}
                 onkeydown={(e) => {
@@ -878,7 +873,7 @@
             />
             <Button
                 variant="primary"
-                size="md"
+                size="sm"
                 disabled={isDisabled}
                 onclick={handleSubmit}
                 class="w-full"

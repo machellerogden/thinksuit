@@ -10,6 +10,7 @@ import { loadModules } from './modules/loader.js';
 import { modules as defaultModules } from 'thinksuit-modules';
 import { flushAllSessionStreams } from './transports/session-router.js';
 import { getPreset } from '../presets.js';
+import { getFrame } from '../frames.js';
 
 /**
  * Output message respecting CLI output mode
@@ -92,12 +93,12 @@ async function main() {
         modules = defaultModules;
     }
 
+    const moduleName = config.module || 'thinksuit/mu';
+    const currentModule = modules[moduleName];
+
     // Resolve preset if specified (interface-level concern)
     let selectedPlan = config.selectedPlan; // May come from config file
     if (config.preset) {
-        const moduleName = config.module || 'thinksuit/mu';
-        const currentModule = modules[moduleName];
-
         const preset = await getPreset(config.preset, moduleName, currentModule);
         if (!preset) {
             console.error(`Error: Preset "${config.preset}" not found`);
@@ -108,6 +109,17 @@ async function main() {
         selectedPlan = preset.plan;
         if (!selectedPlan) {
             console.error(`Error: Preset "${config.preset}" has no plan defined`);
+            process.exit(1);
+        }
+    }
+
+    // Resolve frame if specified (interface-level concern)
+    let frame = null;
+    if (config.frame) {
+        frame = await getFrame(config.frame, moduleName, currentModule);
+        if (!frame) {
+            console.error(`Error: Frame "${config.frame}" not found`);
+            console.error(`Run with --help to see available options`);
             process.exit(1);
         }
     }
@@ -134,7 +146,7 @@ async function main() {
         trace: config.trace,
         sessionId: config.sessionId,
         selectedPlan, // Pass resolved selectedPlan
-        frame: config.frame, // Pass frame context
+        frame, // Pass resolved frame
         logger // Pass the pre-configured logger
     };
 
