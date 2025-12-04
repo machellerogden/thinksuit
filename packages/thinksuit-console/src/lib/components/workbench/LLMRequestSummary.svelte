@@ -17,12 +17,14 @@
     // Current view from stack
     const currentView = $derived(detailStack[detailStack.length - 1] || null);
 
-    function truncate(text, len = 100) {
+    const DEFAULT_TRUNCATE_LENGTH = 1000;
+
+    function truncate(text, len = DEFAULT_TRUNCATE_LENGTH) {
         if (!text || typeof text !== 'string') return '';
         return text.length > len ? text.slice(0, len) + '...' : text;
     }
 
-    function isTruncated(text, len) {
+    function isTruncated(text, len = DEFAULT_TRUNCATE_LENGTH) {
         return text && typeof text === 'string' && text.length > len;
     }
 
@@ -85,12 +87,12 @@
                                 <span class="text-xs text-gray-400">({item.semantic})</span>
                             {/if}
                         </div>
-                        {#if isTruncated(item.content, 150)}
+                        {#if isTruncated(item.content)}
                             <p
                                 class="text-sm text-gray-600 cursor-pointer hover:text-indigo-600 transition-colors"
                                 onclick={() => drillToMessage(item, i)}
                             >
-                                {truncate(item.content, 150)}
+                                {truncate(item.content)}
                             </p>
                         {:else}
                             <p class="text-sm text-gray-600">{item.content || ''}</p>
@@ -106,12 +108,12 @@
                             <code class="text-sm text-gray-700 bg-gray-100 px-1 rounded">{item.name}</code>
                         </div>
                         {#if item.arguments}
-                            {#if isTruncated(item.arguments, 100)}
+                            {#if isTruncated(item.arguments)}
                                 <p
                                     class="text-xs text-gray-500 mt-1 font-mono cursor-pointer hover:text-teal-600 transition-colors"
                                     onclick={() => drillToMessage(item, i)}
                                 >
-                                    {truncate(item.arguments, 100)}
+                                    {truncate(item.arguments)}
                                 </p>
                             {:else}
                                 <p class="text-xs text-gray-500 mt-1 font-mono">{item.arguments}</p>
@@ -119,12 +121,12 @@
                         {/if}
                     {:else if itemType === 'function_output'}
                         <span class="font-medium text-gray-500">Output:</span>
-                        {#if isTruncated(item.output, 100)}
+                        {#if isTruncated(item.output)}
                             <span
                                 class="text-sm text-gray-600 ml-1 cursor-pointer hover:text-teal-600 transition-colors"
                                 onclick={() => drillToMessage(item, i)}
                             >
-                                {truncate(item.output, 100)}
+                                {truncate(item.output)}
                             </span>
                         {:else}
                             <span class="text-sm text-gray-600 ml-1">{item.output || ''}</span>
