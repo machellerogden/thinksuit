@@ -199,7 +199,7 @@ export const createOpenAIChatCompletionsProvider = (config) => {
             const apiRequest = transformRequest(paramsWithMetadata);
 
             // Log raw request
-            execLogger.debug({
+            execLogger.info({
                 event: PROCESSING_EVENTS.PROVIDER_API_RAW_REQUEST,
                 msg: `${providerName} API raw request`,
                 data: apiRequest
@@ -213,7 +213,7 @@ export const createOpenAIChatCompletionsProvider = (config) => {
             const apiResponse = await client.chat.completions.create(apiRequest, options);
 
             // Log raw response
-            execLogger.debug({
+            execLogger.info({
                 event: PROCESSING_EVENTS.PROVIDER_API_RAW_RESPONSE,
                 msg: `${providerName} API raw response`,
                 data: apiResponse

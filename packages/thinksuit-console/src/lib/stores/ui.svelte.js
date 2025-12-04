@@ -12,7 +12,9 @@ const uiState = new LocalStorage('thinksuit-ui-state', {
     terminalPosition: 'bottom',
     terminalSizeVertical: 300,
     terminalSizeHorizontal: 800,
-    terminalFullscreen: false
+    terminalFullscreen: false,
+    presetOrder: [],  // Array of preset names for custom sort order
+    frameOrder: []    // Array of frame names for custom sort order
 });
 
 // Create a proxy that always forwards to the current state

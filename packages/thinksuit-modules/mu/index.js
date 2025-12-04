@@ -88,6 +88,7 @@ const mu = {
     rules,
     composeInstructions,
     presets,
+    frames: [],  // Forward-looking: will contain named frame definitions
 
     orchestration: {
         formatResponse: (results) => {

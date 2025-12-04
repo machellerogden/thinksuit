@@ -21,3 +21,4 @@ export { detectSignalsCore as detectSignals } from './engine/handlers/detectSign
 export { loadModule } from './engine/run.js';
 export { callLLM } from './engine/providers/io.js';
 export { loadPresets, getPreset, savePreset, deletePreset } from './presets.js';
+export { loadFrames, getFrame, saveFrame, deleteFrame } from './frames.js';

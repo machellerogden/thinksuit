@@ -25,6 +25,7 @@
     let trace = $state(false);
     let cwd = $state('');  // Working directory for tools
     let selectedPlan = $state('');  // Manual plan override (JSON string)
+    let frame = $state({ text: '' });  // Session context frame
     let isSubmitting = $state(false);
     let searchFilter = $state('');
     let isCancelling = $state(false);
@@ -142,6 +143,7 @@
                     trace,
                     cwd: cwd.trim() || undefined,  // Include working directory if provided
                     selectedPlan: parsedPlan || undefined,  // Include plan override if provided
+                    frame: frame.text?.trim() ? frame : undefined,  // Include frame if provided
                     sessionId: targetSessionId || undefined
                 })
             });
@@ -425,6 +427,7 @@
                     bind:trace
                     bind:cwd
                     bind:selectedPlan
+                    bind:frame
                     bind:isSubmitting
                     bind:isCancelling
                     onSubmit={handleSubmit}

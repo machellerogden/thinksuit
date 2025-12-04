@@ -9,6 +9,7 @@
     import LLMRequestSummary from './LLMRequestSummary.svelte';
     import LLMResponseSummary from './LLMResponseSummary.svelte';
     import ToolEventSummary from './ToolEventSummary.svelte';
+    import StepEventSummary from './StepEventSummary.svelte';
     import {
         SESSION_EVENTS,
         ORCHESTRATION_EVENTS,
@@ -140,6 +141,7 @@
 
     // Synthetic event type for paired LLM request/response
     const LLM_EXCHANGE = 'processing.llm.exchange';
+    const PROVIDER_API_RAW_EXCHANGE = 'provider.api.raw_exchange';
 
     // Whitelist for intermediate events shown in expanded view
     const WHITELISTED_EVENTS = new Set([
@@ -148,6 +150,8 @@
         EXECUTION_EVENTS.SEQUENTIAL_STEP_COMPLETE,
         PROCESSING_EVENTS.LLM_REQUEST,
         PROCESSING_EVENTS.LLM_RESPONSE,
+        PROCESSING_EVENTS.PROVIDER_API_RAW_REQUEST,
+        PROCESSING_EVENTS.PROVIDER_API_RAW_RESPONSE,
         SYSTEM_EVENTS.BUDGET_EXCEEDED,
         EXECUTION_EVENTS.TOOL_START,
         EXECUTION_EVENTS.TOOL_COMPLETE,
@@ -236,6 +240,31 @@
                 return acc;
             }
 
+            // When we see a request, create an exchange shape
+            if (entry.event === PROCESSING_EVENTS.PROVIDER_API_RAW_REQUEST) {
+                acc.push({
+                    entry: {
+                        ...entry,
+                        event: PROVIDER_API_RAW_EXCHANGE,
+                        request: entry,
+                        response: null
+                    },
+                    originalIndex
+                });
+                return acc;
+            }
+
+            // When we see a response, attach to last pending exchange
+            if (entry.event === PROCESSING_EVENTS.PROVIDER_API_RAW_RESPONSE) {
+                for (let i = acc.length - 1; i >= 0; i--) {
+                    if (acc[i].entry.event === PROVIDER_API_RAW_EXCHANGE && !acc[i].entry.response) {
+                        acc[i].entry.response = entry;
+                        break;
+                    }
+                }
+                return acc;
+            }
+
             acc.push({ entry, originalIndex });
             return acc;
         }, []);
@@ -250,6 +279,10 @@
         return event.event === LLM_EXCHANGE;
     }
 
+    function isProviderApiRawExchange(event) {
+        return event.event === PROVIDER_API_RAW_EXCHANGE;
+    }
+
     function isBudgetExceeded(event) {
         return event.event === SYSTEM_EVENTS.BUDGET_EXCEEDED;
     }
@@ -258,6 +291,11 @@
         return event.event === EXECUTION_EVENTS.TOOL_START ||
                event.event === EXECUTION_EVENTS.TOOL_COMPLETE ||
                event.event === EXECUTION_EVENTS.TOOL_ERROR;
+    }
+
+    function isStepEvent(event) {
+        return event.event === EXECUTION_EVENTS.SEQUENTIAL_STEP_START ||
+               event.event === EXECUTION_EVENTS.SEQUENTIAL_STEP_COMPLETE;
     }
 
     // Events with always-visible labels when expanded
@@ -278,6 +316,8 @@
                 return `Step ${event.step ?? '?'}: ${event.role} - complete`;
             case LLM_EXCHANGE:
                 return event.response ? 'LLM Exchange' : 'LLM Request...';
+            case PROVIDER_API_RAW_EXCHANGE:
+                return event.response ? 'Provider LLM Exchange' : 'Provider LLM Request...';
             case SYSTEM_EVENTS.BUDGET_EXCEEDED:
                 return 'Budget Exceeded';
             case EXECUTION_EVENTS.TOOL_ERROR:
@@ -386,6 +426,10 @@
                                                     </div>
                                                 </EventCard>
                                             </div>
+                                        {:else if isProviderApiRawExchange(entry)}
+                                            <div class="w-full max-w-2xl mt-2">
+                                                <EventCard event={entry} />
+                                            </div>
                                         {:else if isPlan(entry)}
                                             <div class="w-full max-w-2xl mt-2">
                                                 <EventCard event={entry}>
@@ -405,6 +449,12 @@
                                             <div class="w-full max-w-2xl mt-2">
                                                 <EventCard event={entry}>
                                                     <ToolEventSummary event={entry} />
+                                                </EventCard>
+                                            </div>
+                                        {:else if isStepEvent(entry)}
+                                            <div class="w-full max-w-2xl mt-2">
+                                                <EventCard event={entry}>
+                                                    <StepEventSummary event={entry} />
                                                 </EventCard>
                                             </div>
                                         {:else}

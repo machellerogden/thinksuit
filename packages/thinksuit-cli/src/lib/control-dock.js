@@ -14,6 +14,8 @@ export class ControlDock {
     #pasteFilter;
     #currentStatus = '';
     #currentPreset = ''; // Persistent preset indicator
+    #currentFrame = '';  // Persistent frame indicator
+    #cycleTarget = 'none'; // Which group Ctrl+N/P navigates
     #currentHint = '';
     #baseHint = ''; // The persistent mode hint
     #promptColor = 'cyan'; // Default prompt color
@@ -35,6 +37,9 @@ export class ControlDock {
         return new Promise((resolve) => {
             let historyIndex = history.length;
             let lastFirstChar = '';
+
+            // Set initial hint for empty input
+            this.#updateMode('');
 
             // Render initial empty prompt
             this.#render();
@@ -119,7 +124,11 @@ export class ControlDock {
      * Update mode based on first character
      */
     #updateMode(firstChar) {
-        if (firstChar === ':') {
+        if (firstChar === '') {
+            // Empty input - show navigation hint
+            this.#promptColor = 'cyan';
+            this.#baseHint = chalk.dim('  Shift+Tab to change selected control');
+        } else if (firstChar === ':') {
             this.#promptColor = 'yellow';
             this.#baseHint = chalk.yellow('  Command Mode');
         } else if (firstChar === '/') {
@@ -144,11 +153,28 @@ export class ControlDock {
     #render(inputValue = '') {
         const width = readlineWidth(this.#rl.output);
 
-        // Status line - combine status and preset
+        // Status line - combine status, preset, and frame (preset first)
+        // Highlight the active cycle target, show placeholders when nothing selected
         const statusParts = [];
         if (this.#currentStatus) statusParts.push(this.#currentStatus);
-        if (this.#currentPreset) statusParts.push(chalk.dim.cyan(`[${this.#currentPreset}]`));
-        const statusLine = statusParts.length > 0 ? statusParts.join(' ') : '\u200D';
+
+        // Preset indicator - show placeholder if none selected
+        const presetText = this.#currentPreset
+            ? `[${this.#currentPreset}]`
+            : this.#cycleTarget === 'preset'
+                ? '◉ Ctrl+N/P to select a preset'
+                : '○';
+        statusParts.push(this.#cycleTarget === 'preset' ? chalk.cyan(presetText) : chalk.dim.cyan(presetText));
+
+        // Frame indicator - show placeholder if none selected
+        const frameText = this.#currentFrame
+            ? `{${this.#currentFrame}}`
+            : this.#cycleTarget === 'frame'
+                ? '◉ Ctrl+N/P to select a frame'
+                : '○';
+        statusParts.push(this.#cycleTarget === 'frame' ? chalk.magenta(frameText) : chalk.dim.magenta(frameText));
+
+        const statusLine = statusParts.join(' ');
 
         // Top border (dim gray)
         const topBorder = chalk.dim.gray('─'.repeat(width));
@@ -231,6 +257,30 @@ export class ControlDock {
      */
     clearPreset() {
         this.#currentPreset = '';
+        this.#render();
+    }
+
+    /**
+     * Update frame indicator
+     */
+    updateFrame(frameName) {
+        this.#currentFrame = frameName;
+        this.#render();
+    }
+
+    /**
+     * Clear frame indicator
+     */
+    clearFrame() {
+        this.#currentFrame = '';
+        this.#render();
+    }
+
+    /**
+     * Update cycle target (which group Ctrl+N/P navigates)
+     */
+    updateCycleTarget(target) {
+        this.#cycleTarget = target;
         this.#render();
     }
 

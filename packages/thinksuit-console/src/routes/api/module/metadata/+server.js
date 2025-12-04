@@ -49,7 +49,9 @@ export async function GET({ url }) {
                 .filter(key => key.startsWith('adapt.'))
                 .map(key => key.replace('adapt.', '')),
             // Include presets if available
-            presets: module.presets || {}
+            presets: module.presets || {},
+            // Include frames if available
+            frames: module.frames || []
         };
 
         return json(metadata);

@@ -129,6 +129,35 @@
           "required": ["id", "name", "plan"]
         }
       }
+    },
+    "frames": {
+      "type": "object",
+      "description": "User-defined frames organized by module",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Unique frame identifier"
+            },
+            "name": {
+              "type": "string",
+              "description": "Display name for the frame"
+            },
+            "description": {
+              "type": "string",
+              "description": "Description of what this frame provides"
+            },
+            "text": {
+              "type": "string",
+              "description": "Frame content text"
+            }
+          },
+          "required": ["id", "name", "text"]
+        }
+      }
     }
   },
   "additionalProperties": false

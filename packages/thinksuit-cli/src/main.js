@@ -8,6 +8,7 @@ import MuteStream from 'mute-stream';
 import chalk from 'chalk';
 import { buildConfig } from '../../thinksuit/engine/config.js';
 import { loadPresets } from '../../thinksuit/presets.js';
+import { loadFrames } from '../../thinksuit/frames.js';
 import pkg from '../package.json' with { type: 'json' };
 
 import { ControlDock } from './lib/control-dock.js';
@@ -47,6 +48,15 @@ async function main() {
     const presets = {};
     for (const preset of presetList) {
         presets[preset.id] = preset;
+    }
+
+    // Load frames using centralized API (merges module + user frames)
+    const frameList = await loadFrames(moduleName, currentModule);
+
+    // Build frames lookup map for frame cycling
+    const frames = {};
+    for (const frame of frameList) {
+        frames[frame.id] = frame;
     }
 
     // Setup history file path
@@ -138,7 +148,14 @@ async function main() {
             presets: presets,
             currentIndex: -1,  // -1 = auto, 0..N = specific preset
             selectedPlan: null  // The actual plan object extracted from preset when selected
-        }
+        },
+        frameCycling: {
+            frameList: frameList,
+            frames: frames,
+            currentIndex: -1,  // -1 = none, 0..N = specific frame
+            selectedFrame: null  // The frame object { id, name, text, ... }
+        },
+        cycleTarget: 'none'  // 'none', 'preset' or 'frame' - which group Ctrl+N/P navigates
     };
 
     // Display welcome message
@@ -250,6 +267,58 @@ async function main() {
         process.kill(process.pid, 'SIGINT');
     });
 
+    // Listen for Ctrl+N/P from pasteFilter for cycling (filtered to prevent readline history)
+    const handleCycleNavigation = (direction) => {
+        if (session.cycleTarget === 'preset') {
+            const { presetCycling } = session;
+            const totalPresets = presetCycling.presetList.length;
+
+            if (totalPresets === 0) return;
+
+            presetCycling.currentIndex = presetCycling.currentIndex + direction;
+            if (presetCycling.currentIndex < -1) {
+                presetCycling.currentIndex = totalPresets - 1;
+            } else if (presetCycling.currentIndex >= totalPresets) {
+                presetCycling.currentIndex = -1;
+            }
+
+            if (presetCycling.currentIndex === -1) {
+                presetCycling.selectedPlan = null;
+                controlDock.clearPreset();
+            } else {
+                const presetInfo = presetCycling.presetList[presetCycling.currentIndex];
+                const preset = presetCycling.presets[presetInfo.id];
+                presetCycling.selectedPlan = preset?.plan;
+                controlDock.updatePreset(presetInfo.name);
+            }
+        } else {
+            const { frameCycling } = session;
+            const totalFrames = frameCycling.frameList.length;
+
+            if (totalFrames === 0) return;
+
+            frameCycling.currentIndex = frameCycling.currentIndex + direction;
+            if (frameCycling.currentIndex < -1) {
+                frameCycling.currentIndex = totalFrames - 1;
+            } else if (frameCycling.currentIndex >= totalFrames) {
+                frameCycling.currentIndex = -1;
+            }
+
+            if (frameCycling.currentIndex === -1) {
+                frameCycling.selectedFrame = null;
+                controlDock.clearFrame();
+            } else {
+                const frameInfo = frameCycling.frameList[frameCycling.currentIndex];
+                const frame = frameCycling.frames[frameInfo.id];
+                frameCycling.selectedFrame = frame;
+                controlDock.updateFrame(frameInfo.name);
+            }
+        }
+    };
+
+    pasteFilter.on('ctrl-n', () => handleCycleNavigation(1));
+    pasteFilter.on('ctrl-p', () => handleCycleNavigation(-1));
+
     // Listen for any data on pasteFilter to cancel Ctrl-C confirmation state
     pasteFilter.on('data', (chunk) => {
         if (exitState.sigintCount > 0) {
@@ -263,28 +332,19 @@ async function main() {
         }
     });
 
-    // Handle keypress events - ESC, Shift+Tab for preset cycling, and hint clearing
+    // Handle keypress events - Shift+Tab toggles target, ESC for interrupt/clear
+    // Note: Ctrl+N/P handled via pasteFilter events to prevent readline history interference
     pasteFilter.on('keypress', (char, key) => {
-        // Shift+Tab - cycle through presets
+        // Shift+Tab - cycle through preset, frame, none
         if (key && key.name === 'tab' && key.shift) {
-            const { presetCycling } = session;
-            const totalPresets = presetCycling.presetList.length;
-
-            // Cycle index: -1 (auto) -> 0 -> 1 -> ... -> totalPresets-1 -> -1 (auto)
-            presetCycling.currentIndex = (presetCycling.currentIndex + 2) % (totalPresets + 1) - 1;
-
-            // Update selectedPlan based on index
-            if (presetCycling.currentIndex === -1) {
-                presetCycling.selectedPlan = null;
-                controlDock.clearPreset();
+            if (session.cycleTarget === 'preset') {
+                session.cycleTarget = 'frame';
+            } else if (session.cycleTarget === 'frame') {
+                session.cycleTarget = 'none';
             } else {
-                const presetInfo = presetCycling.presetList[presetCycling.currentIndex];
-                const preset = presetCycling.presets[presetInfo.id];
-                presetCycling.selectedPlan = preset?.plan;
-                controlDock.updatePreset(presetInfo.name);
+                session.cycleTarget = 'preset';
             }
-
-            // Prevent default tab behavior
+            controlDock.updateCycleTarget(session.cycleTarget);
             return;
         }
 

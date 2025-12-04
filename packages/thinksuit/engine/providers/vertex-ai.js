@@ -267,7 +267,7 @@ export const createVertexAIProvider = (config) => {
             const apiRequest = transformRequest(params);
 
             // Log raw request
-            execLogger.debug({
+            execLogger.info({
                 event: PROCESSING_EVENTS.PROVIDER_API_RAW_REQUEST,
                 msg: 'Vertex AI API raw request',
                 data: apiRequest
@@ -301,7 +301,7 @@ export const createVertexAIProvider = (config) => {
                 const response = apiResponse.response;
 
                 // Log raw response
-                execLogger.debug({
+                execLogger.info({
                     event: PROCESSING_EVENTS.PROVIDER_API_RAW_RESPONSE,
                     msg: 'Vertex AI API raw response',
                     data: response

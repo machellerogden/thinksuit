@@ -45,9 +45,15 @@ export async function* statusCommand(args, session) {
         yield fx('output', `  ${chalk.bold('Session:')} ${chalk.dim('(none - use /session to start)')}`);
     }
 
-    // Show frame if set
-    if (thinkSuit.frame?.text) {
-        yield fx('output', `  ${chalk.bold('Frame:')} ${chalk.dim(`(${thinkSuit.frame.text.length} chars)`)}`);
+    // Show selected frame
+    if (session.frameCycling?.selectedFrame) {
+        const frameInfo = session.frameCycling.frameList[session.frameCycling.currentIndex];
+        yield fx('output', `  ${chalk.bold('Frame:')} ${frameInfo.name}${frameInfo.description ? ` - ${frameInfo.description}` : ''}`);
+    } else if (thinkSuit.frame?.text) {
+        // Fallback to inline frame from config
+        yield fx('output', `  ${chalk.bold('Frame:')} ${chalk.dim(`(inline - ${thinkSuit.frame.text.length} chars)`)}`);
+    } else {
+        yield fx('output', `  ${chalk.bold('Frame:')} ${chalk.dim('(none)')}`);
     }
 
     // Show selected preset
@@ -188,7 +194,8 @@ export async function* helpCommand(args, session) {
     yield fx('output', '  Regular text sends input to ThinkSuit');
     yield fx('output', '');
     yield fx('output', chalk.bold.cyan('Keyboard Shortcuts:'));
-    yield fx('output', chalk.bold('  Shift+Tab') + ' - Cycle through presets (auto → chat → capture → investigate → ...)');
+    yield fx('output', chalk.bold('  Shift+Tab') + ' - Toggle between preset/frame cycling');
+    yield fx('output', chalk.bold('  Ctrl+N') + ' / ' + chalk.bold('Ctrl+P') + ' - Next/previous in active group');
     yield fx('output', chalk.bold('  Ctrl+C') + ' - Exit (double-press)');
     yield fx('output', chalk.bold('  ESC') + ' - Interrupt execution (when busy) or clear input (double-press)');
     yield fx('output', '');
@@ -278,6 +285,11 @@ export async function* executeCommand(args, session) {
 
         const logger = pino(baseConfig, pino.multistream(streams));
 
+        // Determine frame - prefer selected frame from cycling, then fallback to inline config
+        const frame = session.frameCycling?.selectedFrame
+            ? { text: session.frameCycling.selectedFrame.text }
+            : thinkSuit.frame;
+
         // Build schedule config
         const scheduleConfig = {
             input,
@@ -294,7 +306,7 @@ export async function* executeCommand(args, session) {
             policy: thinkSuit.config.policy,
             trace: thinkSuit.config.trace,
             sessionId: thinkSuit.sessionId,
-            frame: thinkSuit.frame,
+            frame,
             logger,
             ...(session.presetCycling?.selectedPlan && { selectedPlan: session.presetCycling.selectedPlan })
         };
