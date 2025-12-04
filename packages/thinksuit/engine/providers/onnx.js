@@ -55,7 +55,7 @@ export const createONNXProvider = (config) => {
 
             // Log request
             execLogger.info({
-                event: PROCESSING_EVENTS.PROVIDER_API_RAW_REQUEST,
+                event: PROCESSING_EVENTS.PROVIDER_API_REQUEST,
                 msg: 'Granite generation request (via worker process)',
                 data: {
                     model: params.model,
@@ -128,7 +128,7 @@ export const createONNXProvider = (config) => {
 
             // Log response
             execLogger.info({
-                event: PROCESSING_EVENTS.PROVIDER_API_RAW_RESPONSE,
+                event: PROCESSING_EVENTS.PROVIDER_API_RESPONSE,
                 msg: 'Granite generation response',
                 data: {
                     outputLength: response.output.length,

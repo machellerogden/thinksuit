@@ -141,7 +141,7 @@
 
     // Synthetic event type for paired LLM request/response
     const LLM_EXCHANGE = 'processing.llm.exchange';
-    const PROVIDER_API_RAW_EXCHANGE = 'provider.api.raw_exchange';
+    const PROVIDER_API_EXCHANGE = 'provider.api.exchange';
 
     // Whitelist for intermediate events shown in expanded view
     const WHITELISTED_EVENTS = new Set([
@@ -150,8 +150,8 @@
         EXECUTION_EVENTS.SEQUENTIAL_STEP_COMPLETE,
         PROCESSING_EVENTS.LLM_REQUEST,
         PROCESSING_EVENTS.LLM_RESPONSE,
-        PROCESSING_EVENTS.PROVIDER_API_RAW_REQUEST,
-        PROCESSING_EVENTS.PROVIDER_API_RAW_RESPONSE,
+        PROCESSING_EVENTS.PROVIDER_API_REQUEST,
+        PROCESSING_EVENTS.PROVIDER_API_RESPONSE,
         SYSTEM_EVENTS.BUDGET_EXCEEDED,
         EXECUTION_EVENTS.TOOL_START,
         EXECUTION_EVENTS.TOOL_COMPLETE,
@@ -241,11 +241,11 @@
             }
 
             // When we see a request, create an exchange shape
-            if (entry.event === PROCESSING_EVENTS.PROVIDER_API_RAW_REQUEST) {
+            if (entry.event === PROCESSING_EVENTS.PROVIDER_API_REQUEST) {
                 acc.push({
                     entry: {
                         ...entry,
-                        event: PROVIDER_API_RAW_EXCHANGE,
+                        event: PROVIDER_API_EXCHANGE,
                         request: entry,
                         response: null
                     },
@@ -255,9 +255,9 @@
             }
 
             // When we see a response, attach to last pending exchange
-            if (entry.event === PROCESSING_EVENTS.PROVIDER_API_RAW_RESPONSE) {
+            if (entry.event === PROCESSING_EVENTS.PROVIDER_API_RESPONSE) {
                 for (let i = acc.length - 1; i >= 0; i--) {
-                    if (acc[i].entry.event === PROVIDER_API_RAW_EXCHANGE && !acc[i].entry.response) {
+                    if (acc[i].entry.event === PROVIDER_API_EXCHANGE && !acc[i].entry.response) {
                         acc[i].entry.response = entry;
                         break;
                     }
@@ -279,8 +279,8 @@
         return event.event === LLM_EXCHANGE;
     }
 
-    function isProviderApiRawExchange(event) {
-        return event.event === PROVIDER_API_RAW_EXCHANGE;
+    function isProviderApiExchange(event) {
+        return event.event === PROVIDER_API_EXCHANGE;
     }
 
     function isBudgetExceeded(event) {
@@ -316,7 +316,7 @@
                 return `Step ${event.step ?? '?'}: ${event.role} - complete`;
             case LLM_EXCHANGE:
                 return event.response ? 'LLM Exchange' : 'LLM Request...';
-            case PROVIDER_API_RAW_EXCHANGE:
+            case PROVIDER_API_EXCHANGE:
                 return event.response ? 'Provider LLM Exchange' : 'Provider LLM Request...';
             case SYSTEM_EVENTS.BUDGET_EXCEEDED:
                 return 'Budget Exceeded';
@@ -426,7 +426,7 @@
                                                     </div>
                                                 </EventCard>
                                             </div>
-                                        {:else if isProviderApiRawExchange(entry)}
+                                        {:else if isProviderApiExchange(entry)}
                                             <div class="w-full max-w-2xl mt-2">
                                                 <EventCard event={entry} />
                                             </div>

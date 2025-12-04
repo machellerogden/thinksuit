@@ -198,10 +198,10 @@ export const createOpenAIChatCompletionsProvider = (config) => {
             // Transform params to API request format
             const apiRequest = transformRequest(paramsWithMetadata);
 
-            // Log raw request
+            // Log request
             execLogger.info({
-                event: PROCESSING_EVENTS.PROVIDER_API_RAW_REQUEST,
-                msg: `${providerName} API raw request`,
+                event: PROCESSING_EVENTS.PROVIDER_API_REQUEST,
+                msg: `${providerName} API request`,
                 data: apiRequest
             });
 
@@ -212,10 +212,10 @@ export const createOpenAIChatCompletionsProvider = (config) => {
             }
             const apiResponse = await client.chat.completions.create(apiRequest, options);
 
-            // Log raw response
+            // Log response
             execLogger.info({
-                event: PROCESSING_EVENTS.PROVIDER_API_RAW_RESPONSE,
-                msg: `${providerName} API raw response`,
+                event: PROCESSING_EVENTS.PROVIDER_API_RESPONSE,
+                msg: `${providerName} API response`,
                 data: apiResponse
             });
 
@@ -223,7 +223,7 @@ export const createOpenAIChatCompletionsProvider = (config) => {
             const transformed = transformResponse(apiResponse);
             return {
                 ...transformed,
-                raw: apiResponse
+                original: apiResponse
             };
         },
 

@@ -275,10 +275,10 @@ export const createGoogleProvider = (config) => {
             // Transform params to API request format
             const apiRequest = transformRequest(params);
 
-            // Log raw request
+            // Log request
             execLogger.info({
-                event: PROCESSING_EVENTS.PROVIDER_API_RAW_REQUEST,
-                msg: 'Google GenAI API raw request',
+                event: PROCESSING_EVENTS.PROVIDER_API_REQUEST,
+                msg: 'Google GenAI API request',
                 data: apiRequest
             });
 
@@ -305,10 +305,10 @@ export const createGoogleProvider = (config) => {
                     apiResponse = await ai.models.generateContent(apiRequest);
                 }
 
-                // Log raw response
+                // Log response
                 execLogger.info({
-                    event: PROCESSING_EVENTS.PROVIDER_API_RAW_RESPONSE,
-                    msg: 'Google GenAI API raw response',
+                    event: PROCESSING_EVENTS.PROVIDER_API_RESPONSE,
+                    msg: 'Google GenAI API response',
                     data: apiResponse
                 });
 
@@ -316,7 +316,7 @@ export const createGoogleProvider = (config) => {
                 const transformed = transformResponse(apiResponse);
                 return {
                     ...transformed,
-                    raw: apiResponse
+                    original: apiResponse
                 };
             } catch (error) {
                 // Enhance error message with context

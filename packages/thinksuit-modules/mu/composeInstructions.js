@@ -147,15 +147,6 @@ export async function composeInstructions({ plan = {}, factMap = {}, thread = []
             semantic: 'primary_instruction'
         });
 
-        // Add primary prompt (last before user input)
-        indices.teeUserInput = completeThread.length;
-
-        completeThread.push({
-            role: 'user',
-            content: 'The following is your primary instruction for this session:',
-            semantic: 'tee_input'
-        });
-
         // Add user input
         if (input && input.trim()) {
             indices.userInput = completeThread.length;

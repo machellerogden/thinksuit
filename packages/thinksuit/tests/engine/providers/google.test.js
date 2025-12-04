@@ -107,7 +107,7 @@ describe('Provider Abstraction', () => {
                 });
                 expect(result.model).toBe('gemini-2.5-pro-001');
                 expect(result.finishReason).toBe('end_turn');
-                expect(result.raw).toBeDefined();
+                expect(result.original).toBeDefined();
             });
 
             it('should handle responses without system prompt', async () => {

@@ -106,7 +106,7 @@ describe('Provider Abstraction', () => {
                 expect(result.model).toBe('gpt-4-0613');
                 expect(result.finishReason).toBe('end_turn');
                 expect(result.outputItems).toBeDefined();
-                expect(result.raw).toBeDefined();
+                expect(result.original).toBeDefined();
             });
 
             it('should use max_output_tokens for all models (Responses API)', async () => {

@@ -151,25 +151,25 @@ export async function execDirectCore(input, machineContext) {
         const llmResponse = await callLLM(machineContext, llmParams, toolSchemas);
         const duration = Date.now() - startTime;
 
-        // Log raw API data if available
-        if (llmResponse.raw.request) {
+        // Log provider API data if available
+        if (llmResponse.original.request) {
             logger.debug({
-                event: PROCESSING_EVENTS.PROVIDER_API_RAW_REQUEST,
+                event: PROCESSING_EVENTS.PROVIDER_API_REQUEST,
                 traceId,
                 boundaryType: BOUNDARY_TYPES.LLM_EXCHANGE,
                 boundaryId: llmBoundaryId,
                 parentBoundaryId: executionBoundaryId,
-                data: llmResponse.raw.request
+                data: llmResponse.original.request
             }, `Provider API request - ${config?.provider}`);
         }
-        if (llmResponse.raw.response) {
+        if (llmResponse.original.response) {
             logger.debug({
-                event: PROCESSING_EVENTS.PROVIDER_API_RAW_RESPONSE,
+                event: PROCESSING_EVENTS.PROVIDER_API_RESPONSE,
                 traceId,
                 boundaryType: BOUNDARY_TYPES.LLM_EXCHANGE,
                 boundaryId: llmBoundaryId,
                 parentBoundaryId: executionBoundaryId,
-                data: llmResponse.raw.response
+                data: llmResponse.original.response
             }, `Provider API response - ${config?.provider}`);
         }
 

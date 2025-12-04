@@ -215,10 +215,10 @@ export const createOpenAIProvider = (config) => {
             // Transform params to API request format
             const apiRequest = transformRequest(params);
 
-            // Log raw request
+            // Log request
             execLogger.info({
-                event: PROCESSING_EVENTS.PROVIDER_API_RAW_REQUEST,
-                msg: 'OpenAI API raw request',
+                event: PROCESSING_EVENTS.PROVIDER_API_REQUEST,
+                msg: 'OpenAI API request',
                 data: apiRequest
             });
 
@@ -231,8 +231,8 @@ export const createOpenAIProvider = (config) => {
             const apiResponse = await client.responses.create(apiRequest, options);
 
             execLogger.info({
-                event: PROCESSING_EVENTS.PROVIDER_API_RAW_RESPONSE,
-                msg: 'OpenAI API raw response',
+                event: PROCESSING_EVENTS.PROVIDER_API_RESPONSE,
+                msg: 'OpenAI API response',
                 data: apiResponse
             });
 
@@ -240,7 +240,7 @@ export const createOpenAIProvider = (config) => {
             const transformed = transformResponse(apiResponse);
             return {
                 ...transformed,
-                raw: {
+                original: {
                     request: apiRequest,
                     response: apiResponse
                 }

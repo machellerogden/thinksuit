@@ -116,7 +116,7 @@ process.on('message', async (request) => {
                 model: params.model,
                 finishReason,
                 toolCalls,
-                raw: {
+                original: {
                     generatedText,
                     generationTime,
                     dtype

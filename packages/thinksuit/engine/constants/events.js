@@ -159,8 +159,8 @@ export const PROCESSING_EVENTS = {
     LLM_ERROR: 'processing.llm.error',
 
     // Provider API operations
-    PROVIDER_API_RAW_REQUEST: 'provider.api.raw_request',
-    PROVIDER_API_RAW_RESPONSE: 'provider.api.raw_response',
+    PROVIDER_API_REQUEST: 'provider.api.request',
+    PROVIDER_API_RESPONSE: 'provider.api.response',
 
     // Rules processing
     RULES_START: 'processing.rules.start',

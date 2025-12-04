@@ -107,7 +107,7 @@ describe('Provider Abstraction', () => {
                     model: 'moonshotai/Kimi-K2-Thinking:novita',
                     finishReason: 'end_turn',
                     toolCalls: undefined,
-                    raw: expect.any(Object)
+                    original: expect.any(Object)
                 });
             });
 
