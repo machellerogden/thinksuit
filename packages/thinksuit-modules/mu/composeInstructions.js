@@ -132,6 +132,13 @@ export async function composeInstructions({ plan = {}, factMap = {}, thread = []
             semantic: 'system_instruction'
         });
 
+        // Include conversation history from previous turns
+        if (thread && thread.length > 0) {
+            indices.conversationStart = completeThread.length;
+            completeThread.push(...thread);
+            indices.conversationEnd = completeThread.length - 1;
+        }
+
         // Add task execution alignment if this is a task strategy execution
         // (before primary prompt so primary is last instruction before user input)
         if (plan.strategy === 'task') {

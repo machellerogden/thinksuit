@@ -46,7 +46,9 @@
       "role": "investigate",
       "tools": [
         "list_directory",
-        "read_text_file", "read_media_file", "read_multiple_files",
+        "read_text_file",
+        "read_media_file",
+        "read_multiple_files",
         "search"
       ],
       "resolution": {
@@ -70,7 +72,7 @@
       "tools": [],
       "resolution": {
         "maxCycles": 3,
-        "maxTokens": 8000,
+        "maxTokens": 10000,
         "maxToolCalls": 0,
         "timeoutMs": 43200000
       },
@@ -99,7 +101,9 @@
       "strategy": "task",
       "role": "execute",
       "tools": [
-        "read_text_file", "read_media_file", "read_multiple_files",
+        "read_text_file",
+        "read_media_file",
+        "read_multiple_files",
         "write_file",
         "edit_file",
         "list_directory"
@@ -128,7 +132,9 @@
           "strategy": "task",
           "tools": [
             "list_directory",
-            "read_text_file", "read_media_file", "read_multiple_files"
+            "read_text_file",
+            "read_media_file",
+            "read_multiple_files"
           ],
           "resolution": {
             "maxCycles": 5,
@@ -144,7 +150,7 @@
           "tools": [],
           "resolution": {
             "maxCycles": 3,
-            "maxTokens": 8000,
+            "maxTokens": 10000,
             "maxToolCalls": 0,
             "timeoutMs": 43200000
           },
@@ -153,6 +159,9 @@
         {
           "role": "synthesize",
           "strategy": "direct",
+          "resolution": {
+            "maxTokens": 10000
+          },
           "tools": [],
           "adaptations": [],
           "lengthLevel": "comprehensive"

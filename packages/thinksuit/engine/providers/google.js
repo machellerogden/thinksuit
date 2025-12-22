@@ -67,10 +67,7 @@ const transformRequest = (params) => {
     // System instruction is passed in config
     let systemInstruction = null;
     if (systemInstructions) {
-        systemInstruction = {
-            role: 'user',
-            parts: [{ text: systemInstructions }]
-        };
+        systemInstruction = systemInstructions;
     }
 
     const contents = [];
@@ -216,6 +213,24 @@ const transformResponse = (apiResponse) => {
 
     const candidate = apiResponse.candidates[0];
     const content = candidate.content;
+
+    // Handle error responses where content.parts is missing
+    // This happens when the API rejects malformed function calls, safety blocks, etc.
+    if (!content.parts || !Array.isArray(content.parts)) {
+        const finishReason = FINISH_REASON_MAP[candidate.finishReason] || 'unknown';
+        const usage = {
+            prompt: apiResponse.usageMetadata?.promptTokenCount || 0,
+            completion: apiResponse.usageMetadata?.candidatesTokenCount || 0
+        };
+
+        return {
+            output: candidate.finishMessage || `Error: ${candidate.finishReason}`,
+            usage,
+            model: apiResponse.modelVersion || 'unknown',
+            finishReason,
+            toolCalls: undefined
+        };
+    }
 
     // Extract text parts
     const textParts = content.parts
