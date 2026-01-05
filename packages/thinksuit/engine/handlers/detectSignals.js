@@ -11,12 +11,13 @@ const MIN_CONFIDENCE = 0.6;
 
 /**
  * Core signal detection logic
- * @param {Object} input - { thread, context, profile, budgetMs }
+ * @param {Object} input - { userInput, thread, context, profile, budgetMs }
  * @param {Object} machineContext - Machine context with config
  * @returns {Object} - { facts: Signal[] }
  */
 export async function detectSignalsCore(input, machineContext) {
-    const { thread, context, profile, budgetMs } = input;
+    const { userInput, thread, context, profile, budgetMs } = input;
+    const fullThread = [ ...thread, { role: 'user', content: userInput } ];
     const traceId = context?.traceId;
     const sessionId = context?.sessionId;
     const config = machineContext?.config;
@@ -56,7 +57,7 @@ export async function detectSignalsCore(input, machineContext) {
             parentBoundaryId,
             data: {
                 stage: 'signal_detection',
-                threadLength: thread?.length,
+                threadLength: fullThread?.length,
                 mode: hasLLM ? 'llm-enhanced' : 'regex-only',
                 profile: profile || 'default',
                 budgetMs: budgetMs || null,
@@ -76,7 +77,7 @@ export async function detectSignalsCore(input, machineContext) {
             parentBoundaryId,
             data: {
                 handler: 'detectSignals',
-                thread,
+                thread: fullThread,
                 context,
                 module: module?.name
             }
@@ -84,7 +85,7 @@ export async function detectSignalsCore(input, machineContext) {
         'detectSignals input'
     );
 
-    if (!thread || thread.length === 0) {
+    if (!fullThread || fullThread.length === 0) {
         logger.warn({ traceId }, 'Empty thread provided to detectSignals');
         return { facts: [] };
     }
@@ -98,7 +99,7 @@ export async function detectSignalsCore(input, machineContext) {
                 try {
                     // Pass IO config and logger to classifier for optional LLM enhancement
                     // Note: profile is a hint only - modules control implementation
-                    const signals = await classifier(thread, classifierConfig, logger);
+                    const signals = await classifier(fullThread, classifierConfig, logger);
                     const duration = Date.now() - dimensionStart;
 
                     // Warn if classifier exceeds 2000ms budget

@@ -41,6 +41,7 @@
             "Resource": "detectSignals",
             "Parameters": {
                 "thread.$": "$.thread",
+                "userInput.$": "$.userInput",
                 "context.$": "$.context",
                 "profile.$": "$.policy.perception.profile",
                 "budgetMs.$": "$.policy.perception.budgetMs"
