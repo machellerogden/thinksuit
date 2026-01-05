@@ -15,7 +15,7 @@
 ```
 
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-orange.svg)](https://github.com/machellerogden/thinksuit)
-[![API Stability: Experimental](https://img.shields.io/badge/api%20stability-experimental-red.svg)](https://github.com/machellerogden/thinksuit)
+[![API Stability: Experimental](https://img.shields.io/badge/stability-experimental-red.svg)](https://github.com/machellerogden/thinksuit)
 
 > **Note**: ThinkSuit is alpha software under active development. APIs and behaviors may change without notice.
 
