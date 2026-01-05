@@ -7,7 +7,7 @@ const INSTRUMENT_PATTERNS = {
     capture: /\b(save|record|remember|note|store|capture|keep)\b/i,
     readback: /\b(readback|repeat|show me|retrieve|recall|what did|display)\b/i,
     analyze: /\b(why|how does|explain|break down|examine|understand)\b/i,
-    investigate: /\b(find|search|look for|locate|where is|show|list)\b/i,
+    investigate: /\b(investigate|find|explore|search|look for|locate|where is|show|list)\b/i,
     synthesize: /\b(combine|integrate|summarize|summary|merge|consolidate|overall)\b/i,
     execute: /\b(create|build|fix|implement|make|change|update|add|remove|delete|write)\b/i
 };

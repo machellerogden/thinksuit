@@ -35,8 +35,13 @@ const prompts = {
     'primary.readback':
     'Retrieve and present the requested information. Use the same terminology and structure as the original. Do not analyze or interpret.',
 
-    'primary.analyze':
-    'Break down the subject systematically. Identify components, relationships, and constraints. Report findings with precision.',
+    'primary.analyze': ({ cwd }) => {
+        let base = 'Break down the subject systematically. Identify components, relationships, and constraints. Report findings with precision.';
+        if (cwd) {
+            base = `You are working in: ${cwd}\n\n${base}`;
+        }
+        return base;
+    },
 
     'primary.investigate': ({ cwd }) => {
         let base = 'Investigate thoroughly using available tools. First discover what exists, then examine contents. If you list files or directories, read their contents to understand them. Present findings based on actual examination, not just discovery.';
@@ -46,14 +51,29 @@ const prompts = {
         return base;
     },
 
-    'primary.synthesize':
-    'Integrate the available information into a coherent whole. Resolve conflicts, align components, and propose a unified path forward.',
+    'primary.synthesize': ({ cwd }) => {
+        let base = 'Integrate the available information into a coherent whole. Resolve conflicts, align components, and propose a unified path forward.';
+        if (cwd) {
+            base = `You are working in: ${cwd}\n\n${base}`;
+        }
+        return base;
+    },
 
-    'primary.execute':
-    'Use available tools to complete the task. Chain operations as needed. Verify each step and report results.',
+    'primary.execute': ({ cwd }) => {
+        let base = 'Use available tools to complete the task. Chain operations as needed. Verify each step and report results.';
+        if (cwd) {
+            base = `You are working in: ${cwd}\n\n${base}`;
+        }
+        return base;
+    },
 
-    'primary.chat':
-    'Respond naturally and directly. Answer questions, acknowledge greetings, engage in conversation.',
+    'primary.chat': ({ cwd }) => {
+        let base = 'Respond naturally and directly. Answer questions, acknowledge greetings, engage in conversation.';
+        if (cwd) {
+            base = `You are working in: ${cwd}\n\n${base}`;
+        }
+        return base;
+    },
 
     // ─── Adaptations ────────────────────────────────────────────────────────
 
