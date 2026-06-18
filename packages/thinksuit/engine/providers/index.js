@@ -1,4 +1,5 @@
 import { createOpenAIProvider } from './openai.js';
+import { createAnthropicProvider } from './anthropic.js';
 import { createGoogleProvider } from './google.js';
 import { createHuggingFaceProvider } from './hugging-face.js';
 import { createONNXProvider } from './onnx.js';
@@ -12,6 +13,12 @@ const PROVIDER_REGISTRY = {
         configKey: 'openai',
         requiresConfig: (config) => !!config?.apiKey,
         description: 'OpenAI API (GPT models)'
+    },
+    'anthropic': {
+        factory: createAnthropicProvider,
+        configKey: 'anthropic',
+        requiresConfig: (config) => !!config?.apiKey,
+        description: 'Anthropic API (Claude models via Messages API)'
     },
     'google': {
         factory: createGoogleProvider,
