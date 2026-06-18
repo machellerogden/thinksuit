@@ -37,6 +37,9 @@
   "homepage": "https://github.com/machellerogden/thinksuit/tree/main/packages/thinksuit-mcp-tools#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.19.1",
-    "zod": "^3.24.1"
+    "zod": "^4.4.3"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }

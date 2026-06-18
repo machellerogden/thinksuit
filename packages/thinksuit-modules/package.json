@@ -31,5 +31,8 @@
   "bugs": {
     "url": "https://github.com/machellerogden/thinksuit/issues"
   },
-  "homepage": "https://github.com/machellerogden/thinksuit/tree/main/packages/thinksuit-modules#readme"
+  "homepage": "https://github.com/machellerogden/thinksuit/tree/main/packages/thinksuit-modules#readme",
+  "engines": {
+    "node": ">=24"
+  }
 }
