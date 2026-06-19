@@ -37,6 +37,8 @@
     "mute-stream": "^2.0.0",
     "slice-ansi": "^6.0.0",
     "string-width": "^5.1.2",
+    "thinksuit": "*",
+    "thinksuit-broker": "*",
     "with-effects": "^0.7.4",
     "wrap-ansi": "^9.0.0"
   },

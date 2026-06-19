@@ -1,48 +1,30 @@
 import { json } from '@sveltejs/kit';
-import { resolveApproval, getApprovalInfo } from 'thinksuit';
+import * as broker from 'thinksuit-broker';
 
 /**
- * GET /api/approvals/[id] - Get approval info
- */
-export async function GET({ params }) {
-    const { id } = params;
-    
-    const info = getApprovalInfo(id);
-    if (!info) {
-        return json({ error: 'Approval not found' }, { status: 404 });
-    }
-    
-    return json(info);
-}
-
-/**
- * POST /api/approvals/[id] - Resolve an approval
+ * POST /api/approvals/[id] - Resolve a pending tool approval.
+ *
+ * [id] is the approvalId. The owning turn lives in the broker, so we also need
+ * the sessionId (the frontend has it from the approval-requested event) to route
+ * the decision to the correct worker.
  */
 export async function POST({ params, request }) {
-    const { id } = params;
-    
+    const { id: approvalId } = params;
+
     try {
-        const { approved } = await request.json();
-        
+        const { approved, sessionId } = await request.json();
+
         if (typeof approved !== 'boolean') {
             return json({ error: 'approved must be a boolean' }, { status: 400 });
         }
-        
-        const resolved = resolveApproval(id, approved);
-        
-        if (!resolved) {
-            return json({ error: 'Approval not found or already resolved' }, { status: 404 });
+        if (!sessionId) {
+            return json({ error: 'sessionId is required' }, { status: 400 });
         }
-        
-        return json({ 
-            success: true, 
-            approvalId: id,
-            approved 
-        });
+
+        const result = await broker.approve(sessionId, { approved, approvalId });
+        return json({ success: true, approvalId: result.approvalId, approved });
     } catch (error) {
         console.error('Error resolving approval:', error);
-        return json({ 
-            error: error.message 
-        }, { status: 500 });
+        return json({ error: error.message }, { status: error.statusCode || 500 });
     }
 }

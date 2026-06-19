@@ -11,7 +11,7 @@ export {
     readSessionLinesFrom,
     deleteSession
 } from './engine/sessions/index.js';
-export { getSessionStatus } from './engine/transports/session-router.js';
+export { getSessionStatus, flushAllSessionStreams } from './engine/transports/session-router.js';
 export { createSessionSubscriber, subscribeToSession } from './engine/subscribe.js';
 export { getTrace } from './engine/traces.js';
 export { resolveApproval, getApprovalInfo } from './engine/approval/async.js';

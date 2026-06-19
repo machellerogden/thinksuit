@@ -1,58 +1,28 @@
 import { json } from '@sveltejs/kit';
-import { getExecution, removeExecution } from '$lib/server/activeExecutions.js';
+import * as broker from 'thinksuit-broker';
 
 export async function POST({ params }) {
     const { id: sessionId } = params;
 
-    // Check if session is in our active registry
-    const execution = getExecution(sessionId);
-
-    if (!execution) {
-        return json({
-            success: false,
-            error: 'No active execution found for this session',
-            sessionId
-        }, { status: 404 });
-    }
-
     try {
-        // Call the interrupt function
-        const result = await execution.interrupt('User requested cancellation from console');
-
-        if (result.success) {
-            // Remove from registry after successful interrupt
-            removeExecution(sessionId);
-
-            return json({
-                success: true,
-                message: 'Session interrupted successfully',
-                sessionId
-            });
-        } else {
-            return json({
-                success: false,
-                error: result.error || 'Failed to interrupt session',
-                sessionId
-            }, { status: 500 });
-        }
+        await broker.interrupt(sessionId, 'User requested cancellation from console');
+        return json({ success: true, message: 'Session interrupted successfully', sessionId });
     } catch (error) {
         console.error(`Failed to interrupt session ${sessionId}:`, error);
-        return json({
-            success: false,
-            error: error.message || 'Interrupt operation failed',
-            sessionId
-        }, { status: 500 });
+        return json(
+            { success: false, error: error.message, sessionId },
+            { status: error.statusCode || 500 }
+        );
     }
 }
 
-// GET endpoint to check if a session can be interrupted
+// GET endpoint to check if a session can be interrupted (i.e. has an in-flight turn).
 export async function GET({ params }) {
     const { id: sessionId } = params;
-    const execution = getExecution(sessionId);
-
-    return json({
-        sessionId,
-        canInterrupt: !!execution,
-        startTime: execution?.startTime || null
-    });
+    try {
+        const status = await broker.status(sessionId);
+        return json({ sessionId, canInterrupt: !!status.live, startTime: null });
+    } catch {
+        return json({ sessionId, canInterrupt: false, startTime: null });
+    }
 }

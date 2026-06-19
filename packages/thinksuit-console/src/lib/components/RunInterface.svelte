@@ -314,7 +314,7 @@
             const response = await fetch(`/api/approvals/${approvalId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ approved: true })
+                body: JSON.stringify({ approved: true, sessionId: routeSessionId })
             });
             if (!response.ok) {
                 const error = await response.json();
@@ -330,7 +330,7 @@
             const response = await fetch(`/api/approvals/${approvalId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ approved: false })
+                body: JSON.stringify({ approved: false, sessionId: routeSessionId })
             });
             if (!response.ok) {
                 const error = await response.json();

@@ -1,0 +1,116 @@
+# ThinkSuit Broker
+
+A resident daemon that hosts ThinkSuit executions out-of-process, plus a thin
+client library and CLI surface. The broker lets any client (CLI, REPL, console)
+observe, control, and attach to **any** session regardless of which client
+started it.
+
+## Why
+
+Without the broker, every entry point hosts its own executions: the console runs
+them detached in its own process, the REPL runs them in-process and loses them on
+exit, and `thinksuit-exec` runs one-shot. Observation is already cross-process
+(the JSONL event log plus `subscribeToSession` file-watching), but **control** is
+process-bound: interrupt is an in-memory `AbortController` and tool approvals live
+in an in-memory map. The broker makes hosting and control cross-process too.
+
+## Architecture
+
+- **Subprocess-per-turn.** The broker `fork()`s a worker Node process for each
+  turn and never runs the engine in-process. A crashed run cannot destabilize the
+  daemon, and each worker owns its own module-globals (tool-approval map, MCP
+  clients).
+- **Managed unit = session.** Everything is keyed by `sessionId`. One in-flight
+  turn per session, enforced by the engine's `acquireSession` lock.
+- **Transport = HTTP over a unix domain socket** at `~/.thinksuit/broker.sock`
+  (override with `THINKSUIT_BROKER_SOCK`). JSON for verbs; Server-Sent Events for
+  the live event stream.
+- **Observation = the JSONL event log.** Tailing/attaching is driven entirely by
+  `subscribeToSession` file-watch events — the broker never polls.
+
+```
+client ──HTTP/JSON+SSE──▶ broker (daemon) ──fork()──▶ worker (one per turn)
+                              │                            │
+                              └── registry of live turns   └── writes session JSONL
+```
+
+## Command surface
+
+The existing `thinksuit` binary is a subcommand dispatcher (bare `thinksuit`
+still launches the REPL):
+
+| Command | Description |
+| --- | --- |
+| `thinksuit run "<input>" [--require-approval] [--json]` | Start a broker-hosted turn; prints the `sessionId` immediately (detached). |
+| `thinksuit sessions [-a/--all] [--json]` | List **active** sessions; `-a` also includes on-disk history. |
+| `thinksuit status <id> [--json]` | Current status of a session. |
+| `thinksuit log <id> [--tail]` | Print recorded events; `--tail` streams live. |
+| `thinksuit attach <id>` | Interactively observe + approve/interrupt + submit the next turn. |
+| `thinksuit interrupt <id>` | Interrupt the in-flight turn. |
+| `thinksuit approve <id> [approvalId] [--deny]` | Resolve a pending tool approval (id derived from the log if omitted). |
+
+When the broker is not running, clients **refuse with a clear error** — there is
+no auto-start and no in-process fallback.
+
+## Service management (macOS LaunchAgent)
+
+The broker is intended to be resident (RunAtLoad). Scaffolding mirrors the other
+ThinkSuit services:
+
+```bash
+thinksuit-broker-service-init    # bootstrap + start + tail logs (first run)
+thinksuit-broker-service-start   # (re)start
+thinksuit-broker-service-stop    # stop
+thinksuit-broker-service-logs    # tail logs
+thinksuit-broker-service-info    # launchctl print
+```
+
+Copy `etc/thinksuit-broker.service.plist` to
+`~/Library/LaunchAgents/thinksuit-broker.service.plist` (edit paths as needed)
+before `…-service-init`.
+
+For a foreground instance during development:
+
+```bash
+npm -w thinksuit-broker run dev
+```
+
+## Socket API
+
+All responses are JSON `{ ok, ... }`. Streaming endpoints use SSE.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/health` | Liveness: `{ ok, pid, version, uptimeMs, sessions }`. |
+| `POST` | `/run` | Body `{ config }` (serializable run config). Returns `{ sessionId, isNew, status, from }`. 409 if the session already has an in-flight turn. |
+| `GET` | `/sessions[?all=1]` | Active sessions; `all=1` includes on-disk history. |
+| `GET` | `/status/:id` | `{ sessionId, status, live }`. |
+| `GET` | `/log/:id[?tail=1][&from=N]` | Recorded events; `tail=1` streams via SSE; `from=N` starts at entry index N. |
+| `POST` | `/interrupt/:id` | Interrupt the in-flight turn. |
+| `POST` | `/approve/:id` | Body `{ approved, approvalId? }`. Resolves a pending approval (latest pending derived from the log if `approvalId` omitted). |
+
+A bad request never crashes the daemon — handler errors become 4xx/5xx
+responses at the request boundary.
+
+## Client library
+
+```js
+import * as broker from 'thinksuit-broker';
+
+const { sessionId } = await broker.run(config);
+const active = await broker.sessions();          // { all: true } for history
+const handle = broker.tail(sessionId, (e) => …); // SSE; handle.close()
+await broker.interrupt(sessionId);
+await broker.approve(sessionId, { approved: true });
+```
+
+## Limitations (v1)
+
+- **No restart durability.** A broker restart tears down its worker children and
+  abandons in-flight runs; the JSONL trace persists but cannot resume.
+- **No queue.** Run-now only; a second turn for a running session is refused.
+- `thinksuit-exec` (one-shot) stays standalone and broker-independent.
+
+## License
+
+Apache-2.0

@@ -212,35 +212,69 @@ export async function* executeCommand(args, session) {
     const input = args.join(' ');
     const { thinkSuit, executionState } = session;
 
-    // Lazy imports to avoid circular dependencies
-    const { schedule } = await import('../../../thinksuit/engine/schedule.js');
-    const { createBaseConfig } = await import('../../../thinksuit/engine/logger.js');
-    const { createLoggerStream } = await import('./logger-stream.js');
-    const { resolveApproval } = await import('../../../thinksuit/index.js');
-    const pino = (await import('pino')).default;
-    const { join, dirname } = await import('node:path');
-    const { fileURLToPath } = await import('node:url');
+    // The broker hosts the execution out-of-process; the REPL is a thin client.
+    const client = await import('thinksuit-broker');
 
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-
-    // Approval queue for managing tool approval requests
+    // Approval queue for managing tool approval requests (filled from the event
+    // stream, drained by the approval processor below).
     const approvalQueue = [];
 
     try {
-        // Set busy state
         executionState.busy = true;
         executionState.interrupt = null;
 
-        // Show initial busy state
         yield fx('status-show', chalk.dim('⋯ Initializing...'));
 
-        // Use modules already loaded in main.js startup
-        const modules = thinkSuit.config.modules;
+        // Determine frame - prefer selected frame from cycling, then fallback to inline config
+        const frame = session.frameCycling?.selectedFrame
+            ? { text: session.frameCycling.selectedFrame.text }
+            : thinkSuit.frame;
 
-        // Event handler for ThinkSuit events
+        // Serializable run config. The worker loads modules itself from
+        // modulesPackage (a string); we never send loaded code over the socket.
+        const config = {
+            input,
+            module: thinkSuit.config.module,
+            modulesPackage: thinkSuit.config.modulesPackage,
+            provider: thinkSuit.config.provider,
+            model: thinkSuit.config.model,
+            providerConfig: thinkSuit.config.providerConfig,
+            cwd: thinkSuit.config.cwd,
+            allowedTools: thinkSuit.config.tools,
+            allowedDirectories: thinkSuit.config.allowedDirectories,
+            mcpServers: thinkSuit.config.mcpServers,
+            autoApproveTools: false, // interactive: surface approvals in the dock
+            policy: thinkSuit.config.policy,
+            trace: thinkSuit.config.trace,
+            sessionId: thinkSuit.sessionId || undefined,
+            frame: frame || null,
+            ...(session.presetCycling?.selectedPlan && {
+                selectedPlan: session.presetCycling.selectedPlan
+            })
+        };
+
+        // Start the turn in the broker. `from` is the pre-run entry count, so we
+        // observe only this turn rather than replaying the session's history.
+        const { sessionId, from } = await client.run(config);
+
+        if (!thinkSuit.sessionId) {
+            thinkSuit.sessionId = sessionId;
+        }
+
+        // Interrupt routes over the socket to the owning worker.
+        executionState.interrupt = (reason) => client.interrupt(sessionId, reason);
+
+        // Observe this turn over the broker tail SSE.
+        let finalResult = null;
+        let resolveDone;
+        const done = new Promise((resolve) => {
+            resolveDone = resolve;
+        });
+
         const handleEvent = (event) => {
-            // Detect tool approval requests
-            if (event.event === 'execution.tool.approval-requested') {
+            const ev = event.event || event.type;
+
+            if (ev === 'execution.tool.approval-requested') {
                 approvalQueue.push({
                     approvalId: event.approvalId,
                     tool: event.data?.tool || 'unknown',
@@ -249,137 +283,91 @@ export async function* executeCommand(args, session) {
                 });
             }
 
+            if (ev === 'session.response') {
+                finalResult = {
+                    response: event.data?.response,
+                    error: event.data?.error,
+                    interrupted: event.data?.interrupted
+                };
+            }
+
+            // Terminal signals: normal completion, interrupt, or (failsafe) the
+            // worker exiting before it could emit turn.complete.
+            if (
+                ev === 'session.turn.complete' ||
+                ev === 'session.interrupted' ||
+                ev === 'broker.worker.exited'
+            ) {
+                resolveDone();
+            }
+
             if (event.msg) {
                 const message = formatEventMessage(event);
                 if (message) {
-                    // This won't work with yield inside this callback
-                    // We'll need to handle this differently
                     session.controlDock.updateStatus(message);
                 }
             }
         };
 
-        // Create custom logger stream that captures events
-        const eventStream = createLoggerStream(null, null, handleEvent);
-
-        // Create logger with both event stream and session file transport
-        const baseConfig = createBaseConfig('info');
-
-        // Build multistream with event stream + session transport
-        const sessionTransportPath = join(__dirname, '../../../thinksuit/engine/transports/session-router.js');
-        const transport = pino.transport({
-            targets: [
-                {
-                    target: sessionTransportPath,
-                    level: 'info',
-                    options: {}
-                }
-            ]
+        const tailHandle = client.tail(sessionId, handleEvent, {
+            from: from || 0,
+            onError: () => {}
         });
 
-        // Combine event stream with session transport using multistream
-        const streams = [
-            { level: 'info', stream: eventStream },
-            { level: 'info', stream: transport }
-        ];
-
-        const logger = pino(baseConfig, pino.multistream(streams));
-
-        // Determine frame - prefer selected frame from cycling, then fallback to inline config
-        const frame = session.frameCycling?.selectedFrame
-            ? { text: session.frameCycling.selectedFrame.text }
-            : thinkSuit.frame;
-
-        // Build schedule config
-        const scheduleConfig = {
-            input,
-            module: thinkSuit.config.module,
-            modules,
-            provider: thinkSuit.config.provider,
-            model: thinkSuit.config.model,
-            providerConfig: thinkSuit.config.providerConfig,
-            cwd: thinkSuit.config.cwd,
-            tools: thinkSuit.config.tools,
-            allowedDirectories: thinkSuit.config.allowedDirectories,
-            mcpServers: thinkSuit.config.mcpServers,
-            autoApproveTools: false, // Changed to false to enable interactive approval
-            policy: thinkSuit.config.policy,
-            trace: thinkSuit.config.trace,
-            sessionId: thinkSuit.sessionId,
-            frame,
-            logger,
-            ...(session.presetCycling?.selectedPlan && { selectedPlan: session.presetCycling.selectedPlan })
-        };
-
-        // Schedule and execute
-        const { sessionId, scheduled, isNew, execution, interrupt, reason } = await schedule(scheduleConfig);
-
-        if (!scheduled) {
-            yield fx('status-clear');
-            yield fx('error', `Failed to start: ${reason}`);
-            executionState.busy = false;
-            executionState.interrupt = null;
-            return true;
-        }
-
-        // Store interrupt function for Ctrl-C handler
-        executionState.interrupt = interrupt;
-
-        // Update session ID if new or if we don't have one yet
-        if (isNew || !thinkSuit.sessionId) {
-            thinkSuit.sessionId = sessionId;
-        }
-
-        // Start approval processor in background
+        // Approval processor: drain queued approvals through the dock and resolve
+        // them over the socket.
         let approvalProcessorRunning = true;
         const approvalProcessorPromise = (async () => {
             while (approvalProcessorRunning && executionState.busy) {
                 if (approvalQueue.length > 0) {
                     const approval = approvalQueue.shift();
-
-                    // Use the control dock directly for approval (bypass effect system for background task)
                     const approved = await session.controlDock.getApproval(approval);
-
-                    // Resolve approval in ThinkSuit core
-                    resolveApproval(approval.approvalId, approved);
+                    try {
+                        await client.approve(sessionId, {
+                            approved,
+                            approvalId: approval.approvalId
+                        });
+                    } catch {
+                        // Turn may have already moved on; ignore.
+                    }
                 }
-
-                // Small delay to avoid busy loop
-                await new Promise(resolve => setTimeout(resolve, 50));
+                await new Promise((resolve) => setTimeout(resolve, 50));
             }
         })();
 
-        // Wait for execution to complete
-        const result = await execution;
+        // Wait for the turn to finish, then stop observing.
+        await done;
+        tailHandle.close();
 
-        // Stop approval processor
         approvalProcessorRunning = false;
         await approvalProcessorPromise;
 
-        // Clear busy state
         executionState.busy = false;
         executionState.interrupt = null;
         yield fx('status-clear');
-
-        // Clear dock before displaying output
         yield fx('clear-dock');
 
-        // Display response
-        if (result.error) {
-            yield fx('error', result.error);
+        if (finalResult?.error) {
+            yield fx('error', finalResult.error);
             yield fx('output', '');
-        } else if (result.interrupted) {
+        } else if (finalResult?.interrupted) {
             yield fx('output', chalk.yellow('Execution interrupted'));
             yield fx('output', '');
-        } else {
-            const [ first, ...rest ] = result.response.split('\n');
+        } else if (finalResult?.response != null) {
+            const text =
+                typeof finalResult.response === 'string'
+                    ? finalResult.response
+                    : JSON.stringify(finalResult.response);
+            const [first, ...rest] = text.split('\n');
             yield fx('output', `⏺ ${first}`);
             for (const line of rest) {
                 yield fx('output', indentLines(line, 2));
             }
             yield fx('output', '');
+        } else {
+            yield fx('output', chalk.dim('(no response captured)'));
+            yield fx('output', '');
         }
-
     } catch (error) {
         executionState.busy = false;
         executionState.interrupt = null;
