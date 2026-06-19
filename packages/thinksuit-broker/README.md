@@ -58,7 +58,8 @@ The broker is intended to be resident (RunAtLoad). Scaffolding mirrors the other
 ThinkSuit services:
 
 ```bash
-thinksuit-broker-service-init    # bootstrap + start + tail logs (first run)
+thinksuit-broker-service-init    # bootstrap + setenv + start + tail logs (first run)
+thinksuit-broker-service-setenv  # push provider env vars into launchd + restart broker
 thinksuit-broker-service-start   # (re)start
 thinksuit-broker-service-stop    # stop
 thinksuit-broker-service-logs    # tail logs
@@ -68,6 +69,39 @@ thinksuit-broker-service-info    # launchctl print
 Copy `etc/thinksuit-broker.service.plist` to
 `~/Library/LaunchAgents/thinksuit-broker.service.plist` (edit paths as needed)
 before `…-service-init`.
+
+## Configuration & secrets
+
+Provider/model selection lives in `~/.thinksuit.json` (and can be overridden
+per run). **API keys ride on environment variables — they are never stored at
+rest.** The broker is the single key source: each worker fills in any provider
+credential the client omitted from its **own** environment, so the shell CLI,
+the REPL, and the console (which, as a LaunchAgent, has no keys of its own) all
+work without carrying secrets.
+
+The catch is macOS launchd: a LaunchAgent does **not** inherit your shell
+environment, and env vars don't exist "at rest" for it to read at boot. So the
+broker must be *given* the keys from a context that has them:
+
+```bash
+# from your shell (which has the keys exported):
+thinksuit-broker-service-setenv
+```
+
+This `launchctl setenv`s whichever of `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
+`GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `HF_TOKEN` are present, then
+restarts the broker so it inherits them. `…-service-init` runs this for you.
+
+**Recommended:** add `thinksuit-broker-service-setenv` to your shell profile
+(`~/.zshrc`) so every login refreshes the broker's environment.
+
+**Boot-window tradeoff:** the broker is `RunAtLoad`, so after a reboot it starts
+at login *before* any shell has run `setenv` — and `setenv` does not update an
+already-running process. So between boot and your first terminal, the broker is
+keyless: runs fail fast with a clear *"No credential for provider …"* error
+(no silent hang, no half-session). Opening a terminal (which runs `setenv` via
+your profile) closes the window. Eliminating it entirely would require
+persisting a secret at rest, which this design deliberately avoids.
 
 For a foreground instance during development:
 

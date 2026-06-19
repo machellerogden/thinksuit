@@ -171,9 +171,11 @@
                 input = '';
             } else {
                 console.error('Error response:', result);
+                alert(`Run failed: ${result.error || `HTTP ${response.status}`}`);
             }
         } catch (error) {
             console.error('Error submitting to ThinkSuit:', error);
+            alert(`Run failed: ${error.message}`);
         } finally {
             isSubmitting = false;
         }

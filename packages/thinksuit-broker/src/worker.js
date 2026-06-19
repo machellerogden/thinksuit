@@ -58,9 +58,68 @@ function serializeResult(result) {
     };
 }
 
+// Provider credential metadata: which providerConfig key holds creds, what's
+// required, and the env var that supplies it. Mirrors engine config.js so the
+// worker can fill gaps from its own environment.
+const PROVIDERS = {
+    openai: { key: 'openai', required: (c) => !!c.apiKey, env: 'OPENAI_API_KEY' },
+    anthropic: { key: 'anthropic', required: (c) => !!c.apiKey, env: 'ANTHROPIC_API_KEY' },
+    'hugging-face': { key: 'huggingFace', required: (c) => !!c.apiKey, env: 'HF_TOKEN' },
+    google: { key: 'google', required: (c) => !!c.projectId, env: 'GOOGLE_CLOUD_PROJECT' },
+    onnx: { key: 'onnx', required: () => true, env: '' }
+};
+
+/**
+ * Merge the worker's own environment into the client-supplied providerConfig.
+ * Client-provided real values win; the environment fills gaps (undefined/empty).
+ * This is what lets launchctl-setenv'd keys on the broker be used when a client
+ * (e.g. the console LaunchAgent) has no keys of its own.
+ */
+function mergeProviderConfig(clientProviderConfig = {}) {
+    const envConfig = {
+        openai: { apiKey: process.env.OPENAI_API_KEY },
+        anthropic: { apiKey: process.env.ANTHROPIC_API_KEY },
+        google: {
+            projectId: process.env.GOOGLE_CLOUD_PROJECT,
+            location: process.env.GOOGLE_CLOUD_LOCATION || 'global'
+        },
+        huggingFace: { apiKey: process.env.HF_TOKEN },
+        onnx: { dtype: process.env.ONNX_DTYPE || 'q4' }
+    };
+
+    const merged = {};
+    for (const providerKey of Object.keys(envConfig)) {
+        const out = { ...envConfig[providerKey] };
+        const over = clientProviderConfig[providerKey] || {};
+        for (const [k, v] of Object.entries(over)) {
+            if (v !== undefined && v !== null && v !== '') out[k] = v;
+        }
+        merged[providerKey] = out;
+    }
+    return merged;
+}
+
 async function start(config) {
     if (started) return;
     started = true;
+
+    const provider = config.provider || 'openai';
+    const providerConfig = mergeProviderConfig(config.providerConfig);
+
+    // Fail fast (before acquiring a session) when the selected provider has no
+    // usable credential, so clients get an actionable error instead of a silent,
+    // half-created session.
+    const meta = PROVIDERS[provider];
+    if (meta && !meta.required(providerConfig[meta.key] || {})) {
+        send({
+            type: 'error',
+            reason:
+                `No credential for provider '${provider}'. Set ${meta.env} in the broker's ` +
+                `environment (run thinksuit-broker-service-setenv) or pass it in the run config.`
+        });
+        process.exit(1);
+        return;
+    }
 
     // Resolve modules from the package string the broker forwarded.
     let modules;
@@ -85,7 +144,7 @@ async function start(config) {
         format: 'json'
     });
 
-    const scheduleConfig = { ...config, modules, logger };
+    const scheduleConfig = { ...config, provider, providerConfig, modules, logger };
     delete scheduleConfig.modulesPackage; // schedule() takes loaded modules, not a path
 
     const { sessionId, scheduled, isNew, execution, interrupt, reason } =

@@ -60,6 +60,17 @@ See **../../CONTRIBUTING.md** for repo-wide commands, architecture, and style.
   before emitting `turn.complete`, so clients never hang.
 - **A bad request must not crash the daemon.** All handlers run behind a request
   boundary that converts throws into responses; keep it that way.
+- **Credentials ride on env vars; the broker is the single source.** API keys are
+  never stored at rest. The worker (`mergeProviderConfig`) fills any provider
+  credential the client omitted from its **own** `process.env`, so clients
+  (including the keyless console LaunchAgent) need not carry secrets. If the
+  selected provider still has no credential, the worker **fails fast before
+  acquiring a session** (sends `error` → 409) with an actionable message — never
+  a silent half-session. macOS launchd doesn't inherit the shell env, so
+  `bin/service.setenv.sh` (`launchctl setenv` + restart, run from a shell that
+  has the keys, and wired into `service.init.sh`) is how the broker gets them.
+  Note the boot-window: a `RunAtLoad` broker starts keyless until the first login
+  runs setenv.
 
 ### Testing (coding agents)
 

@@ -57,17 +57,23 @@ function readBody(req) {
  */
 export function createBroker() {
     const registry = new Map();
-    // sessionId -> Set<res> of open tail SSE responses, so we can push a
-    // synthetic terminal event if a worker dies without writing turn.complete.
+    // sessionId -> Set<{ res, flush }> of open tail SSE streams. `flush` reads
+    // any JSONL not yet delivered from that stream's cursor.
     const tailStreams = new Map();
     const startTime = Date.now();
 
-    function notifyTailStreams(sessionId, event) {
+    // Called when a worker exits. The worker flushes its JSONL before exiting,
+    // but chokidar's awaitWriteFinish debounce can lag behind the instant exit
+    // signal — so we explicitly flush each tail stream's remaining events FIRST,
+    // then send the synthetic terminal event. This guarantees clients receive
+    // session.response/turn.complete before broker.worker.exited.
+    async function finalizeTailStreams(sessionId, event) {
         const set = tailStreams.get(sessionId);
         if (!set) return;
-        for (const res of set) {
+        for (const record of set) {
             try {
-                res.write(`data: ${JSON.stringify(event)}\n\n`);
+                await record.flush();
+                record.res.write(`data: ${JSON.stringify(event)}\n\n`);
             } catch {
                 // Stream already gone; cleanup handler will remove it.
             }
@@ -134,13 +140,13 @@ export function createBroker() {
             child.on('exit', () => {
                 if (entry.sessionId) {
                     registry.delete(entry.sessionId);
-                    // Guarantee tailing clients unblock even if the worker died
-                    // before emitting session.turn.complete.
-                    notifyTailStreams(entry.sessionId, {
+                    // Flush remaining JSONL to tail streams, then signal exit, so
+                    // clients see the real terminal events before the failsafe.
+                    finalizeTailStreams(entry.sessionId, {
                         event: 'broker.worker.exited',
                         sessionId: entry.sessionId,
                         status: entry.status
-                    });
+                    }).catch(() => {});
                 }
                 if (!settled) {
                     settled = true;
@@ -359,13 +365,15 @@ export function createBroker() {
             () => {}
         );
 
-        // Track this stream so worker-exit can push a synthetic terminal event.
+        // Track this stream (with its flush) so worker-exit can deliver any
+        // remaining JSONL before the synthetic terminal event.
+        const record = { res, flush: flushFrom };
         let set = tailStreams.get(sessionId);
         if (!set) {
             set = new Set();
             tailStreams.set(sessionId, set);
         }
-        set.add(res);
+        set.add(record);
 
         const heartbeat = setInterval(() => res.write(': ping\n\n'), 15000);
 
@@ -374,7 +382,7 @@ export function createBroker() {
             sub.unsubscribe().catch(() => {});
             const streams = tailStreams.get(sessionId);
             if (streams) {
-                streams.delete(res);
+                streams.delete(record);
                 if (streams.size === 0) tailStreams.delete(sessionId);
             }
         };
