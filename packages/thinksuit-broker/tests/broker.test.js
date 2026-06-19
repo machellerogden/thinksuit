@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { derivePendingApproval } from '../src/approvals.js';
+import { derivePendingApproval, derivePendingApprovalDetail } from '../src/approvals.js';
 import { createBroker } from '../src/broker.js';
 import * as client from '../src/client.js';
 
@@ -43,6 +43,52 @@ describe('derivePendingApproval', () => {
             { event: 'execution.tool.approval-requested', approvalId: 'a2' }
         ];
         expect(derivePendingApproval(entries)).toBe('a2');
+    });
+});
+
+describe('derivePendingApprovalDetail', () => {
+    it('returns null when there are no approval events', () => {
+        expect(derivePendingApprovalDetail([{ event: 'session.input' }, {}])).toBe(null);
+    });
+
+    it('returns the pending request detail (approvalId + tool + args)', () => {
+        const entries = [
+            {
+                event: 'execution.tool.approval-requested',
+                approvalId: 'a1',
+                data: { tool: 'roll_dice', args: { notation: 'd20' } }
+            }
+        ];
+        expect(derivePendingApprovalDetail(entries)).toEqual({
+            approvalId: 'a1',
+            tool: 'roll_dice',
+            args: { notation: 'd20' }
+        });
+    });
+
+    it('returns null once the approval is approved', () => {
+        const entries = [
+            { event: 'execution.tool.approval-requested', approvalId: 'a1', data: { tool: 't' } },
+            { event: 'execution.tool.approved', approvalId: 'a1' }
+        ];
+        expect(derivePendingApprovalDetail(entries)).toBe(null);
+    });
+
+    it('returns null once the approval is denied', () => {
+        const entries = [
+            { event: 'execution.tool.approval-requested', approvalId: 'a1', data: { tool: 't' } },
+            { event: 'execution.tool.denied', approvalId: 'a1' }
+        ];
+        expect(derivePendingApprovalDetail(entries)).toBe(null);
+    });
+
+    it('tracks the latest pending across multiple approvals', () => {
+        const entries = [
+            { event: 'execution.tool.approval-requested', approvalId: 'a1', data: { tool: 'one' } },
+            { event: 'execution.tool.approved', approvalId: 'a1' },
+            { event: 'execution.tool.approval-requested', approvalId: 'a2', data: { tool: 'two' } }
+        ];
+        expect(derivePendingApprovalDetail(entries)?.tool).toBe('two');
     });
 });
 
@@ -110,6 +156,12 @@ describe('broker HTTP surface', () => {
         await listen();
         const active = await client.sessions({ socketPath });
         expect(active).toEqual([]);
+    });
+
+    it('queue is empty with no live sessions', async () => {
+        await listen();
+        const queue = await client.queue({ socketPath });
+        expect(queue).toEqual([]);
     });
 
     it('includes on-disk history when all:true', async () => {

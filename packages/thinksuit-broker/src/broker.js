@@ -12,7 +12,7 @@ import {
     subscribeToSession
 } from 'thinksuit';
 import { resolveSocketPath } from './paths.js';
-import { derivePendingApproval } from './approvals.js';
+import { derivePendingApproval, derivePendingApprovalDetail } from './approvals.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -309,6 +309,23 @@ export function createBroker() {
         sendJson(res, 200, { ok: true, sessions });
     }
 
+    // The HITL discovery view: across all live sessions, which are blocked
+    // waiting on a tool approval? Derived from each session's JSONL, so it
+    // reflects the source of truth regardless of which client requested the turn.
+    async function handleQueue(req, res) {
+        const queue = [];
+        for (const [sessionId, entry] of registry.entries()) {
+            if (entry.status !== 'running') continue;
+            const data = await readSessionLinesFrom(sessionId, 0);
+            if (!data) continue;
+            const pending = derivePendingApprovalDetail(data.entries);
+            if (pending) {
+                queue.push({ sessionId, approvalId: pending.approvalId, tool: pending.tool });
+            }
+        }
+        sendJson(res, 200, { ok: true, queue });
+    }
+
     async function handleStatus(req, res, sessionId) {
         // Errors (e.g. malformed id) propagate to the request boundary, which
         // maps them to a 4xx/5xx response without crashing the daemon.
@@ -400,6 +417,7 @@ export function createBroker() {
         if (method === 'GET' && path === '/sessions') {
             return handleSessions(req, res, url.searchParams.get('all') === '1');
         }
+        if (method === 'GET' && path === '/queue') return handleQueue(req, res);
 
         const interruptMatch = path.match(/^\/interrupt\/(.+)$/);
         if (method === 'POST' && interruptMatch) {

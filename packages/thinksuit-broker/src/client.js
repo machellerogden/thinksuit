@@ -98,6 +98,15 @@ export async function sessions({ all = false, socketPath } = {}) {
     return res.sessions;
 }
 
+/**
+ * List sessions currently blocked awaiting a tool approval (the HITL queue):
+ * `[{ sessionId, approvalId, tool }]`.
+ */
+export async function queue({ socketPath } = {}) {
+    const res = await request('GET', '/queue', null, { socketPath });
+    return res.queue;
+}
+
 /** Current status for a session. */
 export async function status(sessionId, opts) {
     return request('GET', `/status/${encodeURIComponent(sessionId)}`, null, opts);

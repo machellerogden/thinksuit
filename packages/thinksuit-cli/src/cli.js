@@ -87,6 +87,22 @@ async function cmdSessions(args) {
     }
 }
 
+async function cmdQueue(args) {
+    const list = await client.queue();
+    if (hasFlag(args, 'json')) {
+        console.log(JSON.stringify(list, null, 2));
+        return;
+    }
+    if (!list.length) {
+        console.log('Nothing awaiting approval.');
+        return;
+    }
+    for (const item of list) {
+        console.log(`${item.sessionId}\t${item.tool || '(tool)'}\t${item.approvalId}`);
+    }
+    console.log('approve with: thinksuit approve <sessionId>');
+}
+
 async function cmdStatus(args) {
     const id = firstPositional(args);
     if (!id) return fail('Usage: thinksuit status <sessionId>');
@@ -212,6 +228,8 @@ export async function dispatch(verb, args) {
                 return await cmdRun(args);
             case 'sessions':
                 return await cmdSessions(args);
+            case 'queue':
+                return await cmdQueue(args);
             case 'status':
                 return await cmdStatus(args);
             case 'log':

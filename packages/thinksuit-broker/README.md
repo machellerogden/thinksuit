@@ -43,6 +43,7 @@ still launches the REPL):
 | --- | --- |
 | `thinksuit run "<input>" [--require-approval] [--json]` | Start a broker-hosted turn; prints the `sessionId` immediately (detached). |
 | `thinksuit sessions [-a/--all] [--json]` | List **active** sessions; `-a` also includes on-disk history. |
+| `thinksuit queue [--json]` | List sessions blocked awaiting a tool approval (the HITL queue). |
 | `thinksuit status <id> [--json]` | Current status of a session. |
 | `thinksuit log <id> [--tail]` | Print recorded events; `--tail` streams live. |
 | `thinksuit attach <id>` | Interactively observe + approve/interrupt + submit the next turn. |
@@ -118,6 +119,7 @@ All responses are JSON `{ ok, ... }`. Streaming endpoints use SSE.
 | `GET` | `/health` | Liveness: `{ ok, pid, version, uptimeMs, sessions }`. |
 | `POST` | `/run` | Body `{ config }` (serializable run config). Returns `{ sessionId, isNew, status, from }`. 409 if the session already has an in-flight turn. |
 | `GET` | `/sessions[?all=1]` | Active sessions; `all=1` includes on-disk history. |
+| `GET` | `/queue` | Live sessions awaiting a tool approval: `[{ sessionId, approvalId, tool }]`. |
 | `GET` | `/status/:id` | `{ sessionId, status, live }`. |
 | `GET` | `/log/:id[?tail=1][&from=N]` | Recorded events; `tail=1` streams via SSE; `from=N` starts at entry index N. |
 | `POST` | `/interrupt/:id` | Interrupt the in-flight turn. |

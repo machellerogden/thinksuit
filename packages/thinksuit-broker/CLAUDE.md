@@ -43,8 +43,9 @@ See **../../CONTRIBUTING.md** for repo-wide commands, architecture, and style.
   session streams, reports `started`/`done`/`error`/`failed`.
 - `src/client.js` — client library over the socket (`run`, `sessions`, `status`,
   `log`, `tail`, `interrupt`, `approve`, `health`).
-- `src/approvals.js` — `derivePendingApproval(entries)`: pure, finds the latest
-  unresolved approvalId from JSONL events.
+- `src/approvals.js` — `derivePendingApproval(entries)` (latest unresolved
+  approvalId) and `derivePendingApprovalDetail(entries)` (`{approvalId, tool,
+  args}`). Both pure. `queue` aggregates the latter across live sessions.
 - `src/paths.js` — socket path resolution (`THINKSUIT_BROKER_SOCK` or default).
 - `bin/service.*`, `etc/*.plist` — LaunchAgent service scaffolding.
 
