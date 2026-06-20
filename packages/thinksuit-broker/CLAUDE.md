@@ -49,6 +49,17 @@ See **../../CONTRIBUTING.md** for repo-wide commands, architecture, and style.
 - `src/paths.js` — socket path resolution (`THINKSUIT_BROKER_SOCK` or default).
 - `bin/service.*`, `etc/*.plist` — LaunchAgent service scaffolding.
 
+### Workspaces
+
+Each session has a filesystem home, provisioned by the worker **before**
+`schedule()` (so the engine `cwd` is set correctly): `~/.thinksuit/workspaces/
+<sessionId>` — a real dir by default, or a symlink when `workdir` binds an
+existing directory. Provisioning is idempotent (`provisionWorkspace` in
+`engine/sessions/index.js`); subsequent turns reuse it. The resolved workspace
+becomes the engine `cwd` (→ allowedDirectories → filesystem MCP roots). `workdir`
+(session home) is distinct from `cwd` (client invocation dir, used to resolve
+relative inputs). `status`/`sessions` surface it via `getSessionWorkspace`.
+
 ### Gotchas
 
 - **Config must be serializable.** The worker loads `modules` itself from the

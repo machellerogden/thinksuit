@@ -28,7 +28,9 @@ import {
     createLogger,
     loadModules,
     resolveApproval,
-    flushAllSessionStreams
+    flushAllSessionStreams,
+    generateId,
+    provisionWorkspace
 } from 'thinksuit';
 import { modules as defaultModules } from 'thinksuit-modules';
 
@@ -144,11 +146,31 @@ async function start(config) {
         format: 'json'
     });
 
-    const scheduleConfig = { ...config, provider, providerConfig, modules, logger };
-    delete scheduleConfig.modulesPackage; // schedule() takes loaded modules, not a path
+    // Determine the sessionId up front (schedule would otherwise generate it) so
+    // we can provision the workspace and anchor execution in it BEFORE the run
+    // starts. `workdir` binds an explicit dir (resolved against the client's
+    // invocation cwd); absent it, a fresh per-session workspace is provisioned.
+    // Existing sessions reuse their workspace. The resolved workspace becomes the
+    // engine `cwd`, which drives allowedDirectories + the filesystem MCP roots.
+    const sessionId = config.sessionId || generateId();
+    const workspace = await provisionWorkspace(sessionId, {
+        workdir: config.workdir,
+        baseCwd: config.cwd
+    });
 
-    const { sessionId, scheduled, isNew, execution, interrupt, reason } =
-        await schedule(scheduleConfig);
+    const scheduleConfig = {
+        ...config,
+        sessionId,
+        provider,
+        providerConfig,
+        cwd: workspace,
+        modules,
+        logger
+    };
+    delete scheduleConfig.modulesPackage; // schedule() takes loaded modules, not a path
+    delete scheduleConfig.workdir; // resolved into cwd above
+
+    const { scheduled, isNew, execution, interrupt, reason } = await schedule(scheduleConfig);
 
     if (!scheduled) {
         send({ type: 'error', reason });

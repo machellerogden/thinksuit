@@ -40,6 +40,7 @@ function buildRunConfig(flagArgv) {
         model: c.model,
         providerConfig: c.providerConfig,
         cwd: c.cwd || process.env.INIT_CWD || process.cwd(),
+        workdir: c.workdir, // optional: bind session to an existing dir (else provisioned)
         allowedDirectories: c.allowedDirectories,
         mcpServers: c.mcpServers,
         allowedTools: c.allowedTools,
@@ -111,6 +112,7 @@ async function cmdStatus(args) {
         console.log(JSON.stringify(res));
     } else {
         console.log(`${res.sessionId}\t${res.status}${res.live ? '\t(live)' : ''}`);
+        if (res.workdir) console.log(`Workdir: ${res.workdir}`);
     }
 }
 

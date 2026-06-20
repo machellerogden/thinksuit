@@ -3,8 +3,8 @@
  * Provides high-level functions for querying and managing sessions
  */
 
-import { readdir, readFile, writeFile, unlink } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readdir, readFile, writeFile, unlink, mkdir, symlink, realpath } from 'node:fs/promises';
+import { join, resolve, dirname } from 'node:path';
 import PQueue from 'p-queue';
 
 import { SESSION_STATUS } from '../constants/events.js';
@@ -15,6 +15,7 @@ import { generateId } from '../utils/id.js';
 import {
     getSessionFilePath,
     getMetadataFilePath,
+    getWorkspaceDir,
     ensureDirectoryExists,
     SESSIONS_BASE
 } from '../utils/paths.js';
@@ -575,6 +576,54 @@ export async function deleteSession(sessionId) {
     } catch (error) {
         return { success: false, error: error.message };
     }
+}
+
+/**
+ * Provision (or reuse) a session's workspace directory — its filesystem home.
+ * Idempotent: if it already exists (any prior turn), the existing resolved path
+ * is returned. For a new session, an explicit `workdir` is bound by symlinking
+ * the workspace path to it; otherwise a fresh directory is created.
+ *
+ * @param {string} sessionId
+ * @param {{ workdir?: string, baseCwd?: string }} [opts] - `workdir`: explicit
+ *   directory to bind (resolved against `baseCwd`); `baseCwd`: directory to
+ *   resolve a relative `workdir` against (the client's invocation cwd).
+ * @returns {Promise<string>} The resolved absolute workspace path.
+ */
+export async function provisionWorkspace(sessionId, { workdir, baseCwd } = {}) {
+    const wsPath = getWorkspaceDir(sessionId);
+
+    // Already provisioned (subsequent turn / pre-existing session): reuse it.
+    if (await exists(wsPath)) {
+        return realpath(wsPath);
+    }
+
+    await mkdir(dirname(wsPath), { recursive: true });
+
+    if (workdir) {
+        // Bind: the workspace path is a symlink to the user's directory.
+        const target = resolve(baseCwd || process.cwd(), workdir);
+        await mkdir(target, { recursive: true });
+        await symlink(target, wsPath);
+    } else {
+        // Provision a fresh managed workspace.
+        await mkdir(wsPath, { recursive: true });
+    }
+
+    return realpath(wsPath);
+}
+
+/**
+ * Resolve a session's workspace path if it exists, else null (for status views).
+ * @param {string} sessionId
+ * @returns {Promise<string|null>}
+ */
+export async function getSessionWorkspace(sessionId) {
+    const wsPath = getWorkspaceDir(sessionId);
+    if (await exists(wsPath)) {
+        return realpath(wsPath);
+    }
+    return null;
 }
 
 /**

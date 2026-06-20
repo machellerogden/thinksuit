@@ -9,8 +9,11 @@ export {
     forkSession,
     getSessionForks,
     readSessionLinesFrom,
-    deleteSession
+    deleteSession,
+    provisionWorkspace,
+    getSessionWorkspace
 } from './engine/sessions/index.js';
+export { generateId } from './engine/utils/id.js';
 export { getSessionStatus, flushAllSessionStreams } from './engine/transports/session-router.js';
 export { createSessionSubscriber, subscribeToSession } from './engine/subscribe.js';
 export { getTrace } from './engine/traces.js';

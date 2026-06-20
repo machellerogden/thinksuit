@@ -8,6 +8,7 @@ import {
     listSessions,
     getSessionStatus,
     getSessionMetadata,
+    getSessionWorkspace,
     readSessionLinesFrom,
     subscribeToSession
 } from 'thinksuit';
@@ -285,7 +286,8 @@ export function createBroker() {
                 id: sessionId,
                 status: entry.status,
                 live: true,
-                startTime: entry.startTime
+                startTime: entry.startTime,
+                workdir: await getSessionWorkspace(sessionId)
             });
         }
 
@@ -331,7 +333,8 @@ export function createBroker() {
         // maps them to a 4xx/5xx response without crashing the daemon.
         const status = await getSessionStatus(sessionId);
         const live = registry.has(sessionId);
-        sendJson(res, 200, { ok: true, sessionId, status, live });
+        const workdir = await getSessionWorkspace(sessionId);
+        sendJson(res, 200, { ok: true, sessionId, status, live, workdir });
     }
 
     async function handleLog(req, res, sessionId, tail, from = 0) {

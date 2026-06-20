@@ -9,6 +9,7 @@ export async function POST({ request }) {
             input,
             trace = false,
             cwd,
+            workdir,
             allowedDirectories,
             mcpServers,
             sessionId: providedSessionId,
@@ -52,6 +53,7 @@ export async function POST({ request }) {
             model: model || baseConfig.model,
             providerConfig: baseConfig.providerConfig,
             cwd: cwd || baseConfig.cwd,
+            workdir: workdir || undefined, // optional: bind session to a dir (else provisioned)
             allowedDirectories: allowedDirectories || baseConfig.allowedDirectories,
             mcpServers: mcpServers || baseConfig.mcpServers,
             allowedTools: allowedTools || undefined,

@@ -41,7 +41,7 @@ still launches the REPL):
 
 | Command | Description |
 | --- | --- |
-| `thinksuit run "<input>" [--require-approval] [--json]` | Start a broker-hosted turn; prints the `sessionId` immediately (detached). |
+| `thinksuit run "<input>" [--workdir <path>] [--require-approval] [--json]` | Start a broker-hosted turn; prints the `sessionId` immediately (detached). `--workdir` binds the session to an existing directory (else a fresh workspace is provisioned). |
 | `thinksuit sessions [-a/--all] [--json]` | List **active** sessions; `-a` also includes on-disk history. |
 | `thinksuit queue [--json]` | List sessions blocked awaiting a tool approval (the HITL queue). |
 | `thinksuit status <id> [--json]` | Current status of a session. |
@@ -109,6 +109,28 @@ For a foreground instance during development:
 ```bash
 npm -w thinksuit-broker run dev
 ```
+
+## Workspaces
+
+Because the broker runs detached from any client shell, each **session gets its
+own filesystem home** rather than landing in whatever directory a client happened
+to be in:
+
+- **Default:** a fresh per-session workspace is provisioned at
+  `~/.thinksuit/workspaces/<sessionId>` (override the base with
+  `THINKSUIT_WORKSPACE_DIR`).
+- **`--workdir <path>`:** binds the session to an existing directory — the
+  workspace path becomes a symlink to it. Uniform: a session's home is always
+  `~/.thinksuit/workspaces/<sessionId>`, resolved.
+- The resolved workspace is the session's working directory for **every turn**
+  (stable across turns, clients, and broker restarts — the directory's existence
+  on disk is the record). It scopes filesystem tools: it becomes the engine
+  `cwd`, which defaults `allowedDirectories` and the filesystem MCP server's roots.
+- `thinksuit status <id>` shows it as `Workdir: …`.
+
+This is distinct from `cwd` (the client's *invocation* directory, still used to
+resolve relative inputs like a relative `--modules-package`): `workdir` is the
+session's home; `cwd` is where you called from.
 
 ## Socket API
 

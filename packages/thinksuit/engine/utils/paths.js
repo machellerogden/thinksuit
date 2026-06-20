@@ -9,6 +9,8 @@ const SESSION_METADATA_BASE =
     process.env.THINKSUIT_SESSION_METADATA_DIR ||
     join(homedir(), '.thinksuit', 'sessions', 'metadata');
 const TRACES_BASE = process.env.THINKSUIT_TRACE_DIR || join(homedir(), '.thinksuit', 'traces');
+const WORKSPACES_BASE =
+    process.env.THINKSUIT_WORKSPACE_DIR || join(homedir(), '.thinksuit', 'workspaces');
 
 /**
  * Extract date components from new format ID
@@ -54,6 +56,16 @@ export function getTraceFilePath(traceId) {
 }
 
 /**
+ * Build the per-session workspace path (flat, keyed by id). May be a real
+ * directory (provisioned) or a symlink to a bound directory.
+ * @param {string} sessionId
+ * @returns {string} Full path to the session's workspace
+ */
+export function getWorkspaceDir(sessionId) {
+    return join(WORKSPACES_BASE, sessionId);
+}
+
+/**
  * Ensure directory exists for a file path (sync version)
  * @param {string} filePath
  */
@@ -71,4 +83,4 @@ export async function ensureDirectoryExistsAsync(filePath) {
     await mkdir(dir, { recursive: true });
 }
 
-export { SESSIONS_BASE, SESSION_METADATA_BASE, TRACES_BASE };
+export { SESSIONS_BASE, SESSION_METADATA_BASE, TRACES_BASE, WORKSPACES_BASE };

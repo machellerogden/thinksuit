@@ -113,6 +113,11 @@ function parseCLI(argv) {
                     type: 'string'
                     // No default - will use process.cwd()
                 },
+                workdir: {
+                    type: 'string'
+                    // Broker only: bind the session to an existing directory
+                    // (otherwise a fresh per-session workspace is provisioned)
+                },
                 allowTool: {
                     type: 'string',
                     isMultiple: true
@@ -358,6 +363,7 @@ function buildConfig(options = {}) {
         sessionId: cli.flags.sessionId || fileConfig.sessionId,
         preset: cli.flags.preset || fileConfig.preset,
         cwd: cli.flags.cwd || fileConfig.cwd, // No default here
+        workdir: cli.flags.workdir || fileConfig.workdir, // Broker: bind session to a dir
         allowedTools: (() => {
             const fromFlags = [
                 ...(cli.flags.allowTool || []),

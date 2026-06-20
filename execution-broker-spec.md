@@ -258,6 +258,25 @@ destabilize the daemon" structurally true and gives each worker its own
 module-globals (`pendingApprovals`, MCP `activeClients`), so the previously-flagged
 shared-state hazards do not apply.
 
+### Workspace model (settled — absorbed from attractor)
+
+Because execution is detached from any client shell, each **session has a
+provisioned filesystem home** (attractor's per-run workspace, adapted to our
+session unit):
+- Default: a fresh workspace at `~/.thinksuit/workspaces/<sessionId>`
+  (`THINKSUIT_WORKSPACE_DIR` override). `workdir <path>` instead binds the session
+  to an existing directory via a symlink at the same path (attractor's
+  `linkWorkspaceDir` shape). The directory's on-disk existence is the record —
+  stable across turns/clients/restarts; no metadata bookkeeping.
+- The resolved workspace is the engine `cwd` each turn, which already drives
+  `allowedDirectories` and the baked-in filesystem MCP server's roots, so tool
+  access is scoped to it.
+- **`workdir` (session home) is distinct from `cwd` (client invocation dir).**
+  They coexist: `workdir` anchors execution; `cwd` resolves relative inputs (e.g.
+  a relative `--modules-package`). Surfaced as `Workdir:` in `status`.
+- The one-shot `thinksuit-exec` is unchanged (no provisioning); child/sub-session
+  workspace inheritance is deferred.
+
 ---
 
 ## 9. Out of Scope / Future
