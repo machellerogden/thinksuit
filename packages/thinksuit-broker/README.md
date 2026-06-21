@@ -42,7 +42,7 @@ still launches the REPL):
 | Command | Description |
 | --- | --- |
 | `thinksuit run "<input>" [--workdir <path>] [--require-approval] [--json]` | Start a broker-hosted turn; prints the `sessionId` immediately (detached). `--workdir` binds the session to an existing directory (else a fresh workspace is provisioned). |
-| `thinksuit sessions [-a/--all] [--json]` | List **active** sessions; `-a` also includes on-disk history. |
+| `thinksuit ps [-a/--all] [--json]` | List **active** sessions; `-a` also includes on-disk history. (Docker-style view verb over the `/sessions` resource.) |
 | `thinksuit queue [--json]` | List sessions blocked awaiting a tool approval (the HITL queue). |
 | `thinksuit status <id> [--json]` | Current status of a session. |
 | `thinksuit log <id> [--tail]` | Print recorded events; `--tail` streams live. |

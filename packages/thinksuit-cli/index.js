@@ -9,7 +9,7 @@
 
 const KNOWN_VERBS = new Set([
     'run',
-    'sessions',
+    'ps',
     'queue',
     'status',
     'log',

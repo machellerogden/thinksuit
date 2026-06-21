@@ -71,7 +71,9 @@ async function cmdRun(args) {
     }
 }
 
-async function cmdSessions(args) {
+// `ps` is the CLI view verb over the session resource (Docker-style): the CLI
+// reads `ps`, while the broker route / client stay `sessions` (the resource).
+async function cmdPs(args) {
     const all = hasFlag(args, 'all') || args.includes('-a');
     const list = await client.sessions({ all });
     if (hasFlag(args, 'json')) {
@@ -228,8 +230,8 @@ export async function dispatch(verb, args) {
         switch (verb) {
             case 'run':
                 return await cmdRun(args);
-            case 'sessions':
-                return await cmdSessions(args);
+            case 'ps':
+                return await cmdPs(args);
             case 'queue':
                 return await cmdQueue(args);
             case 'status':
