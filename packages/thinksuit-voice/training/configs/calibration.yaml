@@ -1,0 +1,30 @@
+# Throwaway calibration config: measures generate/augment/train throughput on
+# this machine with tiny counts. The phrase is a placeholder — this model is
+# not meant to be used. Real phrase config comes later.
+model_name: calibration
+target_phrases:
+  - "hey computer"
+
+tts_backend: piper_vits
+
+# Tiny counts — just enough to measure per-clip / per-step rates.
+n_samples: 50
+n_samples_val: 10
+n_background_samples: 20
+n_background_samples_val: 5
+
+steps: 2000
+
+model:
+  model_type: conv_attention
+  model_size: small
+
+# ACAV skipped at setup (--skip-acav), so don't sample ACAV negatives.
+batch_n_per_class:
+  positive: 50
+  adversarial_negative: 50
+  ACAV100M_sample: 0
+  background_noise: 50
+
+data_dir: ./data
+output_dir: ./output

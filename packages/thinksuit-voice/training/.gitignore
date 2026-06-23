@@ -1,0 +1,16 @@
+# uv / venv (uv.lock is committed for reproducible training)
+.venv/
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Training artifacts — large, regenerable from configs/
+data/
+output/
+# personal real-voice recordings (binary; not config-reproducible)
+voice_samples/
+augmented/
+runs/
+checkpoints/
+*.onnx

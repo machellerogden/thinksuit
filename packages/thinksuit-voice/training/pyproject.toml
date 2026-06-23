@@ -1,0 +1,17 @@
+[project]
+name = "thinksuit-voice-training"
+version = "0.0.0"
+description = "Offline wake-word training for thinksuit-voice. Build-time tool only; does not define the runtime."
+requires-python = ">=3.11"
+dependencies = [
+    "livekit-wakeword[train,eval,export]",
+]
+
+[tool.uv]
+package = false
+
+# numba is transitive (librosa -> numba). uv's default "highest" resolution
+# grabs numpy 2.x, then backtracks numba down to 0.53.1 (Python <3.10 only)
+# instead of capping numpy. Flooring numba forces a modern, py3.11-capable
+# numba, which in turn caps numpy to a compatible range.
+constraint-dependencies = ["numba>=0.60"]
