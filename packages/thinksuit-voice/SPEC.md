@@ -34,8 +34,9 @@ mic ──▶ wake detect ──▶ capture/endpoint ──▶ STT ──▶ bro
                               speak ◀── TTS ◀── session.response (via tail)
 ```
 
-Session routing (first iteration intent): wake reconnects the last session; if
-none, start new. A distinct trigger/command switches sessions. Details TBD.
+Session routing: see **Session routing (current behavior)** under Decided — one
+in-memory session per daemon lifetime; the wake-word command layer starts or
+switches sessions.
 
 ## Decided
 
@@ -46,11 +47,14 @@ none, start new. A distinct trigger/command switches sessions. Details TBD.
 - **Training is offline Python/uv, quarantined to `training/`.** The pipeline
   (synthetic TTS data → augment → train → export) produces a `.onnx` classifier.
   Python exists only as a build-time tool; it does not define the runtime.
-- **STT is local and keyless.** Target: Whisper `base` via a local runtime
-  (e.g. whisper.cpp on Apple Silicon). Bar is known-reachable (matches the
-  user's existing local setup).
-- **TTS is pluggable; default starts keyless.** Ship macOS `say` first (zero
-  deps, local). ElevenLabs is the eventual upgrade — cloud, keyed.
+- **STT is local and keyless via transformers.js Whisper (ONNX).** Default
+  `Xenova/whisper-base.en`, run in-process through `@huggingface/transformers`
+  (already a repo dependency) — no external binary, no key, all-Node. whisper.cpp
+  was the original target but isn't installed on the dev machine; it stays a
+  later faster-runtime swap behind the same `stt/` interface.
+- **TTS is pluggable; `say` is a stepping stone.** Ship macOS `say` first (zero
+  deps, local, keyless) to close the loop — but it is explicitly temporary. A
+  cloud TTS provider will replace it as the default; which backend is undecided.
 - **STT and TTS are providers behind a stable interface**, mirroring
   `packages/thinksuit/engine/providers/`. One module per backend, selected by
   config. Plurality assumed from day one; "expand" = add a module.
@@ -62,28 +66,60 @@ none, start new. A distinct trigger/command switches sessions. Details TBD.
   the env is a deployment choice (env export, plist, setenv, an `op run` /
   Keychain wrapper). Secure sourcing is opt-in hardening, never forced on users.
 - **Keyless until it isn't.** Wake + STT are fully local/keyless. The first key
-  appears only with cloud TTS (ElevenLabs). Keyed and keyless providers coexist.
+  appears only with the cloud TTS provider (backend undecided). Keyed and
+  keyless providers coexist.
+- **Runtime detection is all-Node (fork B).** The wake daemon runs the three
+  ONNX models (`melspectrogram.onnx`, `embedding_model.onnx`, our classifier)
+  directly via `onnxruntime-node` — no Python at runtime. The feared risk ("can
+  JS feature extraction be faithful enough") does not exist: there is no DSP to
+  reimplement, because the mel/FFT math is frozen inside `melspectrogram.onnx`.
+  The only non-ONNX glue is int16→float32, the `x/10 + 2` mel post-proc, the
+  76-wide/stride-8 sliding window, and "take last 16 embeddings." Proven by a
+  byte-identical parity test (`tools/parity_ref.py` ↔ `tests/parity.test.js`):
+  Node matched Python's `predict()` to six decimals on both a positive
+  (0.915209) and a negative (0.258381) clip. Consequence: training stays Python
+  (build-time tool) but the runtime — and the console studio's live-test path —
+  is Node, with no train/runtime drift since both load the identical frozen
+  frontend ONNX.
 - **Personal voice enrollment is required.** Synthetic-only training does not
   generalize to a real human voice (Iteration-1 finding: natural speech scored
   ~0.3–0.4 vs ~0.97 for the synthetic `say` voice; the user had to over-enunciate
   to trigger). Each user must record their own positives, which are mixed
   (oversampled) into the synthetic positive set and the model retrained. This
   makes guided voice enrollment a first-class workflow, not a one-off chore.
+- **Mic capture is `naudiodon2`** (PortAudio, in-process PCM). The daemon owns
+  the mic and emits int16 frames to the detector; capture-after-wake uses
+  energy-based record-until-silence endpointing (`audio/endpoint.js`).
+- **Multiple wake words are first-class and cheap.** The mel→embedding frontend
+  is computed once per window and shared; each wake word is a small classifier
+  head scored on that shared embedding sequence (mirrors livekit-wakeword's
+  `predict()` returning `{name: score}`). The detector reports *which* word fired
+  by name. Adding a word ≈ adding a tiny head, not a second pipeline. (The Node
+  `wake/pipeline.js` currently loads a single head; multi-head is a small
+  contained refactor, staged below.)
+- **The voice command layer is built from wake words.** Control actions (new
+  session, switch, …) are their own trained wake words; the daemon routes on the
+  fired name — conversation word → capture→turn, command word → local control.
+  This is the voice analog of the REPL's `:`-prefixed commands and resolves the
+  session-switch trigger that was previously TBD.
+- **Session routing (current behavior).** The daemon holds one in-memory
+  `lastSessionId`: the first wake creates a new broker session; later wakes
+  continue it (context accumulates). It is not persisted — a daemon restart
+  starts fresh. Starting/switching sessions is the job of the command layer
+  above. The voice session is an ordinary broker session, observable and
+  attachable from the CLI (`ps`) and console.
+- **Device selection comes from config** (`config.wake.deviceId`). The
+  `THINKSUIT_VOICE_DEVICE` env var is a provisional dev override until config
+  loading lands (below); not the intended mechanism.
 
 ## Open (deliberately deferred — decide at the relevant iteration)
 
-- **Runtime detection: (A) Python subprocess** running livekit-wakeword's own
-  inference **vs (B) all-Node** via `onnxruntime-node` reimplementing the ONNX
-  frontend + feature extraction in JS. Training is identical either way, so this
-  is deferred until we have a model to serve. Decider: whether the JS feature
-  extraction can be made faithful enough that a trained classifier still fires.
-- **Mic capture method.** botplot's `rec`/sox subprocess approach is old and was
-  slow; not committed. Evaluate node-native / portaudio / modern options when we
-  build capture.
-- **Wake phrase(s).** Including any session-switch trigger.
-- **STT engine specifics** (which local Whisper runtime/binding).
-- **TTS beyond `say`** and the ElevenLabs key path.
-- **Config surface details** for backend selection.
+- **TTS beyond `say`** — which cloud provider, and its key path.
+- **Config surface details** — how voice config (backend selection, device,
+  wake-word selection) is loaded from the thinksuit config; replaces the
+  `THINKSUIT_VOICE_DEVICE` dev override.
+- **Command wake-word vocabulary + thresholds** — which control phrases, each
+  trained as its own word, and per-word detection thresholds.
 
 ## Prior art (reference, not commitments)
 
@@ -99,40 +135,47 @@ none, start new. A distinct trigger/command switches sessions. Details TBD.
 
 ## Staged plan
 
-**Iteration 1 — Training footing + prove detection (current).**
-- Scaffold `packages/thinksuit-voice/` (package skeleton + `training/` uv
-  project). Python quarantined to `training/`.
-- Install only what training needs: `espeak-ng` (+ `ffmpeg`, present).
-- PoC-0: prove detection works end-to-end with the pretrained `hey_livekit`
-  model (audio → wake event reaches Node).
-- PoC-1: train a custom wake phrase and detect on it.
-- PoC-2: real-voice enrollment — record natural positives, mix (oversampled)
-  into the positive set, retrain; confirm live recall on the user's own voice.
-- Out of scope: runtime service, mic capture method, broker routing.
+**Iteration 1 — Training footing + prove detection. [done]**
+- Scaffolded `packages/thinksuit-voice/` (package skeleton + `training/` uv
+  project), Python quarantined to `training/`.
+- Trained a custom phrase ("Hey ThinkSuit") and proved live detection.
+- PoC-2: real-voice enrollment (record → mix → retrain), confirmed live recall
+  on the user's own voice; real-voice negatives fixed speaker overfit.
 
-**Iteration 2 — Capture + wake into the broker.**
-- Pick runtime fork A/B and mic capture method.
-- Wake → capture an utterance → emit a wake/utterance event into Node →
-  `broker.run`. Establish the stable stdout/event contract.
+**Iteration 2 — Capture + wake into the broker. [done]**
+- Runtime fork B (all-Node) and `naudiodon2` capture chosen and proven.
+- Wake → energy-based record-until-silence capture → `broker.run`; session
+  routing (one in-memory session, reconnect-last).
 
-**Iteration 3 — Local STT.** Whisper `base` provider; utterance → text → `run`.
+**Iteration 3 — Local STT. [done]** transformers.js Whisper provider; utterance
+→ text → `run`, with model warmup at daemon start.
 
-**Iteration 4 — Response + TTS.** `session.response` (via `tail`) → `say`. Full
-hands-free loop closed, keyless.
+**Iteration 4 — Response + TTS. [done]** `session.response` (via `tail`) →
+macOS `say`. Full hands-free loop closed, keyless.
 
-**Iteration 5 — Provider abstraction + config + ElevenLabs.** STT/TTS provider
-interface, console-editable backend selection in thinksuit config, ElevenLabs
-TTS + its key path. Eventually: the LaunchAgent service scaffolding (bin/ +
+**Iteration 5 — Voice command layer (commands-as-wakewords).** Refactor
+`wake/pipeline.js` to load multiple classifier heads on the shared frontend and
+return `{name: score}`; `wake/detector.js` fires `onWake({name, confidence})`
+for the winning word; daemon routes on the name. First commands: start/clear and
+switch session. Per-word thresholds.
+
+**Iteration 6 — Provider abstraction + config + cloud TTS.** STT/TTS provider
+interface, console-editable backend selection in thinksuit config (replacing the
+`THINKSUIT_VOICE_DEVICE` override), and a cloud TTS provider (backend undecided)
++ its key path. Eventually: the LaunchAgent service scaffolding (bin/ +
 etc/plist) once the runtime is settled.
 
-**Iteration 6 — Wake-word training studio in console.** A guided record → train
-→ test UI hosted by thinksuit-console but **served by thinksuit-voice**: console
+**Iteration 7 — Wake-word studio in console.** A guided record → train → test →
+install UI hosted by thinksuit-console but **served by thinksuit-voice**: console
 stays thin (records mic audio in-browser, calls a thinksuit-voice training API,
 streams progress/metrics, live-tests the model); thinksuit-voice owns the
-training orchestration + voice-sample ingestion (it must not leak into console's
-SDK/no-filesystem boundary). Subsumes Iteration-5's console-editable backend
-selection. Built only **after** the manual real-voice loop (PoC-2) is proven, so
-the UI automates a workflow we know works.
+training orchestration, voice-sample ingestion, and the model install (it must
+not leak into console's SDK/no-filesystem boundary). The studio **manages
+multiple wake words** — list/add/remove/select — not a single phrase; install is
+the file-write step that places a trained classifier into the runtime home, and
+is user-facing here, not a manual chore. Subsumes Iteration 6's console-editable
+backend selection. Built only **after** the manual real-voice loop (PoC-2) is
+proven, so the UI automates a workflow we know works.
 
 ## Definition of done — Iteration 1
 

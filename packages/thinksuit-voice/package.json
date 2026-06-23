@@ -17,7 +17,21 @@
   "exports": {
     ".": "./src/index.js"
   },
+  "bin": {
+    "thinksuit-voice-service": "bin/service.mjs",
+    "thinksuit-voice-service-init": "bin/service.init.sh",
+    "thinksuit-voice-service-setenv": "bin/service.setenv.sh",
+    "thinksuit-voice-service-load": "bin/service.load.sh",
+    "thinksuit-voice-service-unload": "bin/service.unload.sh",
+    "thinksuit-voice-service-start": "bin/service.start.sh",
+    "thinksuit-voice-service-stop": "bin/service.stop.sh",
+    "thinksuit-voice-service-kill": "bin/service.kill.sh",
+    "thinksuit-voice-service-logs": "bin/service.logs.sh",
+    "thinksuit-voice-service-info": "bin/service.info.sh"
+  },
   "scripts": {
+    "dev": "node ./bin/service.mjs",
+    "detect": "node ./tools/detect.mjs",
     "test": "vitest --config ../../vitest.config.js"
   },
   "keywords": [
@@ -33,6 +47,10 @@
   },
   "license": "Apache-2.0",
   "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
+    "naudiodon2": "^2.4.0",
+    "onnxruntime-node": "^1.20.0",
+    "thinksuit": "*",
     "thinksuit-broker": "*"
   },
   "engines": {
