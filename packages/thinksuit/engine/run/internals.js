@@ -100,11 +100,11 @@ export function normalizeConfig(config) {
         }
     } else if (finalConfig.provider === 'openai') {
         if (!finalConfig.providerConfig?.openai?.apiKey) {
-            throw new Error('OpenAI API key is required (set OPENAI_API_KEY)');
+            throw new Error('OpenAI API key is required (set OPENAI_API_KEY in the environment or ~/.thinksuit/secrets.env)');
         }
     } else if (finalConfig.provider === 'anthropic') {
         if (!finalConfig.providerConfig?.anthropic?.apiKey) {
-            throw new Error('Anthropic API key is required (set ANTHROPIC_API_KEY)');
+            throw new Error('Anthropic API key is required (set ANTHROPIC_API_KEY in the environment or ~/.thinksuit/secrets.env)');
         }
     }
 

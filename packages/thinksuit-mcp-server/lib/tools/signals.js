@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { detectSignals, loadModule, createLogger } from 'thinksuit';
+import { detectSignals, loadModule, createLogger, resolveSecret } from 'thinksuit';
 
 export function registerSignalsTool(server) {
     server.tool(
@@ -61,7 +61,7 @@ export function registerSignalsTool(server) {
                     },
                     {
                         module,
-                        config: { apiKey: process.env.OPENAI_API_KEY },
+                        config: { apiKey: resolveSecret('OPENAI_API_KEY') },
                         execLogger
                     }
                 );

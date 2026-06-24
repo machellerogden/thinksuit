@@ -10,6 +10,7 @@ import {
     DEFAULT_POLICY
 } from './constants/defaults.js';
 import { validateConfig, formatValidationErrors } from '../schemas/validate.js';
+import { resolveSecret } from './secrets/index.js';
 
 import meow from 'meow';
 
@@ -390,17 +391,17 @@ function buildConfig(options = {}) {
     // Provider-specific configurations under providerConfig namespace
     config.providerConfig = {
         openai: {
-            apiKey: process.env.OPENAI_API_KEY
+            apiKey: resolveSecret('OPENAI_API_KEY')
         },
         google: {
             projectId: process.env.GOOGLE_CLOUD_PROJECT,
             location: process.env.GOOGLE_CLOUD_LOCATION || 'global'
         },
         anthropic: {
-            apiKey: process.env.ANTHROPIC_API_KEY
+            apiKey: resolveSecret('ANTHROPIC_API_KEY')
         },
         huggingFace: {
-            apiKey: process.env.HF_TOKEN
+            apiKey: resolveSecret('HF_TOKEN')
         },
         onnx: {
             dtype: process.env.ONNX_DTYPE || 'q4'

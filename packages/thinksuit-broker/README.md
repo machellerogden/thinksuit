@@ -59,8 +59,7 @@ The broker is intended to be resident (RunAtLoad). Scaffolding mirrors the other
 ThinkSuit services:
 
 ```bash
-thinksuit-broker-service-init    # bootstrap + setenv + start + tail logs (first run)
-thinksuit-broker-service-setenv  # push provider env vars into launchd + restart broker
+thinksuit-broker-service-init    # bootstrap + start + tail logs (first run)
 thinksuit-broker-service-start   # (re)start
 thinksuit-broker-service-stop    # stop
 thinksuit-broker-service-logs    # tail logs
@@ -74,35 +73,30 @@ before `…-service-init`.
 ## Configuration & secrets
 
 Provider/model selection lives in `~/.thinksuit.json` (and can be overridden
-per run). **API keys ride on environment variables — they are never stored at
-rest.** The broker is the single key source: each worker fills in any provider
-credential the client omitted from its **own** environment, so the shell CLI,
-the REPL, and the console (which, as a LaunchAgent, has no keys of its own) all
-work without carrying secrets.
+per run). **Secrets never live in `~/.thinksuit.json`.** thinksuit resolves each
+secret *by name* at startup: from the **environment** first, then from a
+vendor-neutral **`~/.thinksuit/secrets.env`** (`KEY=value`, override the path with
+`THINKSUIT_SECRETS_FILE`). Resolution is per-name, so a service only ever loads
+the keys it actually uses — the voice and tty agents never see `OPENAI_API_KEY`.
 
-The catch is macOS launchd: a LaunchAgent does **not** inherit your shell
-environment, and env vars don't exist "at rest" for it to read at boot. So the
-broker must be *given* the keys from a context that has them:
+How `~/.thinksuit/secrets.env` gets populated is **your** concern, not
+thinksuit's: a secrets manager, a Keychain reader, hand-editing — anything that
+writes the file. Because it persists on disk, services read it at startup with
+**no per-reboot step** and no shared-environment leakage; the only tradeoff is a
+`600` file at rest.
+
+`etc/secrets-pull.sh` is an **example** (not an installed command) that
+materializes the file from 1Password via `op inject` — copy and adapt it, or
+replace it with whatever your setup uses:
 
 ```bash
-# from your shell (which has the keys exported):
-thinksuit-broker-service-setenv
+# with your 1Password app unlocked (approve once), from the broker package:
+./etc/secrets-pull.sh
 ```
 
-This `launchctl setenv`s whichever of `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
-`GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `HF_TOKEN` are present, then
-restarts the broker so it inherits them. `…-service-init` runs this for you.
-
-**Recommended:** add `thinksuit-broker-service-setenv` to your shell profile
-(`~/.zshrc`) so every login refreshes the broker's environment.
-
-**Boot-window tradeoff:** the broker is `RunAtLoad`, so after a reboot it starts
-at login *before* any shell has run `setenv` — and `setenv` does not update an
-already-running process. So between boot and your first terminal, the broker is
-keyless: runs fail fast with a clear *"No credential for provider …"* error
-(no silent hang, no half-session). Opening a terminal (which runs `setenv` via
-your profile) closes the window. Eliminating it entirely would require
-persisting a secret at rest, which this design deliberately avoids.
+If a selected provider's key is set nowhere, the worker fails fast before
+acquiring a session with a clear *"No credential for provider …"* message —
+never a silent half-session.
 
 For a foreground instance during development:
 

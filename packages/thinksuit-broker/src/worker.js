@@ -30,7 +30,8 @@ import {
     resolveApproval,
     flushAllSessionStreams,
     generateId,
-    provisionWorkspace
+    provisionWorkspace,
+    resolveSecret
 } from 'thinksuit';
 import { modules as defaultModules } from 'thinksuit-modules';
 
@@ -72,20 +73,20 @@ const PROVIDERS = {
 };
 
 /**
- * Merge the worker's own environment into the client-supplied providerConfig.
- * Client-provided real values win; the environment fills gaps (undefined/empty).
- * This is what lets launchctl-setenv'd keys on the broker be used when a client
- * (e.g. the console LaunchAgent) has no keys of its own.
+ * Merge broker-resolved provider credentials into the client-supplied
+ * providerConfig. Client-provided real values win; resolveSecret fills the gaps
+ * (from the environment or ~/.thinksuit/secrets.env), so a client that carries no
+ * keys of its own (e.g. the console) still runs.
  */
 function mergeProviderConfig(clientProviderConfig = {}) {
     const envConfig = {
-        openai: { apiKey: process.env.OPENAI_API_KEY },
-        anthropic: { apiKey: process.env.ANTHROPIC_API_KEY },
+        openai: { apiKey: resolveSecret('OPENAI_API_KEY') },
+        anthropic: { apiKey: resolveSecret('ANTHROPIC_API_KEY') },
         google: {
             projectId: process.env.GOOGLE_CLOUD_PROJECT,
             location: process.env.GOOGLE_CLOUD_LOCATION || 'global'
         },
-        huggingFace: { apiKey: process.env.HF_TOKEN },
+        huggingFace: { apiKey: resolveSecret('HF_TOKEN') },
         onnx: { dtype: process.env.ONNX_DTYPE || 'q4' }
     };
 
@@ -116,8 +117,8 @@ async function start(config) {
         send({
             type: 'error',
             reason:
-                `No credential for provider '${provider}'. Set ${meta.env} in the broker's ` +
-                `environment (run thinksuit-broker-service-setenv) or pass it in the run config.`
+                `No credential for provider '${provider}'. Set ${meta.env} in the environment or ` +
+                `in ~/.thinksuit/secrets.env, or pass it in the run config.`
         });
         process.exit(1);
         return;

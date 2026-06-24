@@ -23,7 +23,6 @@
         "thinksuit-voice": "bin/ctl.mjs",
         "thinksuit-voice-service": "bin/service.mjs",
         "thinksuit-voice-service-init": "bin/service.init.sh",
-        "thinksuit-voice-service-setenv": "bin/service.setenv.sh",
         "thinksuit-voice-service-load": "bin/service.load.sh",
         "thinksuit-voice-service-unload": "bin/service.unload.sh",
         "thinksuit-voice-service-start": "bin/service.start.sh",

@@ -21,7 +21,6 @@
     "bin": {
         "thinksuit-broker-service": "bin/service.mjs",
         "thinksuit-broker-service-init": "bin/service.init.sh",
-        "thinksuit-broker-service-setenv": "bin/service.setenv.sh",
         "thinksuit-broker-service-load": "bin/service.load.sh",
         "thinksuit-broker-service-unload": "bin/service.unload.sh",
         "thinksuit-broker-service-start": "bin/service.start.sh",

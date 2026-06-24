@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { schedule } from 'thinksuit';
+import { schedule, resolveSecret } from 'thinksuit';
 
 export function registerThinkSuitTool(server) {
     server.tool(
@@ -33,7 +33,7 @@ export function registerThinkSuitTool(server) {
             try {
                 const config = {
                     ...options,
-                    apiKey: process.env.OPENAI_API_KEY
+                    apiKey: resolveSecret('OPENAI_API_KEY')
                 };
 
                 const { sessionId, isNew, execution } = await schedule({
