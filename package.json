@@ -1,49 +1,49 @@
 {
-  "name": "thinksuit-monorepo",
-  "version": "0.1.3",
-  "private": true,
-  "description": "ThinkSuit monorepo - AI orchestration system with modular cognitive architecture",
-  "workspaces": [
-    "packages/*"
-  ],
-  "scripts": {
-    "console": "npm -w thinksuit-console run dev --",
-    "tty": "npm -w thinksuit-tty run dev --",
-    "mcp": "npm -w thinksuit-mcp-server run start --",
-    "exec": "npm -w thinksuit run exec --",
-    "start": "npm -w thinksuit-cli run start --",
-    "build": "npm run build --workspaces --if-present",
-    "publish": "npm run publish --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present",
-    "test": "vitest",
-    "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage",
-    "version:patch": "./scripts/version.sh patch",
-    "version:minor": "./scripts/version.sh minor",
-    "version:major": "./scripts/version.sh major"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/machellerogden/thinksuit.git"
-  },
-  "bugs": {
-    "url": "https://github.com/machellerogden/thinksuit/issues"
-  },
-  "homepage": "https://github.com/machellerogden/thinksuit#readme",
-  "author": {
-    "name": "Mac Heller-Ogden",
-    "email": "mac@machellerogden.com"
-  },
-  "license": "Apache-2.0",
-  "devDependencies": {
-    "@vitest/coverage-v8": "^4.1.9",
-    "@vitest/ui": "^4.1.9",
-    "vitest": "^4.1.9"
-  },
-  "overrides": {
-    "gaxios": "^7.1.2"
-  },
-  "engines": {
-    "node": ">=24"
-  }
+    "name": "thinksuit-monorepo",
+    "version": "0.1.3",
+    "private": true,
+    "description": "ThinkSuit monorepo - AI orchestration system with modular cognitive architecture",
+    "workspaces": [
+        "packages/*"
+    ],
+    "scripts": {
+        "console": "npm -w thinksuit-console run dev --",
+        "tty": "npm -w thinksuit-tty run dev --",
+        "mcp": "npm -w thinksuit-mcp-server run start --",
+        "exec": "npm -w thinksuit run exec --",
+        "start": "npm -w thinksuit-cli run start --",
+        "build": "npm run build --workspaces --if-present",
+        "publish": "npm run publish --workspaces --if-present",
+        "lint": "npm run lint --workspaces --if-present",
+        "test": "vitest",
+        "test:ui": "vitest --ui",
+        "test:coverage": "vitest --coverage",
+        "version:patch": "./scripts/version.sh patch",
+        "version:minor": "./scripts/version.sh minor",
+        "version:major": "./scripts/version.sh major"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/machellerogden/thinksuit.git"
+    },
+    "bugs": {
+        "url": "https://github.com/machellerogden/thinksuit/issues"
+    },
+    "homepage": "https://github.com/machellerogden/thinksuit#readme",
+    "author": {
+        "name": "Mac Heller-Ogden",
+        "email": "mac@machellerogden.com"
+    },
+    "license": "Apache-2.0",
+    "devDependencies": {
+        "@vitest/coverage-v8": "^4.1.9",
+        "@vitest/ui": "^4.1.9",
+        "vitest": "^4.1.9"
+    },
+    "overrides": {
+        "gaxios": "^7.1.2"
+    },
+    "engines": {
+        "node": ">=22"
+    }
 }

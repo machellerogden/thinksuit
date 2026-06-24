@@ -3,7 +3,9 @@
 // 16 kHz) to onFrames.
 
 import naudiodon from 'naudiodon2';
-import { SAMPLE_RATE } from '../wake/pipeline.js';
+import { SAMPLE_RATE } from './constants.js';
+
+export { listInputDevices } from './devices.js';
 
 const DEFAULT_DEVICE_ID = -1; // system default input
 
@@ -28,12 +30,4 @@ export function createCapture({ deviceId = DEFAULT_DEVICE_ID, onFrames, onError 
         start: () => ai.start(),
         stop: () => ai.quit()
     };
-}
-
-// List input-capable devices: [{ id, name, channels }].
-export function listInputDevices() {
-    return naudiodon
-        .getDevices()
-        .filter((d) => d.maxInputChannels > 0)
-        .map((d) => ({ id: d.id, name: d.name, channels: d.maxInputChannels }));
 }

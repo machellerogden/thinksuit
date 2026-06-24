@@ -1,59 +1,60 @@
 {
-  "name": "thinksuit-voice",
-  "version": "0.1.3",
-  "private": true,
-  "description": "Hands-free voice front door for ThinkSuit: wake word -> speech -> turn -> spoken response",
-  "type": "module",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/machellerogden/thinksuit.git",
-    "directory": "packages/thinksuit-voice"
-  },
-  "bugs": {
-    "url": "https://github.com/machellerogden/thinksuit/issues"
-  },
-  "homepage": "https://github.com/machellerogden/thinksuit/tree/main/packages/thinksuit-voice#readme",
-  "main": "./src/index.js",
-  "exports": {
-    ".": "./src/index.js"
-  },
-  "bin": {
-    "thinksuit-voice-service": "bin/service.mjs",
-    "thinksuit-voice-service-init": "bin/service.init.sh",
-    "thinksuit-voice-service-setenv": "bin/service.setenv.sh",
-    "thinksuit-voice-service-load": "bin/service.load.sh",
-    "thinksuit-voice-service-unload": "bin/service.unload.sh",
-    "thinksuit-voice-service-start": "bin/service.start.sh",
-    "thinksuit-voice-service-stop": "bin/service.stop.sh",
-    "thinksuit-voice-service-kill": "bin/service.kill.sh",
-    "thinksuit-voice-service-logs": "bin/service.logs.sh",
-    "thinksuit-voice-service-info": "bin/service.info.sh"
-  },
-  "scripts": {
-    "dev": "node ./bin/service.mjs",
-    "detect": "node ./tools/detect.mjs",
-    "test": "vitest --config ../../vitest.config.js"
-  },
-  "keywords": [
-    "thinksuit",
-    "voice",
-    "wakeword",
-    "stt",
-    "tts"
-  ],
-  "author": {
-    "name": "Mac Heller-Ogden",
-    "email": "mac@machellerogden.com"
-  },
-  "license": "Apache-2.0",
-  "dependencies": {
-    "@huggingface/transformers": "^4.2.0",
-    "naudiodon2": "^2.4.0",
-    "onnxruntime-node": "^1.20.0",
-    "thinksuit": "*",
-    "thinksuit-broker": "*"
-  },
-  "engines": {
-    "node": ">=24"
-  }
+    "name": "thinksuit-voice",
+    "version": "0.1.3",
+    "private": true,
+    "description": "Hands-free voice front door for ThinkSuit: wake word -> speech -> turn -> spoken response",
+    "type": "module",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/machellerogden/thinksuit.git",
+        "directory": "packages/thinksuit-voice"
+    },
+    "bugs": {
+        "url": "https://github.com/machellerogden/thinksuit/issues"
+    },
+    "homepage": "https://github.com/machellerogden/thinksuit/tree/main/packages/thinksuit-voice#readme",
+    "main": "./src/index.js",
+    "exports": {
+        ".": "./src/index.js",
+        "./devices": "./src/audio/devices.js"
+    },
+    "bin": {
+        "thinksuit-voice-service": "bin/service.mjs",
+        "thinksuit-voice-service-init": "bin/service.init.sh",
+        "thinksuit-voice-service-setenv": "bin/service.setenv.sh",
+        "thinksuit-voice-service-load": "bin/service.load.sh",
+        "thinksuit-voice-service-unload": "bin/service.unload.sh",
+        "thinksuit-voice-service-start": "bin/service.start.sh",
+        "thinksuit-voice-service-stop": "bin/service.stop.sh",
+        "thinksuit-voice-service-kill": "bin/service.kill.sh",
+        "thinksuit-voice-service-logs": "bin/service.logs.sh",
+        "thinksuit-voice-service-info": "bin/service.info.sh"
+    },
+    "scripts": {
+        "dev": "node ./bin/service.mjs",
+        "detect": "node ./tools/detect.mjs",
+        "test": "vitest --config ../../vitest.config.js"
+    },
+    "keywords": [
+        "thinksuit",
+        "voice",
+        "wakeword",
+        "stt",
+        "tts"
+    ],
+    "author": {
+        "name": "Mac Heller-Ogden",
+        "email": "mac@machellerogden.com"
+    },
+    "license": "Apache-2.0",
+    "dependencies": {
+        "@huggingface/transformers": "^4.2.0",
+        "naudiodon2": "^2.4.0",
+        "onnxruntime-node": "^1.20.0",
+        "thinksuit": "*",
+        "thinksuit-broker": "*"
+    },
+    "engines": {
+        "node": ">=22"
+    }
 }

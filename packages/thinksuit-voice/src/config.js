@@ -1,5 +1,5 @@
-// Voice configuration: backend selection only, never secrets. Returns defaults
-// for now; loading from the thinksuit config comes later.
+// Voice configuration: backend selection only, never secrets. Layered
+// defaults < thinksuit config (`voice` namespace) < explicit overrides.
 
 const DEFAULTS = {
     wake: {
@@ -7,22 +7,35 @@ const DEFAULTS = {
         threshold: 0.7,
         deviceId: -1
     },
+    capture: {
+        rmsThreshold: 400,
+        silenceMs: 700,
+        startTimeoutMs: 3000,
+        maxMs: 300000, // 5 min — generous; the old 10s hardcoded cap cut people off
+        cueTrimMarginMs: 120, // added to the cue's measured duration when trimming the beep
+        guardLeadMs: 180 // silence kept before the detected onset so the attack isn't clipped
+    },
+    cues: {
+        enabled: true,
+        start: '/System/Library/Sounds/Tink.aiff',
+        end: '/System/Library/Sounds/Pop.aiff',
+        error: '/System/Library/Sounds/Funk.aiff',
+        working: '/System/Library/Sounds/Purr.aiff' // gentle loop while the turn runs
+    },
     stt: { provider: 'whisper' },
     tts: { provider: 'say' }
 };
 
-export function loadVoiceConfig(overrides = {}) {
-    // Provisional dev override until config loading lands; device belongs in config.
-    const envDevice = process.env.THINKSUIT_VOICE_DEVICE;
-    const wake = { ...DEFAULTS.wake, ...(overrides.wake || {}) };
-    if (envDevice !== undefined && overrides.wake?.deviceId === undefined) {
-        wake.deviceId = parseInt(envDevice, 10);
-    }
+function mergeSection(name, ...sources) {
+    return Object.assign({}, DEFAULTS[name], ...sources.map((s) => s?.[name] || {}));
+}
+
+export function loadVoiceConfig(fileVoice = {}, overrides = {}) {
     return {
-        ...DEFAULTS,
-        ...overrides,
-        wake,
-        stt: { ...DEFAULTS.stt, ...(overrides.stt || {}) },
-        tts: { ...DEFAULTS.tts, ...(overrides.tts || {}) }
+        wake: mergeSection('wake', fileVoice, overrides),
+        capture: mergeSection('capture', fileVoice, overrides),
+        cues: mergeSection('cues', fileVoice, overrides),
+        stt: mergeSection('stt', fileVoice, overrides),
+        tts: mergeSection('tts', fileVoice, overrides)
     };
 }

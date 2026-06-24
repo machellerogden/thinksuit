@@ -33,6 +33,12 @@
             >
                 Config
             </a>
+            <a
+                href="#/services"
+                class="border rounded px-2 py-1 {matchAndResolve(location, new RegExp('^/services'), 'bg-gray-100 text-gray-900 border-gray-400', 'bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900 hover:border-gray-500')}"
+            >
+                Services
+            </a>
 
             <div class="h-12 w-12 flex items-center justify-center"> <!-- border-l border-gray-300 -->
                 <!-- Dark Mode Toggle -->

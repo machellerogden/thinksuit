@@ -6,7 +6,7 @@
 
 import * as ort from 'onnxruntime-node';
 
-export const SAMPLE_RATE = 16000;
+export { SAMPLE_RATE } from '../audio/constants.js';
 export const WINDOW_SAMPLES = 32000; // 2s — yields exactly 16 embeddings
 const EMBEDDING_WINDOW = 76; // mel frames per embedding
 const EMBEDDING_STRIDE = 8; // mel frames between embeddings

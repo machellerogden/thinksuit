@@ -29,9 +29,9 @@ spoken back.
 ## End-state shape (the eventual loop)
 
 ```
-mic ──▶ wake detect ──▶ capture/endpoint ──▶ STT ──▶ broker.run({input, sessionId})
-                                                            │
-                              speak ◀── TTS ◀── session.response (via tail)
+mic ─▶ wake ─▶ capture/endpoint ─▶ STT ─▶ [post-process?] ─▶ broker.run({input, sessionId})
+                                                                      │
+                                    speak ◀── TTS ◀── session.response (via tail)
 ```
 
 Session routing: see **Session routing (current behavior)** under Decided — one
@@ -108,16 +108,32 @@ switches sessions.
   starts fresh. Starting/switching sessions is the job of the command layer
   above. The voice session is an ordinary broker session, observable and
   attachable from the CLI (`ps`) and console.
-- **Device selection comes from config** (`config.wake.deviceId`). The
-  `THINKSUIT_VOICE_DEVICE` env var is a provisional dev override until config
-  loading lands (below); not the intended mechanism.
+- **Voice config lives in the thinksuit config under a `voice` namespace**
+  (`voice.wake` / `voice.stt` / `voice.tts`), validated by `config.v1.json` and
+  surfaced through `buildConfig().voice`. The daemon reads it via
+  `loadVoiceConfig(base.voice, overrides)` — layered defaults < file < overrides.
+  Device selection is `voice.wake.deviceId`; the old `THINKSUIT_VOICE_DEVICE` env
+  override is removed.
+- **Transcription post-processing is an optional stage** between STT and the
+  turn. The raw transcript may be passed through an LLM with custom instructions
+  to clean/reformat it before it becomes the turn input (the author's habit:
+  OpenAI `gpt-5-mini` with custom instructions). It is:
+  - optional (off by default; user opts in);
+  - independently configured — its **own provider + model selection**, drawn from
+    any of the user's configured providers/models (not tied to the conversation
+    model), plus a custom instruction prompt;
+  - selection + instructions live in config (never secrets).
+  Open: whether the post-process LLM call routes **through the broker** (keeping
+  the daemon keyless, consistent with the credential model) or via thinksuit's
+  provider abstraction directly — decide when built. Modeled as a distinct stage,
+  not baked into the STT provider, so it works regardless of STT backend.
 
 ## Open (deliberately deferred — decide at the relevant iteration)
 
 - **TTS beyond `say`** — which cloud provider, and its key path.
-- **Config surface details** — how voice config (backend selection, device,
-  wake-word selection) is loaded from the thinksuit config; replaces the
-  `THINKSUIT_VOICE_DEVICE` dev override.
+- **Config surface details (remaining)** — the base shape (`voice.wake/stt/tts`)
+  now loads from the thinksuit config; still open: multi-wake-word selection
+  shape and the post-processing config block, settled at their iterations.
 - **Command wake-word vocabulary + thresholds** — which control phrases, each
   trained as its own word, and per-word detection thresholds.
 
@@ -160,10 +176,13 @@ for the winning word; daemon routes on the name. First commands: start/clear and
 switch session. Per-word thresholds.
 
 **Iteration 6 — Provider abstraction + config + cloud TTS.** STT/TTS provider
-interface, console-editable backend selection in thinksuit config (replacing the
-`THINKSUIT_VOICE_DEVICE` override), and a cloud TTS provider (backend undecided)
-+ its key path. Eventually: the LaunchAgent service scaffolding (bin/ +
-etc/plist) once the runtime is settled.
+interface, console-editable backend selection in thinksuit config (the `voice`
+namespace already loads; this iteration adds the console UX), and a cloud TTS
+provider (backend undecided)
++ its key path. Adds the optional **transcription post-processing** stage and its
+config (enable flag, provider/model selection from any configured, custom
+instructions). Eventually: the LaunchAgent service scaffolding (bin/ + etc/plist)
+once the runtime is settled.
 
 **Iteration 7 — Wake-word studio in console.** A guided record → train → test →
 install UI hosted by thinksuit-console but **served by thinksuit-voice**: console

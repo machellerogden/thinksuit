@@ -109,6 +109,120 @@
       "type": "integer",
       "description": "Tool approval timeout in milliseconds (-1 to disable, default: 43200000 = 12 hours)"
     },
+    "voice": {
+      "type": "object",
+      "description": "thinksuit-voice daemon configuration (backend selection + device; never secrets)",
+      "properties": {
+        "wake": {
+          "type": "object",
+          "description": "Wake-word detection settings",
+          "properties": {
+            "phrase": {
+              "type": "string",
+              "description": "Wake-word phrase slug (selects the classifier head)"
+            },
+            "threshold": {
+              "type": "number",
+              "description": "Detection score threshold (0-1)"
+            },
+            "deviceId": {
+              "type": "integer",
+              "description": "Input device id (-1 for system default). Fragile across device changes; prefer deviceName."
+            },
+            "deviceName": {
+              "type": "string",
+              "description": "Input device name (case-insensitive substring), resolved to the current id at startup. Preferred over deviceId."
+            },
+            "classifierPath": {
+              "type": "string",
+              "description": "Explicit path to the classifier .onnx (overrides phrase resolution)"
+            }
+          },
+          "additionalProperties": true
+        },
+        "stt": {
+          "type": "object",
+          "description": "Speech-to-text backend selection",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "description": "STT provider name (e.g., 'whisper')"
+            }
+          },
+          "additionalProperties": true
+        },
+        "tts": {
+          "type": "object",
+          "description": "Text-to-speech backend selection",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "description": "TTS provider name (e.g., 'say')"
+            }
+          },
+          "additionalProperties": true
+        },
+        "capture": {
+          "type": "object",
+          "description": "Utterance capture / endpointer tuning (post-wake recording)",
+          "properties": {
+            "rmsThreshold": {
+              "type": "number",
+              "description": "int16 RMS above which a frame counts as speech (mic-gain dependent)"
+            },
+            "silenceMs": {
+              "type": "integer",
+              "description": "Trailing silence (ms) that ends an utterance"
+            },
+            "startTimeoutMs": {
+              "type": "integer",
+              "description": "Give up (no turn) if no speech starts within this many ms after wake"
+            },
+            "maxMs": {
+              "type": "integer",
+              "description": "Hard cap (ms) on a single utterance length"
+            },
+            "cueTrimMarginMs": {
+              "type": "integer",
+              "description": "Added to the start cue's measured duration when trimming the beep off the front of the capture"
+            },
+            "guardLeadMs": {
+              "type": "integer",
+              "description": "Silence kept before the detected speech onset so the first word's attack isn't clipped"
+            }
+          },
+          "additionalProperties": true
+        },
+        "cues": {
+          "type": "object",
+          "description": "Audio feedback cues (listening start/end/error)",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Play audio cues (false mutes all)"
+            },
+            "start": {
+              "type": "string",
+              "description": "Sound file played when capture begins (finishes before recording)"
+            },
+            "end": {
+              "type": "string",
+              "description": "Sound file played when an utterance is captured"
+            },
+            "error": {
+              "type": "string",
+              "description": "Sound file played on a failed turn (go-look-at-console signal)"
+            },
+            "working": {
+              "type": "string",
+              "description": "Sound looped while a turn is in flight (submitted until response)"
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
     "presets": {
       "type": "object",
       "description": "User-defined presets organized by module",

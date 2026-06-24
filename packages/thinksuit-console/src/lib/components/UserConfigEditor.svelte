@@ -29,9 +29,47 @@
     let mcpServersJson = $state('');
     let approvalTimeout = $state(43200000);
 
+    // Voice (thinksuit-voice daemon) — backend selection + device, never secrets
+    let voiceWakePhrase = $state('');
+    let voiceWakeThreshold = $state(0.7);
+    let voiceWakeDeviceName = $state('');
+    let voiceSttProvider = $state('');
+    let voiceTtsProvider = $state('');
+
+    // Capture / endpointer tuning (post-wake recording)
+    let voiceCaptureRmsThreshold = $state(400);
+    let voiceCaptureSilenceMs = $state(700);
+    let voiceCaptureStartTimeoutMs = $state(3000);
+    let voiceCaptureMaxMs = $state(300000);
+
+    // Audio feedback cues
+    let voiceCuesEnabled = $state(true);
+    let voiceCuesStart = $state('/System/Library/Sounds/Tink.aiff');
+    let voiceCuesEnd = $state('/System/Library/Sounds/Pop.aiff');
+    let voiceCuesError = $state('/System/Library/Sounds/Funk.aiff');
+    let voiceCuesWorking = $state('/System/Library/Sounds/Purr.aiff');
+
+    // Input devices for the wake-word selector (listed by name; saved by name)
+    let inputDevices = $state([]);
+    let devicesError = $state(null);
+
     onMount(async () => {
         await loadConfig();
+        await loadDevices();
     });
+
+    async function loadDevices() {
+        devicesError = null;
+        try {
+            const response = await fetch('/api/voice/devices');
+            if (!response.ok) throw new Error('Failed to list input devices');
+            const data = await response.json();
+            inputDevices = data.devices || [];
+        } catch (e) {
+            devicesError = e.message;
+            inputDevices = [];
+        }
+    }
 
     async function loadConfig() {
         loading = true;
@@ -65,6 +103,22 @@
             allowedDirectories = Array.isArray(config.allowedDirectories) ? config.allowedDirectories.join('\n') : '';
             mcpServersJson = config.mcpServers ? JSON.stringify(config.mcpServers, null, 2) : '{}';
             approvalTimeout = config.approvalTimeout !== undefined ? config.approvalTimeout : 43200000;
+
+            const voice = config.voice || {};
+            voiceWakePhrase = voice.wake?.phrase || '';
+            voiceWakeThreshold = voice.wake?.threshold ?? 0.7;
+            voiceWakeDeviceName = voice.wake?.deviceName || '';
+            voiceSttProvider = voice.stt?.provider || '';
+            voiceTtsProvider = voice.tts?.provider || '';
+            voiceCaptureRmsThreshold = voice.capture?.rmsThreshold ?? 400;
+            voiceCaptureSilenceMs = voice.capture?.silenceMs ?? 700;
+            voiceCaptureStartTimeoutMs = voice.capture?.startTimeoutMs ?? 3000;
+            voiceCaptureMaxMs = voice.capture?.maxMs ?? 300000;
+            voiceCuesEnabled = voice.cues?.enabled ?? true;
+            voiceCuesStart = voice.cues?.start || '/System/Library/Sounds/Tink.aiff';
+            voiceCuesEnd = voice.cues?.end || '/System/Library/Sounds/Pop.aiff';
+            voiceCuesError = voice.cues?.error || '/System/Library/Sounds/Funk.aiff';
+            voiceCuesWorking = voice.cues?.working || '/System/Library/Sounds/Purr.aiff';
         } catch (e) {
             error = e.message;
         } finally {
@@ -110,6 +164,29 @@
                     throw new Error(`Invalid MCP Servers JSON: ${e.message}`);
                 }
             }
+
+            // Voice config (only emit sub-sections that have values; never secrets)
+            const wake = {};
+            if (voiceWakePhrase) wake.phrase = voiceWakePhrase;
+            if (voiceWakeThreshold !== undefined && voiceWakeThreshold !== '') wake.threshold = Number(voiceWakeThreshold);
+            if (voiceWakeDeviceName) wake.deviceName = voiceWakeDeviceName;
+            const capture = {};
+            if (voiceCaptureRmsThreshold !== undefined && voiceCaptureRmsThreshold !== '') capture.rmsThreshold = Number(voiceCaptureRmsThreshold);
+            if (voiceCaptureSilenceMs !== undefined && voiceCaptureSilenceMs !== '') capture.silenceMs = Number(voiceCaptureSilenceMs);
+            if (voiceCaptureStartTimeoutMs !== undefined && voiceCaptureStartTimeoutMs !== '') capture.startTimeoutMs = Number(voiceCaptureStartTimeoutMs);
+            if (voiceCaptureMaxMs !== undefined && voiceCaptureMaxMs !== '') capture.maxMs = Number(voiceCaptureMaxMs);
+            const cues = { enabled: voiceCuesEnabled };
+            if (voiceCuesStart) cues.start = voiceCuesStart;
+            if (voiceCuesEnd) cues.end = voiceCuesEnd;
+            if (voiceCuesError) cues.error = voiceCuesError;
+            if (voiceCuesWorking) cues.working = voiceCuesWorking;
+            const voice = {};
+            if (Object.keys(wake).length) voice.wake = wake;
+            if (Object.keys(capture).length) voice.capture = capture;
+            voice.cues = cues;
+            if (voiceSttProvider) voice.stt = { provider: voiceSttProvider };
+            if (voiceTtsProvider) voice.tts = { provider: voiceTtsProvider };
+            if (Object.keys(voice).length) updatedConfig.voice = voice;
 
             const response = await fetch('/api/config/user', {
                 method: 'PUT',
@@ -160,6 +237,21 @@
         allowedDirectories = Array.isArray(config.allowedDirectories) ? config.allowedDirectories.join('\n') : '';
         mcpServersJson = config.mcpServers ? JSON.stringify(config.mcpServers, null, 2) : '{}';
         approvalTimeout = config.approvalTimeout !== undefined ? config.approvalTimeout : 43200000;
+        const voice = config.voice || {};
+        voiceWakePhrase = voice.wake?.phrase || '';
+        voiceWakeThreshold = voice.wake?.threshold ?? 0.7;
+        voiceWakeDeviceName = voice.wake?.deviceName || '';
+        voiceSttProvider = voice.stt?.provider || '';
+        voiceTtsProvider = voice.tts?.provider || '';
+        voiceCaptureRmsThreshold = voice.capture?.rmsThreshold ?? 400;
+        voiceCaptureSilenceMs = voice.capture?.silenceMs ?? 700;
+        voiceCaptureStartTimeoutMs = voice.capture?.startTimeoutMs ?? 3000;
+        voiceCaptureMaxMs = voice.capture?.maxMs ?? 300000;
+        voiceCuesEnabled = voice.cues?.enabled ?? true;
+        voiceCuesStart = voice.cues?.start || '/System/Library/Sounds/Tink.aiff';
+        voiceCuesEnd = voice.cues?.end || '/System/Library/Sounds/Pop.aiff';
+        voiceCuesError = voice.cues?.error || '/System/Library/Sounds/Funk.aiff';
+        voiceCuesWorking = voice.cues?.working || '/System/Library/Sounds/Purr.aiff';
         error = null;
         saveSuccess = false;
     }
@@ -170,7 +262,10 @@
             allowedTools: allowedTools.split(',').map(t => t.trim()).filter(Boolean),
             allowedDirectories: allowedDirectories.split('\n').map(d => d.trim()).filter(Boolean),
             mcpServersJson,
-            approvalTimeout
+            approvalTimeout,
+            voiceWakePhrase, voiceWakeThreshold, voiceWakeDeviceName, voiceSttProvider, voiceTtsProvider,
+            voiceCaptureRmsThreshold, voiceCaptureSilenceMs, voiceCaptureStartTimeoutMs, voiceCaptureMaxMs,
+            voiceCuesEnabled, voiceCuesStart, voiceCuesEnd, voiceCuesError, voiceCuesWorking
         };
         const original = {
             module: originalConfig.module || '',
@@ -187,7 +282,21 @@
             allowedTools: Array.isArray(originalConfig.allowedTools) ? originalConfig.allowedTools : [],
             allowedDirectories: Array.isArray(originalConfig.allowedDirectories) ? originalConfig.allowedDirectories : [],
             mcpServersJson: originalConfig.mcpServers ? JSON.stringify(originalConfig.mcpServers, null, 2) : '{}',
-            approvalTimeout: originalConfig.approvalTimeout !== undefined ? originalConfig.approvalTimeout : 43200000
+            approvalTimeout: originalConfig.approvalTimeout !== undefined ? originalConfig.approvalTimeout : 43200000,
+            voiceWakePhrase: originalConfig.voice?.wake?.phrase || '',
+            voiceWakeThreshold: originalConfig.voice?.wake?.threshold ?? 0.7,
+            voiceWakeDeviceName: originalConfig.voice?.wake?.deviceName || '',
+            voiceSttProvider: originalConfig.voice?.stt?.provider || '',
+            voiceTtsProvider: originalConfig.voice?.tts?.provider || '',
+            voiceCaptureRmsThreshold: originalConfig.voice?.capture?.rmsThreshold ?? 400,
+            voiceCaptureSilenceMs: originalConfig.voice?.capture?.silenceMs ?? 700,
+            voiceCaptureStartTimeoutMs: originalConfig.voice?.capture?.startTimeoutMs ?? 3000,
+            voiceCaptureMaxMs: originalConfig.voice?.capture?.maxMs ?? 300000,
+            voiceCuesEnabled: originalConfig.voice?.cues?.enabled ?? true,
+            voiceCuesStart: originalConfig.voice?.cues?.start || '/System/Library/Sounds/Tink.aiff',
+            voiceCuesEnd: originalConfig.voice?.cues?.end || '/System/Library/Sounds/Pop.aiff',
+            voiceCuesError: originalConfig.voice?.cues?.error || '/System/Library/Sounds/Funk.aiff',
+            voiceCuesWorking: originalConfig.voice?.cues?.working || '/System/Library/Sounds/Purr.aiff'
         };
 
         return JSON.stringify(current) !== JSON.stringify(original);
@@ -446,6 +555,170 @@
                             <p class="text-xs text-gray-500 mt-1">
                                 Must be valid JSON
                             </p>
+                        </div>
+                    </div>
+                </Card>
+
+                <!-- Voice -->
+                <Card>
+                    <div class="p-4">
+                        <h2 class="text-sm font-semibold mb-4 text-gray-700">Voice (thinksuit-voice)</h2>
+                        <p class="text-xs text-gray-500 mb-4">
+                            Backend selection and input device for the hands-free voice daemon. Never holds secrets.
+                        </p>
+                        <div class="space-y-3">
+                            <div>
+                                <label for="voice-device" class="block text-xs font-medium text-gray-600 mb-1">
+                                    Input Device
+                                </label>
+                                {#if inputDevices.length > 0}
+                                    <select
+                                        id="voice-device"
+                                        bind:value={voiceWakeDeviceName}
+                                        class="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                                    >
+                                        <option value="">System default</option>
+                                        {#each inputDevices as dev (dev.id)}
+                                            <option value={dev.name}>{dev.name} ({dev.channels}ch)</option>
+                                        {/each}
+                                    </select>
+                                {:else}
+                                    <Input
+                                        name="voice-device"
+                                        bind:value={voiceWakeDeviceName}
+                                        placeholder="MacBook Pro Microphone"
+                                    />
+                                    <p class="text-xs text-orange-600 mt-1">
+                                        {devicesError ? `Could not list devices (${devicesError}). Type a device name (empty = system default).` : 'Loading devices…'}
+                                    </p>
+                                {/if}
+                                <p class="text-xs text-gray-500 mt-1">
+                                    Saved by name and resolved to the live device id at startup, so it survives id changes. System default follows macOS Sound settings.
+                                </p>
+                            </div>
+                            <div>
+                                <label for="voice-wake-phrase" class="block text-xs font-medium text-gray-600 mb-1">
+                                    Wake Phrase
+                                    <Input
+                                        name="voice-wake-phrase"
+                                        bind:value={voiceWakePhrase}
+                                        placeholder="hey_thinksuit"
+                                    />
+                                </label>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    Selects the trained classifier head (slug)
+                                </p>
+                            </div>
+                            <div>
+                                <label for="voice-wake-threshold" class="block text-xs font-medium text-gray-600 mb-1">
+                                    Detection Threshold
+                                    <Input
+                                        name="voice-wake-threshold"
+                                        type="number"
+                                        bind:value={voiceWakeThreshold}
+                                        min="0"
+                                        max="1"
+                                        step="0.05"
+                                    />
+                                </label>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    Score required to fire (0–1; default 0.7)
+                                </p>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label for="voice-stt" class="block text-xs font-medium text-gray-600 mb-1">
+                                        STT Provider
+                                        <Input
+                                            name="voice-stt"
+                                            bind:value={voiceSttProvider}
+                                            placeholder="whisper"
+                                        />
+                                    </label>
+                                </div>
+                                <div>
+                                    <label for="voice-tts" class="block text-xs font-medium text-gray-600 mb-1">
+                                        TTS Provider
+                                        <Input
+                                            name="voice-tts"
+                                            bind:value={voiceTtsProvider}
+                                            placeholder="say"
+                                        />
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="pt-3 border-t border-gray-100">
+                                <h3 class="text-xs font-semibold text-gray-600 mb-2">Capture tuning</h3>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label for="voice-capture-maxms" class="block text-xs font-medium text-gray-600 mb-1">
+                                            Max utterance (ms)
+                                            <Input name="voice-capture-maxms" type="number" bind:value={voiceCaptureMaxMs} min="1000" />
+                                        </label>
+                                        <p class="text-xs text-gray-500 mt-1">Hard cap on one utterance. Default 300000 (5 min).</p>
+                                    </div>
+                                    <div>
+                                        <label for="voice-capture-silence" class="block text-xs font-medium text-gray-600 mb-1">
+                                            Trailing silence (ms)
+                                            <Input name="voice-capture-silence" type="number" bind:value={voiceCaptureSilenceMs} min="100" />
+                                        </label>
+                                        <p class="text-xs text-gray-500 mt-1">Silence that ends an utterance. Default 700.</p>
+                                    </div>
+                                    <div>
+                                        <label for="voice-capture-starttimeout" class="block text-xs font-medium text-gray-600 mb-1">
+                                            Start timeout (ms)
+                                            <Input name="voice-capture-starttimeout" type="number" bind:value={voiceCaptureStartTimeoutMs} min="500" />
+                                        </label>
+                                        <p class="text-xs text-gray-500 mt-1">Abort if no speech starts after wake. Default 3000.</p>
+                                    </div>
+                                    <div>
+                                        <label for="voice-capture-rms" class="block text-xs font-medium text-gray-600 mb-1">
+                                            Speech RMS threshold
+                                            <Input name="voice-capture-rms" type="number" bind:value={voiceCaptureRmsThreshold} min="0" />
+                                        </label>
+                                        <p class="text-xs text-gray-500 mt-1">int16 RMS above which a frame is speech. Default 400.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pt-3 border-t border-gray-100">
+                                <h3 class="text-xs font-semibold text-gray-600 mb-2">Feedback cues</h3>
+                                <label class="flex items-center gap-2 cursor-pointer mb-3">
+                                    <Checkbox bind:checked={voiceCuesEnabled} />
+                                    <span class="text-sm text-gray-600">Play audio cues</span>
+                                </label>
+                                <div class="space-y-3">
+                                    <div>
+                                        <label for="voice-cue-start" class="block text-xs font-medium text-gray-600 mb-1">
+                                            Listening start sound
+                                            <Input name="voice-cue-start" bind:value={voiceCuesStart} placeholder="/System/Library/Sounds/Tink.aiff" />
+                                        </label>
+                                        <p class="text-xs text-gray-500 mt-1">Plays and finishes before recording starts.</p>
+                                    </div>
+                                    <div>
+                                        <label for="voice-cue-end" class="block text-xs font-medium text-gray-600 mb-1">
+                                            Listening end sound
+                                            <Input name="voice-cue-end" bind:value={voiceCuesEnd} placeholder="/System/Library/Sounds/Pop.aiff" />
+                                        </label>
+                                    </div>
+                                    <div>
+                                        <label for="voice-cue-working" class="block text-xs font-medium text-gray-600 mb-1">
+                                            Working / awaiting sound (looped)
+                                            <Input name="voice-cue-working" bind:value={voiceCuesWorking} placeholder="/System/Library/Sounds/Purr.aiff" />
+                                        </label>
+                                        <p class="text-xs text-gray-500 mt-1">Loops from turn submit until the response arrives.</p>
+                                    </div>
+                                    <div>
+                                        <label for="voice-cue-error" class="block text-xs font-medium text-gray-600 mb-1">
+                                            Error sound
+                                            <Input name="voice-cue-error" bind:value={voiceCuesError} placeholder="/System/Library/Sounds/Funk.aiff" />
+                                        </label>
+                                        <p class="text-xs text-gray-500 mt-1">Signals a failed turn — go look at the console.</p>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-2">Leave a field empty to disable that one cue. Paths are macOS sound files.</p>
+                            </div>
                         </div>
                     </div>
                 </Card>

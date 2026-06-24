@@ -1,70 +1,113 @@
-// Utterance endpointing: after a wake, accumulate int16 frames until the speaker
-// stops, then return the captured buffer for STT. Energy-based (RMS) VAD — no
-// extra deps. Drive it by pushing frames; push() reports when the utterance is
-// done so the daemon can hand off the buffer and resume wake detection.
+// Utterance endpointing with a cue-anchored, non-destructive window.
+//
+// The daemon captures continuously from wake; this module decides which slice of
+// that audio is the utterance. Audio is retained first and windowed second, so
+// the onset is never clipped — onset detection only chooses how much leading
+// silence to drop, with a guard lead as a safety margin.
+//
+//   [ cue/beep | leading pause | speech ............ | trailing silence ]
+//     └ cueMs ─┘               └ onset               └ silenceMs ends it
+//
+// Final window = [ max(cueMs, onset − guardLead) , end ]. cueMs (beep + latency
+// margin) is a hard floor, so the beep can never re-enter even if you speak the
+// instant it stops. push() reports {done, aborted}; result() returns the window.
 
-import { SAMPLE_RATE } from '../wake/pipeline.js';
+import { SAMPLE_RATE } from './constants.js';
 
 const DEFAULTS = {
     rmsThreshold: 400, // int16 RMS above this counts as speech (mic-gain dependent)
     silenceMs: 700, // trailing silence that ends the utterance
-    startTimeoutMs: 3000, // give up if no speech starts
-    maxMs: 10000 // hard cap on utterance length
+    startTimeoutMs: 3000, // give up if no speech starts (measured after the cue)
+    maxMs: 300000, // hard cap on captured utterance length
+    cueMs: 0, // audio at the very front to always discard (beep + latency margin)
+    guardLeadMs: 180 // silence kept before the onset so the attack isn't clipped
 };
 
-function rms(frames) {
+const toSamples = (ms) => Math.round((SAMPLE_RATE * ms) / 1000);
+
+function rms(samples, start, len) {
     let sum = 0;
-    for (let i = 0; i < frames.length; i++) sum += frames[i] * frames[i];
-    return Math.sqrt(sum / frames.length);
+    for (let i = start; i < start + len; i++) sum += samples[i] * samples[i];
+    return Math.sqrt(sum / len);
 }
 
 export function createEndpointer(opts = {}) {
-    const { rmsThreshold, silenceMs, startTimeoutMs, maxMs } = { ...DEFAULTS, ...opts };
-    const silenceLimit = (SAMPLE_RATE * silenceMs) / 1000;
-    const startLimit = (SAMPLE_RATE * startTimeoutMs) / 1000;
-    const maxLimit = (SAMPLE_RATE * maxMs) / 1000;
+    const cfg = { ...DEFAULTS, ...opts };
+    const silenceLimit = toSamples(cfg.silenceMs);
+    const startLimit = toSamples(cfg.startTimeoutMs);
+    const maxLimit = toSamples(cfg.maxMs);
+    const cueSamples = toSamples(cfg.cueMs);
+    const guardSamples = toSamples(cfg.guardLeadMs);
 
     const chunks = [];
-    let started = false;
-    let captured = 0;
-    let elapsed = 0;
-    let silence = 0;
+    let elapsed = 0; // total samples pushed
+    let onset = -1; // sample index where speech first detected (coarse, for control)
+    let silence = 0; // trailing-silence samples since last speech (after onset)
 
-    // Push an Int16Array of new frames. Returns { done, aborted }: aborted=true
-    // means no speech ever started (timeout); aborted=false with done=true means a
-    // complete utterance was captured.
-    function push(frames) {
-        elapsed += frames.length;
-        const speech = rms(frames) > rmsThreshold;
+    // Accept an Int16Array of new samples. Returns { done, aborted }.
+    function push(frame) {
+        chunks.push(frame.slice());
+        const start = elapsed;
+        elapsed += frame.length;
+        const speech = rms(frame, 0, frame.length) > cfg.rmsThreshold;
 
-        if (!started) {
-            if (speech) {
-                started = true;
-                chunks.push(frames.slice());
-                captured += frames.length;
-            } else if (elapsed >= startLimit) {
+        if (onset < 0) {
+            // Waiting for speech; ignore anything inside the cue floor.
+            if (speech && start >= cueSamples) {
+                onset = start;
+                silence = 0;
+            } else if (elapsed - cueSamples >= startLimit) {
                 return { done: true, aborted: true };
             }
             return { done: false };
         }
 
-        chunks.push(frames.slice());
-        captured += frames.length;
-        silence = speech ? 0 : silence + frames.length;
-
-        if (silence >= silenceLimit || captured >= maxLimit) return { done: true, aborted: false };
+        silence = speech ? 0 : silence + frame.length;
+        if (silence >= silenceLimit || elapsed - onset >= maxLimit) {
+            return { done: true, aborted: false };
+        }
         return { done: false };
     }
 
-    function result() {
-        const out = new Int16Array(captured);
-        let offset = 0;
+    function flatten() {
+        const all = new Int16Array(elapsed);
+        let off = 0;
         for (const c of chunks) {
-            out.set(c, offset);
-            offset += c.length;
+            all.set(c, off);
+            off += c.length;
         }
-        return out;
+        return all;
     }
 
-    return { push, result };
+    // Refine the onset at fine (20ms) resolution within the retained buffer, after
+    // the cue floor, requiring two consecutive windows to avoid a transient blip.
+    function preciseOnset(all) {
+        const win = toSamples(20);
+        for (let i = cueSamples; i + 2 * win <= elapsed; i += win) {
+            if (rms(all, i, win) > cfg.rmsThreshold && rms(all, i + win, win) > cfg.rmsThreshold) {
+                return i;
+            }
+        }
+        return onset < 0 ? cueSamples : onset;
+    }
+
+    let lastWindow = null; // { startSamples }
+
+    function result() {
+        const all = flatten();
+        const startIdx = Math.max(cueSamples, preciseOnset(all) - guardSamples);
+        lastWindow = { startSamples: startIdx };
+        return all.subarray(startIdx, elapsed).slice();
+    }
+
+    function stats() {
+        return {
+            cueMs: cfg.cueMs,
+            onsetMs: onset < 0 ? null : Math.round((onset / SAMPLE_RATE) * 1000),
+            capturedMs: Math.round((elapsed / SAMPLE_RATE) * 1000),
+            windowStartMs: lastWindow ? Math.round((lastWindow.startSamples / SAMPLE_RATE) * 1000) : null
+        };
+    }
+
+    return { push, result, stats };
 }

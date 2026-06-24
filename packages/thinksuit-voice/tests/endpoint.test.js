@@ -34,4 +34,38 @@ describe('createEndpointer', () => {
         const r = pushAll(ep, [speech(), speech(), silence(), silence(), speech()]);
         expect(r.every((x) => x.done === false)).toBe(true);
     });
+
+    it('keeps the onset when speech follows a pause, trimming the leading silence', () => {
+        const guardLeadMs = 100; // 1600 samples
+        const ep = createEndpointer({ silenceMs: 160, startTimeoutMs: 2000, guardLeadMs });
+        // 3 frames of leading pause, 3 of speech, then silence to end.
+        const r = pushAll(ep, [
+            silence(), silence(), silence(),
+            speech(), speech(), speech(),
+            silence(), silence()
+        ]);
+        expect(r.at(-1)).toEqual({ done: true, aborted: false });
+
+        const out = ep.result();
+        const guardSamples = Math.round((16000 * guardLeadMs) / 1000);
+        // The full speech is retained...
+        expect(out.length).toBeGreaterThanOrEqual(3 * FRAME);
+        // ...but the leading pause is trimmed to ~the guard lead, so we don't keep
+        // all three leading-silence frames.
+        expect(out.length).toBeLessThan(8 * FRAME);
+        // Window starts no earlier than (onset − guard): onset is at 3*FRAME.
+        const onset = 3 * FRAME;
+        expect(out.length).toBeLessThanOrEqual(8 * FRAME - (onset - guardSamples));
+    });
+
+    it('never re-includes audio before the cue floor', () => {
+        // cueMs covers the first two frames; "speech" inside the floor is ignored
+        // for onset, and the window can never start before it.
+        const ep = createEndpointer({ cueMs: 160, silenceMs: 160, guardLeadMs: 0 });
+        const r = pushAll(ep, [speech(), speech(), speech(), speech(), silence(), silence()]);
+        expect(r.at(-1).done).toBe(true);
+        const out = ep.result();
+        // Frames 0–1 (the cue floor) are excluded; ~from frame 2 onward remains.
+        expect(out.length).toBeLessThanOrEqual(4 * FRAME);
+    });
 });

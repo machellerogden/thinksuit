@@ -373,6 +373,7 @@ function buildConfig(options = {}) {
         })(), // No restriction if not specified
         allowedDirectories: (cli.flags.allowDir && cli.flags.allowDir.length > 0) ? cli.flags.allowDir : (fileConfig.allowedDirectories || undefined), // Will default to [cwd] in normalizeConfig
         mcpServers: fileConfig.mcpServers || undefined, // MCP server configurations from user config
+        voice: fileConfig.voice || undefined, // thinksuit-voice daemon config (read by the voice daemon)
         approvalTimeout: cli.flags.approvalTimeout !== undefined
             ? cli.flags.approvalTimeout
             : fileConfig.approvalTimeout !== undefined

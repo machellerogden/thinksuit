@@ -1,54 +1,54 @@
 {
-  "name": "thinksuit-broker",
-  "version": "0.1.3",
-  "private": true,
-  "description": "Resident execution broker daemon and thin client for ThinkSuit",
-  "type": "module",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/machellerogden/thinksuit.git",
-    "directory": "packages/thinksuit-broker"
-  },
-  "bugs": {
-    "url": "https://github.com/machellerogden/thinksuit/issues"
-  },
-  "homepage": "https://github.com/machellerogden/thinksuit/tree/main/packages/thinksuit-broker#readme",
-  "main": "./src/client.js",
-  "exports": {
-    ".": "./src/client.js",
-    "./broker": "./src/broker.js"
-  },
-  "bin": {
-    "thinksuit-broker-service": "bin/service.mjs",
-    "thinksuit-broker-service-init": "bin/service.init.sh",
-    "thinksuit-broker-service-setenv": "bin/service.setenv.sh",
-    "thinksuit-broker-service-load": "bin/service.load.sh",
-    "thinksuit-broker-service-unload": "bin/service.unload.sh",
-    "thinksuit-broker-service-start": "bin/service.start.sh",
-    "thinksuit-broker-service-stop": "bin/service.stop.sh",
-    "thinksuit-broker-service-kill": "bin/service.kill.sh",
-    "thinksuit-broker-service-logs": "bin/service.logs.sh",
-    "thinksuit-broker-service-info": "bin/service.info.sh"
-  },
-  "scripts": {
-    "dev": "node ./bin/service.mjs",
-    "test": "vitest --config ../../vitest.config.js"
-  },
-  "keywords": [
-    "thinksuit",
-    "broker",
-    "daemon"
-  ],
-  "author": {
-    "name": "Mac Heller-Ogden",
-    "email": "mac@machellerogden.com"
-  },
-  "license": "Apache-2.0",
-  "dependencies": {
-    "thinksuit": "*",
-    "thinksuit-modules": "*"
-  },
-  "engines": {
-    "node": ">=24"
-  }
+    "name": "thinksuit-broker",
+    "version": "0.1.3",
+    "private": true,
+    "description": "Resident execution broker daemon and thin client for ThinkSuit",
+    "type": "module",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/machellerogden/thinksuit.git",
+        "directory": "packages/thinksuit-broker"
+    },
+    "bugs": {
+        "url": "https://github.com/machellerogden/thinksuit/issues"
+    },
+    "homepage": "https://github.com/machellerogden/thinksuit/tree/main/packages/thinksuit-broker#readme",
+    "main": "./src/client.js",
+    "exports": {
+        ".": "./src/client.js",
+        "./broker": "./src/broker.js"
+    },
+    "bin": {
+        "thinksuit-broker-service": "bin/service.mjs",
+        "thinksuit-broker-service-init": "bin/service.init.sh",
+        "thinksuit-broker-service-setenv": "bin/service.setenv.sh",
+        "thinksuit-broker-service-load": "bin/service.load.sh",
+        "thinksuit-broker-service-unload": "bin/service.unload.sh",
+        "thinksuit-broker-service-start": "bin/service.start.sh",
+        "thinksuit-broker-service-stop": "bin/service.stop.sh",
+        "thinksuit-broker-service-kill": "bin/service.kill.sh",
+        "thinksuit-broker-service-logs": "bin/service.logs.sh",
+        "thinksuit-broker-service-info": "bin/service.info.sh"
+    },
+    "scripts": {
+        "dev": "node ./bin/service.mjs",
+        "test": "vitest --config ../../vitest.config.js"
+    },
+    "keywords": [
+        "thinksuit",
+        "broker",
+        "daemon"
+    ],
+    "author": {
+        "name": "Mac Heller-Ogden",
+        "email": "mac@machellerogden.com"
+    },
+    "license": "Apache-2.0",
+    "dependencies": {
+        "thinksuit": "*",
+        "thinksuit-modules": "*"
+    },
+    "engines": {
+        "node": ">=22"
+    }
 }
