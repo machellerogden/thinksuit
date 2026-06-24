@@ -16,6 +16,13 @@ export function resolveVoiceHome() {
     return process.env.THINKSUIT_VOICE_HOME || join(homedir(), '.thinksuit', 'voice');
 }
 
+// Unix socket the running daemon listens on for control/status (mic on/off,
+// interrupt, status). Mirrors the broker's socket convention so the CLI and the
+// console connect the same way.
+export function resolveControlSocketPath() {
+    return process.env.THINKSUIT_VOICE_SOCK || join(homedir(), '.thinksuit', 'voice.sock');
+}
+
 export function resolveMelModelPath() {
     return join(MODELS_DIR, 'melspectrogram.onnx');
 }

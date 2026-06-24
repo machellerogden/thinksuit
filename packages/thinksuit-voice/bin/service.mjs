@@ -6,8 +6,8 @@ import { createVoiceDaemon } from '../src/index.js';
 console.log('Starting ThinkSuit voice service');
 
 createVoiceDaemon()
-    .then((daemon) => {
-        daemon.start();
+    .then(async (daemon) => {
+        await daemon.start();
         const { phrase, deviceId } = daemon.config.wake;
         console.log(`Listening for wake word (phrase: ${phrase}, device: ${deviceId})`);
     })

@@ -16,9 +16,11 @@
     "main": "./src/index.js",
     "exports": {
         ".": "./src/index.js",
-        "./devices": "./src/audio/devices.js"
+        "./devices": "./src/audio/devices.js",
+        "./control": "./src/control/client.js"
     },
     "bin": {
+        "thinksuit-voice": "bin/ctl.mjs",
         "thinksuit-voice-service": "bin/service.mjs",
         "thinksuit-voice-service-init": "bin/service.init.sh",
         "thinksuit-voice-service-setenv": "bin/service.setenv.sh",

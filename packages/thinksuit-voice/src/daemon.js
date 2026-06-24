@@ -3,7 +3,8 @@
 //   mic -> wake -> capture -> STT -> broker.run -> session.response -> TTS
 //
 // The loop is closed and keyless: wake and STT are local, the response is spoken
-// via macOS `say`.
+// via macOS `say`. A control socket (control/server.js) lets the CLI and console
+// steer a running daemon (mic on/off, interrupt) and read its status.
 
 import { run as brokerRun, tail as brokerTail, interrupt as brokerInterrupt } from 'thinksuit-broker';
 import { buildConfig } from 'thinksuit';
@@ -16,6 +17,7 @@ import { SAMPLE_RATE } from './audio/constants.js';
 import { createSTT } from './stt/index.js';
 import { createTTS } from './tts/index.js';
 import { loadVoiceConfig } from './config.js';
+import { startControlServer } from './control/server.js';
 import {
     resolveMelModelPath,
     resolveEmbeddingModelPath,
@@ -73,13 +75,20 @@ export async function createVoiceDaemon(overrides = {}) {
         );
     }
 
-    let lastSessionId = null;
-    let turnActive = false; // a broker turn is in flight (for re-wake interrupt)
-
+    // Mutable daemon state — also the source for the control API's /status.
     // 'listening' = wake detection; 'capturing' = recording an utterance. Capture
     // is continuous from wake (no deaf window); the beep is removed by the
     // endpointer's cue floor, not by dropping frames.
-    let mode = 'listening';
+    const state = {
+        micOn: false,
+        mode: 'listening',
+        turnActive: false, // a broker turn is in flight (for re-wake interrupt)
+        lastSessionId: null,
+        device: null,
+        lastWake: null, // { confidence, at }
+        lastError: null, // { message, at }
+        startedAt: null
+    };
     let endpointer = null;
 
     async function runTurn(input) {
@@ -95,19 +104,19 @@ export async function createVoiceDaemon(overrides = {}) {
             policy: base.policy,
             autoApproveTools: true,
             input,
-            sessionId: lastSessionId || undefined
+            sessionId: state.lastSessionId || undefined
         };
-        turnActive = true;
+        state.turnActive = true;
         cues.startLoop('working'); // gentle "agent is working" loop until response
         let sessionId, from;
         try {
             ({ sessionId, from } = await brokerRun(turn));
         } catch (err) {
-            turnActive = false;
+            state.turnActive = false;
             cues.stopLoop();
             throw err;
         }
-        lastSessionId = sessionId;
+        state.lastSessionId = sessionId;
 
         let closed = false;
         const stream = brokerTail(
@@ -126,7 +135,7 @@ export async function createVoiceDaemon(overrides = {}) {
                     name === 'broker.worker.exited'
                 ) {
                     closed = true;
-                    turnActive = false;
+                    state.turnActive = false;
                     cues.stopLoop();
                     stream.close();
                 }
@@ -146,16 +155,35 @@ export async function createVoiceDaemon(overrides = {}) {
             await runTurn(input);
         } catch (err) {
             cues.stopLoop();
+            state.lastError = { message: err.message, at: Date.now() };
             console.error(`turn failed: ${err.message}`);
             cues.play('error');
         }
     }
 
+    // Halt current activity: stop any spoken response and the working-cue loop,
+    // and cancel the in-flight broker turn (same path as the CLI's :interrupt).
+    // No-op-safe: returns { interrupted:false } when nothing is in flight. Called
+    // both by re-wake (onWake) and the control API.
+    async function interruptTurn() {
+        tts.stop?.();
+        cues.stopLoop();
+        if (!state.turnActive || !state.lastSessionId) return { interrupted: false };
+        try {
+            await brokerInterrupt(state.lastSessionId);
+        } catch (err) {
+            console.error(`interrupt failed: ${err.message}`);
+        }
+        state.turnActive = false;
+        return { interrupted: true };
+    }
+
     async function onWake({ confidence }) {
-        if (mode !== 'listening') return;
+        if (state.mode !== 'listening') return;
         // Flip to 'capturing' synchronously so capture is continuous from this
         // instant (no deaf window) and no re-entrant wake fires.
-        mode = 'capturing';
+        state.mode = 'capturing';
+        state.lastWake = { confidence, at: Date.now() };
         console.log(`wake (confidence=${confidence.toFixed(3)})`);
 
         // Begin recording now; the start cue plays concurrently and is removed by
@@ -163,19 +191,9 @@ export async function createVoiceDaemon(overrides = {}) {
         endpointer = createEndpointer({ ...config.capture, cueMs: startCueMs });
         cues.play('start');
 
-        // Stop any spoken response still playing; if a turn is in flight, interrupt
-        // it via the broker (same path as the CLI's :interrupt). The next utterance
-        // continues the same session. Capture proceeds regardless.
-        tts.stop?.();
-        cues.stopLoop();
-        if (turnActive && lastSessionId) {
-            try {
-                await brokerInterrupt(lastSessionId);
-            } catch (err) {
-                console.error(`interrupt failed: ${err.message}`);
-            }
-            turnActive = false;
-        }
+        // Stop a spoken response still playing and interrupt any in-flight turn;
+        // the next utterance continues the same session. Capture proceeds regardless.
+        await interruptTurn();
     }
 
     const detector = createDetector({
@@ -185,13 +203,13 @@ export async function createVoiceDaemon(overrides = {}) {
     });
 
     function onFrames(frames) {
-        if (mode === 'capturing') {
+        if (state.mode === 'capturing') {
             const { done, aborted } = endpointer.push(frames);
             if (!done) return;
             const audio = aborted ? null : endpointer.result();
             const s = endpointer.stats();
             endpointer = null;
-            mode = 'listening';
+            state.mode = 'listening';
             if (audio) {
                 const keptMs = Math.round((audio.length / SAMPLE_RATE) * 1000);
                 console.log(
@@ -208,25 +226,77 @@ export async function createVoiceDaemon(overrides = {}) {
 
     const device = resolveInputDevice(config.wake);
     config.wake.deviceId = device.id;
+    state.device = { id: device.id, name: device.name || config.wake.deviceName || null };
     if (device.name) {
         console.log(`input device "${config.wake.deviceName}" resolved to ${device.name} (id ${device.id})`);
     }
 
-    const capture = createCapture({
-        deviceId: device.id,
-        onFrames,
-        onError: (err) => console.error('audio error:', err)
-    });
+    // capture.stop() destroys the PortAudio stream (ai.quit), so re-arming after a
+    // mic-off must build a fresh capture rather than re-start the dead instance.
+    let capture = null;
+    function buildCapture() {
+        return createCapture({
+            deviceId: device.id,
+            onFrames,
+            onError: (err) => console.error('audio error:', err)
+        });
+    }
+
+    // Soft mic toggle: the daemon stays warm (control server, models, broker
+    // connection all live); only the audio device is released / re-acquired. A
+    // mic-off mid-capture drops the partial utterance — a mic-off always wins.
+    function micOn() {
+        if (state.micOn) return;
+        capture = buildCapture();
+        capture.start();
+        state.micOn = true;
+        console.log('mic on (device acquired)');
+    }
+    function micOff() {
+        if (!state.micOn) return;
+        capture?.stop();
+        capture = null;
+        endpointer = null;
+        state.mode = 'listening';
+        state.micOn = false;
+        console.log('mic off (device released)');
+    }
+
+    function getStatus() {
+        return {
+            micOn: state.micOn,
+            mode: state.mode,
+            turnActive: state.turnActive,
+            lastSessionId: state.lastSessionId,
+            device: state.device,
+            lastWake: state.lastWake,
+            lastError: state.lastError,
+            uptimeMs: state.startedAt ? Date.now() - state.startedAt : 0,
+            capture: config.capture,
+            cues: config.cues
+        };
+    }
+
+    let control = null;
 
     return {
         config,
-        start() {
+        async start() {
             // Load the STT model in the background so the first utterance is fast.
             stt.warmup?.().catch((e) => console.error(`stt warmup failed: ${e.message}`));
-            capture.start();
+            state.startedAt = Date.now();
+            micOn();
+            control = await startControlServer({
+                getStatus,
+                micOn,
+                micOff,
+                interrupt: interruptTurn
+            });
         },
-        stop() {
-            capture.stop();
+        async stop() {
+            micOff();
+            await control?.close();
+            control = null;
         }
     };
 }
