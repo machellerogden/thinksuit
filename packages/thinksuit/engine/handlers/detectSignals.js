@@ -17,7 +17,10 @@ const MIN_CONFIDENCE = 0.6;
  */
 export async function detectSignalsCore(input, machineContext) {
     const { userInput, thread, context, profile, budgetMs } = input;
-    const fullThread = [ ...thread, { role: 'user', content: userInput } ];
+    const safeThread = Array.isArray(thread) ? thread : [];
+    const fullThread = userInput
+        ? [...safeThread, { role: 'user', content: userInput }]
+        : safeThread;
     const traceId = context?.traceId;
     const sessionId = context?.sessionId;
     const config = machineContext?.config;

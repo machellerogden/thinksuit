@@ -152,7 +152,7 @@ export async function execDirectCore(input, machineContext) {
         const duration = Date.now() - startTime;
 
         // Log provider API data if available
-        if (llmResponse.original.request) {
+        if (llmResponse.original?.request) {
             logger.debug({
                 event: PROCESSING_EVENTS.PROVIDER_API_REQUEST,
                 traceId,
@@ -162,7 +162,7 @@ export async function execDirectCore(input, machineContext) {
                 data: llmResponse.original.request
             }, `Provider API request - ${config?.provider}`);
         }
-        if (llmResponse.original.response) {
+        if (llmResponse.original?.response) {
             logger.debug({
                 event: PROCESSING_EVENTS.PROVIDER_API_RESPONSE,
                 traceId,

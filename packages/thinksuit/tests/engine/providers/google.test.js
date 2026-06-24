@@ -88,10 +88,7 @@ describe('Provider Abstraction', () => {
                         model: 'gemini-2.5-pro',
                         contents: [{ role: 'user', parts: [{ text: 'Hello world' }] }],
                         config: expect.objectContaining({
-                            systemInstruction: {
-                                role: 'user',
-                                parts: [{ text: 'You are a helpful assistant' }]
-                            },
+                            systemInstruction: 'You are a helpful assistant',
                             maxOutputTokens: 1000,
                             temperature: 0.7,
                             stopSequences: ['\n\n']
