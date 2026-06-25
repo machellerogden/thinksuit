@@ -1,4 +1,4 @@
-// Guided sample capture for trigger enrollment. Owns the mic (via the shared
+// Guided sample capture for wakeword enrollment. Owns the mic (via the shared
 // PortAudio capture) and turns spoken utterances into trimmed 16 kHz mono WAVs.
 //
 // Mic ownership: the daemon owns the mic while listening. Rather than fight over
@@ -122,7 +122,7 @@ function concat(chunks) {
 // clips (e.g. while the operator reads the prompt) is naturally dropped because we
 // only accumulate frames while a capture is in flight.
 export async function createRecorderSession({ deviceId = -1 } = {}) {
-    // Loaded lazily so importing this module (e.g. for `trigger ls`) doesn't pull
+    // Loaded lazily so importing this module (e.g. for `wakeword ls`) doesn't pull
     // in the PortAudio native binding.
     const { createCapture } = await import('../audio/capture.js');
 

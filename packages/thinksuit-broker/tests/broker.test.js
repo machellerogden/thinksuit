@@ -92,6 +92,30 @@ describe('derivePendingApprovalDetail', () => {
     });
 });
 
+describe('classifyTurnOutcome', () => {
+    it('interrupt wins over everything', () => {
+        expect(
+            client.classifyTurnOutcome({ sawInterrupted: true, response: { success: true } })
+        ).toBe('interrupted');
+    });
+
+    it('a response with success:false is a failure', () => {
+        expect(
+            client.classifyTurnOutcome({ sawInterrupted: false, response: { success: false } })
+        ).toBe('failed');
+    });
+
+    it('a successful response is completed', () => {
+        expect(
+            client.classifyTurnOutcome({ sawInterrupted: false, response: { success: true } })
+        ).toBe('completed');
+    });
+
+    it('no response (e.g. before exited failsafe) is completed', () => {
+        expect(client.classifyTurnOutcome({})).toBe('completed');
+    });
+});
+
 describe('client refuse-when-down', () => {
     it('health rejects with an actionable hint when no broker is listening', async () => {
         await expect(client.health({ socketPath: tmpSock() })).rejects.toThrow(
@@ -150,6 +174,15 @@ describe('broker HTTP surface', () => {
         await listen();
         await expect(client.interrupt('20990101T000000000Z-aaaaaaaa', undefined, { socketPath }))
             .rejects.toThrow(/no in-flight turn/i);
+    });
+
+    it('interruptAll returns an empty result when nothing is live', async () => {
+        await listen();
+        const res = await client.interruptAll(undefined, { socketPath });
+        expect(res).toEqual({ ok: true, interrupted: [], count: 0 });
+        // Broker must still be healthy after a fan-out with nothing to do.
+        const h = await client.health({ socketPath });
+        expect(h.ok).toBe(true);
     });
 
     it('lists only active sessions by default (empty when no live workers)', async () => {

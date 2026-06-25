@@ -42,7 +42,10 @@ See **../../CONTRIBUTING.md** for repo-wide commands, architecture, and style.
   runs `schedule()`, handles `interrupt`/`resolve-approval` messages, flushes
   session streams, reports `started`/`done`/`error`/`failed`.
 - `src/client.js` — client library over the socket (`run`, `sessions`, `status`,
-  `log`, `tail`, `interrupt`, `approve`, `health`).
+  `log`, `tail`, `interrupt`, `interruptAll`, `approve`, `health`, plus `awaitTurn`
+  and the pure `classifyTurnOutcome`). `awaitTurn` is the single home for the turn
+  terminal contract (terminal set `turn.complete` / `session.interrupted` /
+  `broker.worker.exited`; outcomes `completed | interrupted | failed | exited`).
 - `src/approvals.js` — `derivePendingApproval(entries)` (latest unresolved
   approvalId) and `derivePendingApprovalDetail(entries)` (`{approvalId, tool,
   args}`). Both pure. `queue` aggregates the latter across live sessions.

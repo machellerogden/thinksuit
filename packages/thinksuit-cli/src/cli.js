@@ -142,8 +142,24 @@ async function cmdLog(args) {
 }
 
 async function cmdInterrupt(args) {
+    // `--all`/`-a` fans out across every live turn (mirrors `ps -a`); the broker
+    // stays up. Taking the daemon down is a separate service-management concern.
+    if (hasFlag(args, 'all') || args.includes('-a')) {
+        const res = await client.interruptAll();
+        if (hasFlag(args, 'json')) {
+            console.log(JSON.stringify(res));
+            return;
+        }
+        if (!res.count) {
+            console.log('No in-flight turns to interrupt.');
+            return;
+        }
+        console.log(`Interrupted ${res.count} session${res.count === 1 ? '' : 's'}`);
+        for (const id of res.interrupted) console.log(`  ${id}`);
+        return;
+    }
     const id = firstPositional(args);
-    if (!id) return fail('Usage: thinksuit interrupt <sessionId>');
+    if (!id) return fail('Usage: thinksuit interrupt <sessionId> | --all/-a [--json]');
     await client.interrupt(id);
     console.log(`Interrupted ${id}`);
 }

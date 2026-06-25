@@ -5,11 +5,11 @@ import {
     setBinding,
     setThreshold,
     setEnabled,
-    removeTrigger,
-    triggerExists
-} from 'thinksuit-voice/triggers';
+    removeWakeword,
+    wakewordExists
+} from 'thinksuit-voice/wakewords';
 
-// One trigger. GET returns its manifest + sample counts. PATCH applies an
+// One wakeword. GET returns its manifest + sample counts. PATCH applies an
 // allowlisted set of mutable fields (binding / threshold / enabled) via the
 // store, which validates and throws on bad input (unknown action, out-of-range
 // threshold, enabling with no promoted version) — surfaced as 400. DELETE
@@ -17,7 +17,7 @@ import {
 
 export async function GET({ params }) {
     const { name } = params;
-    if (!triggerExists(name)) return json({ error: `no such trigger: ${name}` }, { status: 404 });
+    if (!wakewordExists(name)) return json({ error: `no such wakeword: ${name}` }, { status: 404 });
     try {
         const manifest = readManifest(name);
         return json({
@@ -34,7 +34,7 @@ export async function GET({ params }) {
 
 export async function PATCH({ params, request }) {
     const { name } = params;
-    if (!triggerExists(name)) return json({ error: `no such trigger: ${name}` }, { status: 404 });
+    if (!wakewordExists(name)) return json({ error: `no such wakeword: ${name}` }, { status: 404 });
     const body = await request.json();
     try {
         let manifest;
@@ -51,9 +51,9 @@ export async function PATCH({ params, request }) {
 
 export async function DELETE({ params }) {
     const { name } = params;
-    if (!triggerExists(name)) return json({ error: `no such trigger: ${name}` }, { status: 404 });
+    if (!wakewordExists(name)) return json({ error: `no such wakeword: ${name}` }, { status: 404 });
     try {
-        removeTrigger(name);
+        removeWakeword(name);
         return json({ success: true });
     } catch (error) {
         return json({ error: error.message }, { status: 500 });

@@ -441,7 +441,7 @@ function buildConfig(options = {}) {
 // ── User config read / patch ────────────────────────────────────────────────
 // Targeted access to the global user config file, separate from buildConfig's
 // layered/validated load. Used by surfaces that must persist a slice of config
-// (e.g. the voice trigger store) without owning the whole document. Honors a
+// (e.g. the voice wakeword store) without owning the whole document. Honors a
 // THINKSUIT_CONFIG path override so callers and tests can isolate.
 
 function resolveUserConfigPath() {

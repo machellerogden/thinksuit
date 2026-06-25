@@ -236,6 +236,26 @@ export function createBroker() {
         sendJson(res, 200, { ok: true, sessionId });
     }
 
+    // Fan-out interrupt: stop every live turn, leaving the daemon up. Idempotent —
+    // no live turns yields { interrupted: [], count: 0 }, not an error. (Taking the
+    // daemon itself down is a separate service-management concern.)
+    async function handleInterruptAll(req, res) {
+        let body = {};
+        try {
+            body = await readBody(req);
+        } catch {
+            body = {};
+        }
+        const reason = body.reason || 'Interrupted via broker (all)';
+        const interrupted = [];
+        for (const [sessionId, entry] of registry.entries()) {
+            if (entry.status !== 'running') continue;
+            entry.child.send({ type: 'interrupt', reason });
+            interrupted.push(sessionId);
+        }
+        sendJson(res, 200, { ok: true, interrupted, count: interrupted.length });
+    }
+
     // Derive the most recent still-pending approvalId for a session from its
     // JSONL (filesystem-driven — see derivePendingApproval), so it works
     // regardless of which client requested the turn.
@@ -421,6 +441,10 @@ export function createBroker() {
             return handleSessions(req, res, url.searchParams.get('all') === '1');
         }
         if (method === 'GET' && path === '/queue') return handleQueue(req, res);
+
+        if (method === 'POST' && path === '/interrupt' && url.searchParams.get('all') === '1') {
+            return handleInterruptAll(req, res);
+        }
 
         const interruptMatch = path.match(/^\/interrupt\/(.+)$/);
         if (method === 'POST' && interruptMatch) {

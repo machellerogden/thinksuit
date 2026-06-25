@@ -1,25 +1,25 @@
 <script>
     import { onMount, onDestroy } from 'svelte';
     import { Card, Button, EmptyState } from '$lib/components/ui/index.js';
-    import TriggerEnroll from '$lib/components/TriggerEnroll.svelte';
-    import TriggerSamples from '$lib/components/TriggerSamples.svelte';
+    import WakewordEnroll from '$lib/components/WakewordEnroll.svelte';
+    import WakewordSamples from '$lib/components/WakewordSamples.svelte';
 
-    let triggers = $state([]);
+    let wakewords = $state([]);
     let actions = $state(['converse', 'new']);
     let negPrompts = $state([]);
     let loading = $state(true);
     let error = $state(null);
-    let busy = $state(null); // name of the trigger with an action in flight
+    let busy = $state(null); // name of the wakeword with an action in flight
 
     let mode = $state('list'); // 'list' | 'enroll' | 'samples'
     let enrollCtx = $state(null); // { name, phrase, samples }
-    let samplesName = $state(null); // trigger whose clips are being managed
+    let samplesName = $state(null); // wakeword whose clips are being managed
 
     let showNew = $state(false);
     let newName = $state('');
     let newPhrase = $state('');
 
-    let enabledNames = $derived(triggers.filter((t) => t.enabled).map((t) => t.name));
+    let enabledNames = $derived(wakewords.filter((t) => t.enabled).map((t) => t.name));
 
     // Training is a long (~50-min) detached job. We start it, then poll its
     // run-log status every 2s; `training[name]` holds the live snapshot, and a
@@ -54,7 +54,7 @@
 
     async function pollTrain(name) {
         try {
-            const res = await fetch(`/api/voice/triggers/${encodeURIComponent(name)}/train`);
+            const res = await fetch(`/api/voice/wakewords/${encodeURIComponent(name)}/train`);
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'status check failed');
             const prev = training[name] || {};
@@ -77,7 +77,7 @@
     async function startTrain(name) {
         busy = name;
         try {
-            const res = await fetch(`/api/voice/triggers/${encodeURIComponent(name)}/train`, { method: 'POST' });
+            const res = await fetch(`/api/voice/wakewords/${encodeURIComponent(name)}/train`, { method: 'POST' });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || 'Failed to start training');
             training = {
@@ -95,10 +95,10 @@
     // After a (re)load, rejoin any run still in flight so a console reload doesn't
     // lose the progress view.
     async function reattach() {
-        for (const t of triggers) {
+        for (const t of wakewords) {
             if (pollers[t.name]) continue;
             try {
-                const res = await fetch(`/api/voice/triggers/${encodeURIComponent(t.name)}/train`);
+                const res = await fetch(`/api/voice/wakewords/${encodeURIComponent(t.name)}/train`);
                 const data = await res.json();
                 if (res.ok && data.running) startPoll(t.name);
             } catch {
@@ -115,10 +115,10 @@
 
     async function load() {
         try {
-            const res = await fetch('/api/voice/triggers');
+            const res = await fetch('/api/voice/wakewords');
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Failed to load triggers');
-            triggers = data.triggers;
+            if (!res.ok) throw new Error(data.error || 'Failed to load wakewords');
+            wakewords = data.wakewords;
             actions = data.actions ?? actions;
             negPrompts = data.negPrompts ?? negPrompts;
             error = null;
@@ -132,7 +132,7 @@
     async function send(name, method, body) {
         busy = name;
         try {
-            const res = await fetch(`/api/voice/triggers/${encodeURIComponent(name)}${method.path ?? ''}`, {
+            const res = await fetch(`/api/voice/wakewords/${encodeURIComponent(name)}${method.path ?? ''}`, {
                 method: method.verb,
                 headers: body ? { 'Content-Type': 'application/json' } : undefined,
                 body: body ? JSON.stringify(body) : undefined
@@ -151,28 +151,28 @@
     const promote = (name) => send(name, { verb: 'POST', path: '/promote' }, {});
 
     function del(name) {
-        if (!confirm(`Delete trigger "${name}"? This removes its model and samples.`)) return;
+        if (!confirm(`Delete wakeword "${name}"? This removes its model and samples.`)) return;
         send(name, { verb: 'DELETE' });
     }
 
-    async function createTrigger() {
+    async function createWakeword() {
         if (!newName.trim() || !newPhrase.trim()) {
             error = 'name and phrase are required';
             return;
         }
         busy = '__new__';
         try {
-            const res = await fetch('/api/voice/triggers', {
+            const res = await fetch('/api/voice/wakewords', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: newName.trim(), phrase: newPhrase.trim() })
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Failed to create trigger');
+            if (!res.ok) throw new Error(data.error || 'Failed to create wakeword');
             showNew = false;
             newName = '';
             newPhrase = '';
-            enterEnroll(data.trigger);
+            enterEnroll(data.wakeword);
         } catch (e) {
             error = e.message;
         } finally {
@@ -217,7 +217,7 @@
 </script>
 
 {#if mode === 'enroll' && enrollCtx}
-    <TriggerEnroll
+    <WakewordEnroll
         name={enrollCtx.name}
         phrase={enrollCtx.phrase}
         samples={enrollCtx.samples}
@@ -225,14 +225,14 @@
         onDone={onEnrollDone}
     />
 {:else if mode === 'samples' && samplesName}
-    <TriggerSamples name={samplesName} onDone={onSamplesDone} />
+    <WakewordSamples name={samplesName} onDone={onSamplesDone} />
 {:else}
     <div class="h-full overflow-y-auto">
         <div class="p-6 space-y-4 max-w-4xl mx-auto">
             <div class="flex items-center justify-between mb-1">
-                <h1 class="text-xl font-bold">Trigger Word Studio</h1>
+                <h1 class="text-xl font-bold">Wakeword Studio</h1>
                 <div class="flex items-center gap-2">
-                    <Button variant="primary" disabled={busy !== null} onclick={() => (showNew = !showNew)}>New Trigger</Button>
+                    <Button variant="primary" disabled={busy !== null} onclick={() => (showNew = !showNew)}>New Wakeword</Button>
                     <Button variant="secondary" onclick={load} disabled={loading || busy !== null}>Refresh</Button>
                 </div>
             </div>
@@ -260,7 +260,7 @@
                                 placeholder="ThinkSuit New"
                             />
                         </label>
-                        <Button variant="success" disabled={busy !== null} onclick={createTrigger}>Create &amp; enroll</Button>
+                        <Button variant="success" disabled={busy !== null} onclick={createWakeword}>Create &amp; enroll</Button>
                         <Button variant="ghost" disabled={busy !== null} onclick={() => (showNew = false)}>Cancel</Button>
                     </div>
                 </Card>
@@ -273,14 +273,14 @@
             {/if}
 
             {#if loading}
-                <EmptyState type="loading" title="Loading triggers…" message="Reading the trigger library" />
-            {:else if triggers.length === 0}
+                <EmptyState type="loading" title="Loading wakewords…" message="Reading the wakeword library" />
+            {:else if wakewords.length === 0}
                 <EmptyState
-                    title="No triggers yet"
-                    message="Click New Trigger to name one, enroll your voice, then Train (a one-time ~50-min step) — all here in the Studio."
+                    title="No wakewords yet"
+                    message="Click New Wakeword to name one, enroll your voice, then Train (a one-time ~50-min step) — all here in the Studio."
                 />
             {:else}
-                {#each triggers as t (t.name)}
+                {#each wakewords as t (t.name)}
                     <Card>
                         <div class="flex items-start justify-between gap-4">
                             <div class="min-w-0">

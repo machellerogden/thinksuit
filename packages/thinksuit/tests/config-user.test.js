@@ -28,28 +28,28 @@ describe('user config read/patch', () => {
     it('round-trips a partial deep-merge without touching siblings', () => {
         writeFileSync(
             configPath,
-            JSON.stringify({ provider: 'openai', voice: { wake: { defaultThreshold: 0.7 } } })
+            JSON.stringify({ provider: 'openai', voice: { stt: { provider: 'whisper' } } })
         );
 
-        patchUserConfig({ voice: { wake: { triggers: { demo: { enabled: true } } } } });
+        patchUserConfig({ voice: { wakewords: { demo: { enabled: true } } } });
 
         const after = readUserConfig();
         expect(after.provider).toBe('openai'); // untouched sibling
-        expect(after.voice.wake.defaultThreshold).toBe(0.7); // untouched nested sibling
-        expect(after.voice.wake.triggers.demo).toEqual({ enabled: true }); // merged in
+        expect(after.voice.stt.provider).toBe('whisper'); // untouched nested sibling
+        expect(after.voice.wakewords.demo).toEqual({ enabled: true }); // merged in
     });
 
     it('applies a function mutator and persists to disk', () => {
         patchUserConfig((c) => {
-            ((c.voice ??= {}).wake ??= {}).triggers = { a: { enabled: false } };
+            ((c.voice ??= {}).wakewords ??= {}).a = { enabled: false };
         });
         patchUserConfig((c) => {
-            c.voice.wake.triggers.a.enabled = true;
-            c.voice.wake.triggers.b = { enabled: true };
+            c.voice.wakewords.a.enabled = true;
+            c.voice.wakewords.b = { enabled: true };
         });
 
         const onDisk = JSON.parse(readFileSync(configPath, 'utf-8'));
-        expect(onDisk.voice.wake.triggers).toEqual({
+        expect(onDisk.voice.wakewords).toEqual({
             a: { enabled: true },
             b: { enabled: true }
         });

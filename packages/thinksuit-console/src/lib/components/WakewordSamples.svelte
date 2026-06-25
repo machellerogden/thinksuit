@@ -9,7 +9,7 @@
     let busy = $state(null); // `${kind}/${file}` of a delete in flight
     let samples = $state({ positive: [], negative: [] });
 
-    const base = $derived(`/api/voice/triggers/${encodeURIComponent(name)}/samples`);
+    const base = $derived(`/api/voice/wakewords/${encodeURIComponent(name)}/samples`);
     const clipUrl = (kind, file) => `${base}/${encodeURIComponent(file)}?kind=${kind}`;
 
     async function load() {

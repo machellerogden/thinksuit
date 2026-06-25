@@ -75,6 +75,14 @@ export async function interrupt(sessionId, reason, opts) {
 }
 
 /**
+ * Interrupt every live turn at once, leaving the broker daemon up. Returns
+ * `{ interrupted: [sessionId], count }`. Idempotent — no live turns yields count 0.
+ */
+export async function interruptAll(reason, opts) {
+    return request('POST', '/interrupt?all=1', { reason }, opts);
+}
+
+/**
  * Resolve a pending tool approval for a session. `approved` defaults to true;
  * pass false to deny. `approvalId` is optional — when omitted the broker
  * resolves the session's most recent pending approval (derived from the log).
@@ -116,6 +124,73 @@ export async function status(sessionId, opts) {
 export async function log(sessionId, opts) {
     const res = await request('GET', `/log/${encodeURIComponent(sessionId)}`, null, opts);
     return res.entries;
+}
+
+/**
+ * Classify a turn's outcome from what was observed on its event stream. Pure.
+ * Interrupt wins; otherwise a response with `success === false` is a failure;
+ * otherwise the turn completed. (`exited` is decided by awaitTurn's failsafe.)
+ */
+export function classifyTurnOutcome({ sawInterrupted, response } = {}) {
+    if (sawInterrupted) return 'interrupted';
+    if (response && response.success === false) return 'failed';
+    return 'completed';
+}
+
+/**
+ * Await a single turn over the broker's event stream — the one place the turn
+ * terminal contract lives. Tails from `from`, forwards every event to `onEvent`,
+ * captures the turn's `session.response`, and resolves when the turn ends.
+ *
+ * Resolves `{ outcome, response, error, interrupted }` where outcome is
+ * `'completed' | 'interrupted' | 'failed' | 'exited'`. `exited` means the worker
+ * died before emitting a terminal event (the broker's failsafe).
+ */
+export function awaitTurn(sessionId, { from = 0, onEvent, socketPath } = {}) {
+    return new Promise((resolve) => {
+        let settled = false;
+        let sawInterrupted = false;
+        let response = null;
+
+        const finish = (outcome) => {
+            if (settled) return;
+            settled = true;
+            handle.close();
+            resolve({
+                outcome,
+                response: response?.response,
+                error: response?.error,
+                interrupted: outcome === 'interrupted'
+            });
+        };
+
+        const handle = tail(
+            sessionId,
+            (entry) => {
+                const ev = entry.event || entry.type;
+
+                if (ev === 'session.response') {
+                    response = {
+                        response: entry.data?.response,
+                        success: entry.data?.success,
+                        error: entry.data?.error
+                    };
+                }
+                if (ev === 'session.interrupted') sawInterrupted = true;
+
+                if (onEvent) onEvent(entry);
+
+                // Terminal set: the structural close, the interrupt outcome, or the
+                // failsafe the broker pushes when a worker dies mid-turn.
+                if (ev === 'session.turn.complete' || ev === 'session.interrupted') {
+                    finish(classifyTurnOutcome({ sawInterrupted, response }));
+                } else if (ev === 'broker.worker.exited') {
+                    finish('exited');
+                }
+            },
+            { from, socketPath, onError: () => finish('exited') }
+        );
+    });
 }
 
 /**

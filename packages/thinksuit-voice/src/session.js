@@ -1,4 +1,4 @@
-// Session-lifecycle actions a trigger can be bound to, and the pure mapping from
+// Session-lifecycle actions a wakeword can be bound to, and the pure mapping from
 // a fired action to the session its captured turn targets. Kept pure (no mic, no
 // broker) so it's trivially testable.
 //

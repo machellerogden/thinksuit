@@ -6,10 +6,6 @@ const DEFAULTS = {
         deviceName: undefined, // case-insensitive substring; resolved to an id at startup
         deviceId: -1 // -1 = system default
     },
-    wake: {
-        trigger: null, // pin a single trigger by name (debug); null = the enabled set
-        defaultThreshold: 0.7 // fallback only; a trigger's own threshold takes precedence
-    },
     capture: {
         rmsThreshold: 400,
         silenceMs: 700,
@@ -36,7 +32,6 @@ function mergeSection(name, ...sources) {
 export function loadVoiceConfig(fileVoice = {}, overrides = {}) {
     return {
         input: mergeSection('input', fileVoice, overrides),
-        wake: mergeSection('wake', fileVoice, overrides),
         capture: mergeSection('capture', fileVoice, overrides),
         cues: mergeSection('cues', fileVoice, overrides),
         stt: mergeSection('stt', fileVoice, overrides),

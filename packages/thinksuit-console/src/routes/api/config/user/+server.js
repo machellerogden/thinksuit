@@ -86,17 +86,16 @@ export async function PUT({ request }) {
 
         const configPath = getUserConfigPath();
 
-        // Per-trigger settings (voice.wake.triggers) are owned by the trigger store,
+        // Per-wakeword settings (voice.wakewords) are owned by the wakeword store,
         // not this form. The form rebuilds `voice` wholesale, so carry the existing
-        // triggers subtree forward to avoid wiping it on every save.
+        // wakewords subtree forward to avoid wiping it on every save.
         if (existsSync(configPath)) {
             try {
                 const existing = JSON.parse(readFileSync(configPath, 'utf-8'));
-                const existingTriggers = existing?.voice?.wake?.triggers;
-                if (existingTriggers) {
+                const existingWakewords = existing?.voice?.wakewords;
+                if (existingWakewords) {
                     config.voice = config.voice || {};
-                    config.voice.wake = config.voice.wake || {};
-                    config.voice.wake.triggers = existingTriggers;
+                    config.voice.wakewords = existingWakewords;
                 }
             } catch {
                 // unparseable existing file — nothing to preserve

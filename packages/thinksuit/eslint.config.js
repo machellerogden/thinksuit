@@ -37,7 +37,10 @@ export default [
             'no-tabs': 'error',
             quotes: ['error', 'single'],
             semi: ['error', 'always'],
-            'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+            'no-unused-vars': [
+                'error',
+                { argsIgnorePattern: '^_', destructuredArrayIgnorePattern: '^_' }
+            ],
             'no-console': 'off',
             'import/order': 'off', // Disabled - don't care about empty lines in imports
             'import/no-duplicates': 'error',

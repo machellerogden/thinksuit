@@ -30,7 +30,7 @@
     let previousSessionId = $state(null);
     $effect(() => {
         // Read from session store to create reactive dependency
-        const _ = session.entries;
+        void session.entries;
         if (sessionId !== previousSessionId) {
             expandedTurns.clear();
             expandedEvents.clear();
@@ -176,6 +176,7 @@
                     input: { entry, originalIndex: i },
                     intermediateEvents: [],
                     response: null,
+                    interrupted: null,
                     turnComplete: null,
                     isComplete: false
                 };
@@ -184,6 +185,10 @@
                 currentTurn.turnStart = { entry, originalIndex: i };
             } else if (entry.event === SESSION_EVENTS.RESPONSE && currentTurn) {
                 currentTurn.response = { entry, originalIndex: i };
+            } else if (entry.event === SESSION_EVENTS.INTERRUPTED && currentTurn) {
+                // Interrupted turn: no assistant response — record the outcome so the
+                // turn renders as interrupted rather than empty.
+                currentTurn.interrupted = { entry, originalIndex: i };
             } else if (entry.event === SESSION_EVENTS.TURN_COMPLETE && currentTurn) {
                 currentTurn.turnComplete = { entry, originalIndex: i };
                 currentTurn.isComplete = true;
@@ -289,20 +294,20 @@
 
     function isToolEvent(event) {
         return event.event === EXECUTION_EVENTS.TOOL_START ||
-               event.event === EXECUTION_EVENTS.TOOL_COMPLETE ||
-               event.event === EXECUTION_EVENTS.TOOL_ERROR;
+            event.event === EXECUTION_EVENTS.TOOL_COMPLETE ||
+            event.event === EXECUTION_EVENTS.TOOL_ERROR;
     }
 
     function isStepEvent(event) {
         return event.event === EXECUTION_EVENTS.SEQUENTIAL_STEP_START ||
-               event.event === EXECUTION_EVENTS.SEQUENTIAL_STEP_COMPLETE;
+            event.event === EXECUTION_EVENTS.SEQUENTIAL_STEP_COMPLETE;
     }
 
     // Events with always-visible labels when expanded
     function isHighlightedEvent(event) {
         return event.event === ORCHESTRATION_EVENTS.START ||
-               event.event === EXECUTION_EVENTS.SEQUENTIAL_STEP_START ||
-               event.event === EXECUTION_EVENTS.SEQUENTIAL_STEP_COMPLETE;
+            event.event === EXECUTION_EVENTS.SEQUENTIAL_STEP_START ||
+            event.event === EXECUTION_EVENTS.SEQUENTIAL_STEP_COMPLETE;
     }
 
     // Get label for timeline circle
@@ -354,185 +359,192 @@
                     <!-- Vertical center line - spans exactly this wrapper -->
                     <div class="absolute left-1/2 top-2 bottom-8 w-1 bg-gray-200 -translate-x-1/2 z-0"></div>
 
-            {#each turnGroups as group (group.id)}
-            {#if group.type === 'turn'}
+                    {#each turnGroups as group (group.id)}
+                        {#if group.type === 'turn'}
 
-                <!-- User Input - always full card -->
-                <div class="mb-4 relative">
-                    <EventCard event={group.input.entry}>
-                        <MessageSummary event={group.input.entry} />
-                    </EventCard>
-                </div>
+                            <!-- User Input - always full card -->
+                            <div class="mb-4 relative">
+                                <EventCard event={group.input.entry}>
+                                    <MessageSummary event={group.input.entry} />
+                                </EventCard>
+                            </div>
 
-                <!-- Intermediate Events - collapsed or expanded -->
-                {@const isExpanded = expandedTurns.has(group.id)}
-                {@const hasIntermediateEvents = group.intermediateEvents.length > 0}
+                            <!-- Intermediate Events - collapsed or expanded -->
+                            {@const isExpanded = expandedTurns.has(group.id)}
+                            {@const hasIntermediateEvents = group.intermediateEvents.length > 0}
 
-                {#if hasIntermediateEvents}
-                    <div class="flex flex-col items-center relative pt-1 pb-5">
-                        {#if isExpanded}
-                            <!-- Expanded: minus button + all intermediate events -->
-                            <button
-                                type="button"
-                                class="w-6 h-6 rounded-full bg-indigo-400 hover:bg-indigo-500 flex items-center justify-center text-white cursor-pointer mb-2"
-                                onclick={() => toggleTurn(group.id)}
-                                aria-label="Collapse intermediate events"
-                            >
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
-                                </svg>
-                            </button>
-
-                            <!-- Render filtered intermediate events -->
-                            {#each filterIntermediateEvents(group.intermediateEvents) as { entry, originalIndex } (getEventId(entry))}
-                                {@const eventId = getEventId(entry)}
-                                {@const isEventExpanded = expandedEvents.has(eventId)}
-                                <div class="flex flex-col items-center py-2 relative w-full">
-                                    <button
-                                        type="button"
-                                        class="cursor-pointer flex items-center justify-center relative w-full group"
-                                        onclick={() => toggleEvent(eventId)}
-                                    >
-                                        <div
-                                            class="flex items-center justify-center"
+                            {#if hasIntermediateEvents}
+                                <div class="flex flex-col items-center relative pt-1 pb-5">
+                                    {#if isExpanded}
+                                        <!-- Expanded: minus button + all intermediate events -->
+                                        <button
+                                            type="button"
+                                            class="w-6 h-6 rounded-full bg-indigo-400 hover:bg-indigo-500 flex items-center justify-center text-white cursor-pointer mb-2"
+                                            onclick={() => toggleTurn(group.id)}
+                                            aria-label="Collapse intermediate events"
                                         >
-                                            {#if isHighlightedEvent(entry)}
-                                                <div class="w-6 h-6 rounded-full bg-gray-300 group-hover:bg-indigo-400 transition-colors"></div>
-                                            {:else}
-                                                <div class="w-3 h-3 rounded-full bg-gray-300 group-hover:bg-indigo-400 transition-all duration-200"></div>
-                                            {/if}
-                                        </div>
-                                        {#if isHighlightedEvent(entry)}
-                                            <span class="absolute left-1/2 ml-6 top-1/2 -translate-y-1/2 text-sm text-gray-600 whitespace-nowrap">{getEventLabel(entry)}</span>
-                                        {:else}
-                                            <span class="absolute left-1/2 ml-6 top-1/2 -translate-y-1/2 text-sm text-gray-400 whitespace-nowrap">{getEventLabel(entry)}</span>
-                                        {/if}
-                                    </button>
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+                                            </svg>
+                                        </button>
 
-                                    <!-- Expanded event card - only shown when event is expanded -->
-                                    {#if isEventExpanded}
-                                        {#if isLLMExchange(entry)}
-                                            <div class="w-full max-w-2xl mt-2">
-                                                <EventCard event={entry}>
-                                                    <div class="space-y-3">
-                                                        <LLMRequestSummary event={{ ...entry.request, data: entry.request.data }} />
-                                                        {#if entry.response}
-                                                            <div class="border-t border-gray-100 pt-3">
-                                                                <LLMResponseSummary event={entry.response} />
-                                                            </div>
+                                        <!-- Render filtered intermediate events -->
+                                        {#each filterIntermediateEvents(group.intermediateEvents) as { entry } (getEventId(entry))}
+                                            {@const eventId = getEventId(entry)}
+                                            {@const isEventExpanded = expandedEvents.has(eventId)}
+                                            <div class="flex flex-col items-center py-2 relative w-full">
+                                                <button
+                                                    type="button"
+                                                    class="cursor-pointer flex items-center justify-center relative w-full group"
+                                                    onclick={() => toggleEvent(eventId)}
+                                                >
+                                                    <div
+                                                        class="flex items-center justify-center"
+                                                    >
+                                                        {#if isHighlightedEvent(entry)}
+                                                            <div class="w-6 h-6 rounded-full bg-gray-300 group-hover:bg-indigo-400 transition-colors"></div>
                                                         {:else}
-                                                            <div class="text-xs text-gray-400 italic">Awaiting response...</div>
+                                                            <div class="w-3 h-3 rounded-full bg-gray-300 group-hover:bg-indigo-400 transition-all duration-200"></div>
                                                         {/if}
                                                     </div>
-                                                </EventCard>
+                                                    {#if isHighlightedEvent(entry)}
+                                                        <span class="absolute left-1/2 ml-6 top-1/2 -translate-y-1/2 text-sm text-gray-600 whitespace-nowrap">{getEventLabel(entry)}</span>
+                                                    {:else}
+                                                        <span class="absolute left-1/2 ml-6 top-1/2 -translate-y-1/2 text-sm text-gray-400 whitespace-nowrap">{getEventLabel(entry)}</span>
+                                                    {/if}
+                                                </button>
+
+                                                <!-- Expanded event card - only shown when event is expanded -->
+                                                {#if isEventExpanded}
+                                                    {#if isLLMExchange(entry)}
+                                                        <div class="w-full max-w-2xl mt-2">
+                                                            <EventCard event={entry}>
+                                                                <div class="space-y-3">
+                                                                    <LLMRequestSummary event={{ ...entry.request, data: entry.request.data }} />
+                                                                    {#if entry.response}
+                                                                        <div class="border-t border-gray-100 pt-3">
+                                                                            <LLMResponseSummary event={entry.response} />
+                                                                        </div>
+                                                                    {:else}
+                                                                        <div class="text-xs text-gray-400 italic">Awaiting response...</div>
+                                                                    {/if}
+                                                                </div>
+                                                            </EventCard>
+                                                        </div>
+                                                    {:else if isProviderApiExchange(entry)}
+                                                        <div class="w-full max-w-2xl mt-2">
+                                                            <EventCard event={entry} />
+                                                        </div>
+                                                    {:else if isPlan(entry)}
+                                                        <div class="w-full max-w-2xl mt-2">
+                                                            <EventCard event={entry}>
+                                                                <PlanSummary event={entry} />
+                                                            </EventCard>
+                                                        </div>
+                                                    {:else if isBudgetExceeded(entry)}
+                                                        <div class="w-full max-w-2xl mt-2">
+                                                            <EventCard event={entry}>
+                                                                <div class="text-sm text-amber-700">
+                                                                    <Badge variant="warning" size="xs">Budget Exceeded</Badge>
+                                                                    <span class="ml-2">{entry.msg || 'Handler exceeded budget'}</span>
+                                                                </div>
+                                                            </EventCard>
+                                                        </div>
+                                                    {:else if isToolEvent(entry)}
+                                                        <div class="w-full max-w-2xl mt-2">
+                                                            <EventCard event={entry}>
+                                                                <ToolEventSummary event={entry} />
+                                                            </EventCard>
+                                                        </div>
+                                                    {:else if isStepEvent(entry)}
+                                                        <div class="w-full max-w-2xl mt-2">
+                                                            <EventCard event={entry}>
+                                                                <StepEventSummary event={entry} />
+                                                            </EventCard>
+                                                        </div>
+                                                    {:else}
+                                                        <div class="w-full max-w-2xl mt-2">
+                                                            <EventCard event={entry} />
+                                                        </div>
+                                                    {/if}
+                                                {/if}
                                             </div>
-                                        {:else if isProviderApiExchange(entry)}
-                                            <div class="w-full max-w-2xl mt-2">
-                                                <EventCard event={entry} />
+                                        {/each}
+                                    {:else}
+                                        <!-- Collapsed: single plus button with status hint (only shown when processing) -->
+                                        {@const latestEvent = group.intermediateEvents[group.intermediateEvents.length - 1]?.entry}
+                                        {@const statusHint = !group.isComplete ? (latestEvent?.msg || latestEvent?.event || '') : ''}
+                                        <button
+                                            type="button"
+                                            class="relative cursor-pointer group flex items-center justify-center"
+                                            onclick={() => toggleTurn(group.id)}
+                                            aria-label="Expand intermediate events"
+                                        >
+                                            <div class="w-6 h-6 rounded-full bg-gray-300 group-hover:bg-indigo-400 flex items-center justify-center text-gray-600 group-hover:text-white transition-colors">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                                </svg>
                                             </div>
-                                        {:else if isPlan(entry)}
-                                            <div class="w-full max-w-2xl mt-2">
-                                                <EventCard event={entry}>
-                                                    <PlanSummary event={entry} />
-                                                </EventCard>
-                                            </div>
-                                        {:else if isBudgetExceeded(entry)}
-                                            <div class="w-full max-w-2xl mt-2">
-                                                <EventCard event={entry}>
-                                                    <div class="text-sm text-amber-700">
-                                                        <Badge variant="warning" size="xs">Budget Exceeded</Badge>
-                                                        <span class="ml-2">{entry.msg || 'Handler exceeded budget'}</span>
-                                                    </div>
-                                                </EventCard>
-                                            </div>
-                                        {:else if isToolEvent(entry)}
-                                            <div class="w-full max-w-2xl mt-2">
-                                                <EventCard event={entry}>
-                                                    <ToolEventSummary event={entry} />
-                                                </EventCard>
-                                            </div>
-                                        {:else if isStepEvent(entry)}
-                                            <div class="w-full max-w-2xl mt-2">
-                                                <EventCard event={entry}>
-                                                    <StepEventSummary event={entry} />
-                                                </EventCard>
-                                            </div>
-                                        {:else}
-                                            <div class="w-full max-w-2xl mt-2">
-                                                <EventCard event={entry} />
-                                            </div>
-                                        {/if}
+                                            {#if statusHint}
+                                                <span class="absolute left-full ml-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 whitespace-nowrap">{statusHint}</span>
+                                            {/if}
+                                        </button>
                                     {/if}
                                 </div>
-                            {/each}
-                        {:else}
-                            <!-- Collapsed: single plus button with status hint (only shown when processing) -->
-                            {@const latestEvent = group.intermediateEvents[group.intermediateEvents.length - 1]?.entry}
-                            {@const statusHint = !group.isComplete ? (latestEvent?.msg || latestEvent?.event || '') : ''}
-                            <button
-                                type="button"
-                                class="relative cursor-pointer group flex items-center justify-center"
-                                onclick={() => toggleTurn(group.id)}
-                                aria-label="Expand intermediate events"
-                            >
-                                <div class="w-6 h-6 rounded-full bg-gray-300 group-hover:bg-indigo-400 flex items-center justify-center text-gray-600 group-hover:text-white transition-colors">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                    </svg>
+                            {/if}
+
+                            <!-- Interrupted turn: no assistant response, show the outcome -->
+                            {#if group.interrupted}
+                                <div class="mb-4 relative">
+                                    <Badge variant="warning">Interrupted by user</Badge>
                                 </div>
-                                {#if statusHint}
-                                    <span class="absolute left-full ml-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 whitespace-nowrap">{statusHint}</span>
+                            {/if}
+
+                            <!-- System Response - always full card (if exists) -->
+                            {#if group.response}
+                                <div class="mb-4 relative">
+                                    <EventCard event={group.response.entry}>
+                                        <MessageSummary event={group.response.entry} />
+                                    </EventCard>
+                                </div>
+
+                                {#if group.turnComplete}
+
+                                    <!-- Fork button after turn complete -->
+                                    <div class="flex justify-center pt-2 pb-6 relative z-10">
+                                        <button
+                                            type="button"
+                                            class="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs transition-colors flex items-center gap-1"
+                                            onclick={async () => {
+                                                const forkPoint = group.turnComplete.originalIndex;
+                                                const response = await fetch(`/api/sessions/${sessionId}/fork`, {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ forkPoint })
+                                                });
+                                                const result = await response.json();
+                                                if (result.success) {
+                                                    window.location.hash = `#/run/sessions/${result.sessionId}/workbench`;
+                                                }
+                                            }}
+                                        >
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                            </svg>
+                                            <span>fork</span>
+                                        </button>
+                                    </div>
                                 {/if}
-                            </button>
+                            {/if}
+                        {:else}
+                            <!-- Standalone event (orphan before first input) -->
+                            <div class="flex justify-center py-2 relative">
+                                <div class="w-3 h-3 rounded-full bg-gray-300"></div>
+                                <span class="absolute left-1/2 ml-4 top-1/2 -translate-y-1/2 text-xs text-gray-400 whitespace-nowrap">{group.entry.msg || group.entry.event}</span>
+                            </div>
                         {/if}
-                    </div>
-                {/if}
-
-                <!-- System Response - always full card (if exists) -->
-                {#if group.response}
-                    <div class="mb-4 relative">
-                        <EventCard event={group.response.entry}>
-                            <MessageSummary event={group.response.entry} />
-                        </EventCard>
-                    </div>
-
-                    {#if group.turnComplete}
-
-                        <!-- Fork button after turn complete -->
-                        <div class="flex justify-center pt-2 pb-6 relative z-10">
-                            <button
-                                type="button"
-                                class="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs transition-colors flex items-center gap-1"
-                                onclick={async () => {
-                                    const forkPoint = group.turnComplete.originalIndex;
-                                    const response = await fetch(`/api/sessions/${sessionId}/fork`, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ forkPoint })
-                                    });
-                                    const result = await response.json();
-                                    if (result.success) {
-                                        window.location.hash = `#/run/sessions/${result.sessionId}/workbench`;
-                                    }
-                                }}
-                            >
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                                </svg>
-                                <span>fork</span>
-                            </button>
-                        </div>
-                    {/if}
-                {/if}
-            {:else}
-                <!-- Standalone event (orphan before first input) -->
-                <div class="flex justify-center py-2 relative">
-                    <div class="w-3 h-3 rounded-full bg-gray-300"></div>
-                    <span class="absolute left-1/2 ml-4 top-1/2 -translate-y-1/2 text-xs text-gray-400 whitespace-nowrap">{group.entry.msg || group.entry.event}</span>
-                </div>
-            {/if}
-            {/each}
+                    {/each}
                 </div>
             {/if}
         </div>

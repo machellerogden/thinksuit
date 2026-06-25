@@ -1,4 +1,4 @@
-// AudioWorklet processor for trigger enrollment. It simply forwards each input
+// AudioWorklet processor for wakeword enrollment. It simply forwards each input
 // block (mono Float32) to the main thread, which computes the live level and, when
 // recording, accumulates the clip. Kept dumb on purpose — all policy lives on the
 // main thread.

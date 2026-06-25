@@ -17,8 +17,13 @@ export const SESSION_EVENTS = {
     END: 'session.end',
     RESUME: 'session.resume',
     FORKED: 'session.forked', // Session was forked to create a new branch
-    INTERRUPTED: 'session.interrupted' // User interrupted execution
+    INTERRUPTED: 'session.interrupted' // User interrupted execution (emitted by formatFinalResult)
 };
+
+// User-side conversation marker for an interrupted turn. loadSessionThread renders
+// session.interrupted as this message so the next turn's history reflects the
+// interruption without fabricating an assistant response.
+export const INTERRUPTED_MARKER = '[Request interrupted by user]';
 
 // Session status constants (derived from session events)
 export const SESSION_STATUS = {

@@ -282,6 +282,43 @@ describe('run/internals', () => {
             });
         });
 
+        it('should emit session.interrupted (not session.response) for an interrupt', () => {
+            const result = {
+                interrupted: true,
+                message: 'Task interrupted by user',
+                partialData: { foo: 'bar' }
+            };
+
+            const formatted = formatFinalResult(
+                'interrupted',
+                result,
+                'test-session',
+                mockLogger,
+                'turn-1',
+                'session-1'
+            );
+
+            expect(formatted).toMatchObject({
+                success: false,
+                interrupted: true,
+                response: 'Task interrupted by user'
+            });
+
+            const events = mockLogger.info.mock.calls.map(([entry]) => entry.event);
+            expect(events).toContain('session.interrupted');
+            expect(events).toContain('session.turn.complete');
+            expect(events).not.toContain('session.response');
+
+            expect(mockLogger.info).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    event: 'session.interrupted',
+                    parentBoundaryId: 'turn-1',
+                    data: { reason: 'Task interrupted by user', partialData: { foo: 'bar' } }
+                }),
+                'Turn interrupted by user'
+            );
+        });
+
         it('should use fallback output when main output is missing', () => {
             const result = {
                 fallback: {

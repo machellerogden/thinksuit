@@ -47,11 +47,15 @@ still launches the REPL):
 | `thinksuit status <id> [--json]` | Current status of a session. |
 | `thinksuit log <id> [--tail]` | Print recorded events; `--tail` streams live. |
 | `thinksuit attach <id>` | Interactively observe + approve/interrupt + submit the next turn. |
-| `thinksuit interrupt <id>` | Interrupt the in-flight turn. |
+| `thinksuit interrupt <id> \| --all/-a [--json]` | Interrupt the in-flight turn; `--all`/`-a` interrupts **every** live turn at once (the broker stays up). |
 | `thinksuit approve <id> [approvalId] [--deny]` | Resolve a pending tool approval (id derived from the log if omitted). |
 
 When the broker is not running, clients **refuse with a clear error** — there is
 no auto-start and no in-process fallback.
+
+`interrupt --all` stops in-flight *work* but leaves the daemon running; taking the
+*daemon* itself down is the separate service concern below
+(`thinksuit-broker-service-stop` / SIGTERM, which cascade-kills its workers).
 
 ## Service management (macOS LaunchAgent)
 
@@ -139,6 +143,7 @@ All responses are JSON `{ ok, ... }`. Streaming endpoints use SSE.
 | `GET` | `/status/:id` | `{ sessionId, status, live }`. |
 | `GET` | `/log/:id[?tail=1][&from=N]` | Recorded events; `tail=1` streams via SSE; `from=N` starts at entry index N. |
 | `POST` | `/interrupt/:id` | Interrupt the in-flight turn. |
+| `POST` | `/interrupt?all=1` | Interrupt every live turn; returns `{ interrupted: [id], count }`. |
 | `POST` | `/approve/:id` | Body `{ approved, approvalId? }`. Resolves a pending approval (latest pending derived from the log if `approvalId` omitted). |
 
 A bad request never crashes the daemon — handler errors become 4xx/5xx
@@ -153,7 +158,12 @@ const { sessionId } = await broker.run(config);
 const active = await broker.sessions();          // { all: true } for history
 const handle = broker.tail(sessionId, (e) => …); // SSE; handle.close()
 await broker.interrupt(sessionId);
+await broker.interruptAll();                      // stop every live turn; broker stays up
 await broker.approve(sessionId, { approved: true });
+
+// Await a single turn — the one place the turn terminal contract lives.
+const { outcome } = await broker.awaitTurn(sessionId, { from, onEvent });
+// outcome ∈ 'completed' | 'interrupted' | 'failed' | 'exited'
 ```
 
 ## Limitations (v1)

@@ -28,15 +28,15 @@ spoken back.
 
 ## Terminology
 
-- **Trigger** — a trained spoken phrase plus its detection model. The managed unit
-  in the **trigger library**. Action-neutral (replaces the overloaded "wakeword"
+- **Wakeword** — a trained spoken phrase plus its detection model. The managed unit
+  in the **wakeword library**. Action-neutral (replaces the overloaded "wakeword"
   as the user-facing noun; `wake/` remains the internal name of the detection
   subsystem).
-- **Action** — what the daemon does when a trigger fires: `converse` (capture an
+- **Action** — what the daemon does when a wakeword fires: `converse` (capture an
   utterance → continue the current session), `new` (start a fresh session), or
   `interrupt`. (`switch` is deliberately omitted — no good voice target-selection
   model yet.)
-- **Binding** — the map from a trigger → an action. Any trigger can bind to any
+- **Binding** — the map from a wakeword → an action. Any wakeword can bind to any
   action. In iteration 1 the binding is reserved (always `converse`); authoring
   bindings + routing the non-`converse` actions is a later iteration.
 
@@ -98,7 +98,7 @@ switches sessions.
 - **Personal voice enrollment is required.** Synthetic-only training does not
   generalize to a real human voice (Iteration-1 finding: natural speech scored
   ~0.3–0.4 vs ~0.97 for the synthetic `say` voice; the user had to over-enunciate
-  to trigger). Each user must record their own positives, which are mixed
+  to wakeword). Each user must record their own positives, which are mixed
   (oversampled) into the synthetic positive set and the model retrained. This
   makes guided voice enrollment a first-class workflow, not a one-off chore.
 - **Mic capture is `naudiodon2`** (PortAudio, in-process PCM). The daemon owns
@@ -115,7 +115,7 @@ switches sessions.
   session, switch, …) are their own trained wake words; the daemon routes on the
   fired name — conversation word → capture→turn, command word → local control.
   This is the voice analog of the REPL's `:`-prefixed commands and resolves the
-  session-switch trigger that was previously TBD.
+  session-switch wakeword that was previously TBD.
 - **Session routing (current behavior).** The daemon holds one in-memory
   `lastSessionId`: the first wake creates a new broker session; later wakes
   continue it (context accumulates). It is not persisted — a daemon restart
@@ -183,26 +183,26 @@ switches sessions.
 **Iteration 4 — Response + TTS. [done]** `session.response` (via `tail`) →
 macOS `say`. Full hands-free loop closed, keyless.
 
-**Iteration 5 — Trigger library (CLI). [done]** Formalize the manual training
-flow into a CLI that manages a *collection* of triggers: define / train / test /
+**Iteration 5 — Wakeword library (CLI). [done]** Formalize the manual training
+flow into a CLI that manages a *collection* of wakewords: define / train / test /
 augment (record positive+negative samples and retrain) / promote / enable.
 Architecture is layered with one-way deps — `src/wakewords/{store,recorder,
 trainer,cli}.js` over the existing audio modules, with `training/train.py` as the
 JSON-in / JSONL-out contract to `livekit-wakeword` (the only seam that knows the
-engine). Each trigger is a self-contained bundle under
-`~/.thinksuit/voice/triggers/<name>/` (manifest + samples + model versions);
+engine). Each wakeword is a self-contained bundle under
+`~/.thinksuit/voice/wakewords/<name>/` (manifest + samples + model versions);
 "install" is a manifest write (promote + enable). The daemon loads the **enabled**
-trigger's current model + threshold from the store. Single active head; binding
-fixed to `converse`. Exposed as `thinksuit-voice trigger <verb>`.
+wakeword's current model + threshold from the store. Single active head; binding
+fixed to `converse`. Exposed as `thinksuit-voice wakeword <verb>`.
 
 **Iteration 6 — Multi-head runtime + binding execution.** Load multiple enabled
 heads on the shared frontend (`wake/pipeline.js` → `{name: score}`;
 `wake/detector.js` fires `onWake({name, confidence})`); daemon routes on the fired
-name. Add the `trigger binding` verb and execute the non-`converse` actions
+name. Add the `wakeword binding` verb and execute the non-`converse` actions
 (`new`, `interrupt`). Only here does `enable` go multi-active.
 
 **Iteration 7 — Presets (STT + TTS).** Per-modality, switchable presets managed
-the same way as triggers (dir-per-preset under `~/.thinksuit/voice/{stt,tts}/`).
+the same way as wakewords (dir-per-preset under `~/.thinksuit/voice/{stt,tts}/`).
 An **STT preset** = a transcription stage (provider/model) + an optional **cleanup**
 stage (provider/model + an `instructions.md`; shipped default at
 `presets/default-cleanup.md`, no templating). A **TTS preset** = a synthesis
@@ -212,7 +212,7 @@ post-processing stage, and the broker-vs-direct decision for the cleanup LLM cal
 The composing "voice preset" bundle stays deferred. Also: LaunchAgent service
 scaffolding once the runtime is settled.
 
-**Iteration 8 — Console studio.** Mirror the trigger (and preset) CLI surfaces in
+**Iteration 8 — Console studio.** Mirror the wakeword (and preset) CLI surfaces in
 thinksuit-console: console stays thin (records mic audio in-browser, calls a
 thinksuit-voice HTTP API, streams progress/metrics, live-tests), and
 thinksuit-voice owns the same `store`/`recorder`/`trainer`/preset library

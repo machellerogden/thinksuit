@@ -1,6 +1,6 @@
 // Browser-side enrollment capture. Owns getUserMedia + an AudioWorklet, exposes
 // start()/stop() around a clip, and reports a live level for a meter. stop()
-// returns 16 kHz mono Int16 PCM — the exact format the trigger store + model
+// returns 16 kHz mono Int16 PCM — the exact format the wakeword store + model
 // expect — resampling from the actual context rate if the browser ignored our
 // 16 kHz request (Safari).
 //

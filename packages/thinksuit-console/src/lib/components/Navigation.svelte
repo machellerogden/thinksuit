@@ -2,6 +2,7 @@
     import { location, matchAndResolve } from '$lib/components/HashRouter.svelte';
     import { getSession } from '$lib/stores/session.svelte.js';
     import { ui } from '$lib/stores/ui.svelte.js';
+    import InterruptAllButton from '$lib/components/InterruptAllButton.svelte';
 
     const session = getSession();
 
@@ -21,6 +22,7 @@
         </a>
         -->
         <div class="flex items-center justify-center gap-2 text-sm">
+            <InterruptAllButton />
             <a
                 href={runHref}
                 class="border rounded px-2 py-1 {matchAndResolve(location, new RegExp('^/run'), 'bg-gray-100 text-gray-900 border-gray-400', 'bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900 hover:border-gray-500')}"
@@ -49,7 +51,7 @@
                 href="#/voice/studio"
                 class="border rounded px-2 py-1 {matchAndResolve(location, new RegExp('^/voice/studio'), 'bg-gray-100 text-gray-900 border-gray-400', 'bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-200 hover:text-gray-900 hover:border-gray-500')}"
             >
-                Triggers
+                Wakewords
             </a>
 
             <div class="h-12 w-12 flex items-center justify-center"> <!-- border-l border-gray-300 -->

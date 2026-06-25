@@ -31,14 +31,14 @@ export function resolveEmbeddingModelPath() {
     return join(MODELS_DIR, 'embedding_model.onnx');
 }
 
-// The trigger library lives under the voice home. Each trigger is a
+// The wakeword library lives under the voice home. Each wakeword is a
 // self-contained bundle (manifest + samples + model versions + run logs).
-export function resolveTriggersDir() {
-    return join(resolveVoiceHome(), 'triggers');
+export function resolveWakewordsDir() {
+    return join(resolveVoiceHome(), 'wakewords');
 }
 
-export function resolveTriggerPaths(name) {
-    const dir = join(resolveTriggersDir(), name);
+export function resolveWakewordPaths(name) {
+    const dir = join(resolveWakewordsDir(), name);
     return {
         dir,
         manifest: join(dir, 'manifest.json'),

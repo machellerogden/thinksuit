@@ -29,12 +29,12 @@ function spawnEnv() {
     return { ...process.env, PATH };
 }
 
-// Run train.py for a trigger. `onProgress({event, phase, status, ...})` is called
+// Run train.py for a wakeword. `onProgress({event, phase, status, ...})` is called
 // for each JSONL line; library logs stream through to stderr. Resolves with
 // `{ version, metrics }`. `mode: 'initial'` forces regeneration of synthetic data.
-export function trainTrigger(name, { mode, onProgress } = {}) {
+export function trainWakeword(name, { mode, onProgress } = {}) {
     const manifest = store.readManifest(name);
-    const work = mkdtempSync(join(tmpdir(), 'ts-trigger-'));
+    const work = mkdtempSync(join(tmpdir(), 'ts-wakeword-'));
     const outPath = join(work, `${name}.onnx`);
     const jobPath = join(work, 'job.json');
 

@@ -1,13 +1,13 @@
-// The trigger library. A trigger has two homes by design:
+// The wakeword library. A wakeword has two homes by design:
 //   - SETTINGS (the user-tunable knobs: phrase, enabled, binding, threshold,
-//     current) live in the shared user config under voice.wake.triggers.<name>,
+//     current) live in the shared user config under voice.wakewords.<name>,
 //     so config has one source of truth.
 //   - ARTIFACTS (recorded samples, trained .onnx versions, run-logs, and the
-//     version→metrics catalog) live in a per-trigger bundle on disk under the
+//     version→metrics catalog) live in a per-wakeword bundle on disk under the
 //     voice home (see paths.js), because they can't live in JSON config.
 // This module is the sole owner of that layout. The on-disk manifest.json is now
 // a slim artifact *catalog* (versions only); readManifest() returns a merged view
-// (settings + catalog) so callers see one trigger object.
+// (settings + catalog) so callers see one wakeword object.
 
 import {
     existsSync,
@@ -21,7 +21,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { readUserConfig, patchUserConfig } from 'thinksuit';
-import { resolveTriggersDir, resolveTriggerPaths } from '../paths.js';
+import { resolveWakewordsDir, resolveWakewordPaths } from '../paths.js';
 import { ACTIONS } from '../session.js';
 
 const NAME_RE = /^[a-z0-9][a-z0-9_-]*$/i;
@@ -30,7 +30,7 @@ const DEFAULT_THRESHOLD = 0.7;
 function assertValidName(name) {
     if (!NAME_RE.test(name)) {
         throw new Error(
-            `invalid trigger name "${name}" — use letters, digits, dashes, underscores`
+            `invalid wakeword name "${name}" — use letters, digits, dashes, underscores`
         );
     }
 }
@@ -43,10 +43,10 @@ function ensureDir(dir) {
     mkdirSync(dir, { recursive: true });
 }
 
-// ── Settings (in user config: voice.wake.triggers.<name>) ───────────────────
+// ── Settings (in user config: voice.wakewords.<name>) ────────────────────────
 
 function readSettingsAll() {
-    return readUserConfig().voice?.wake?.triggers || {};
+    return readUserConfig().voice?.wakewords || {};
 }
 
 function readSettings(name) {
@@ -55,38 +55,38 @@ function readSettings(name) {
 
 function writeSettings(name, patch) {
     patchUserConfig((c) => {
-        const triggers = (((c.voice ??= {}).wake ??= {}).triggers ??= {});
-        triggers[name] = { ...(triggers[name] || {}), ...patch };
+        const wakewords = ((c.voice ??= {}).wakewords ??= {});
+        wakewords[name] = { ...(wakewords[name] || {}), ...patch };
     });
 }
 
 function deleteSettings(name) {
     patchUserConfig((c) => {
-        const triggers = c.voice?.wake?.triggers;
-        if (triggers) delete triggers[name];
+        const wakewords = c.voice?.wakewords;
+        if (wakewords) delete wakewords[name];
     });
 }
 
-// ── Catalog (on disk: triggers/<name>/manifest.json — versions only) ─────────
+// ── Catalog (on disk: wakewords/<name>/manifest.json — versions only) ─────────
 
 function readCatalog(name) {
-    const { manifest } = resolveTriggerPaths(name);
+    const { manifest } = resolveWakewordPaths(name);
     if (!existsSync(manifest)) return null;
     return JSON.parse(readFileSync(manifest, 'utf8'));
 }
 
 function writeCatalog(name, catalog) {
-    const paths = resolveTriggerPaths(name);
+    const paths = resolveWakewordPaths(name);
     ensureDir(paths.dir);
     const next = { ...catalog, updatedAt: now() };
     writeFileSync(paths.manifest, JSON.stringify(next, null, 2) + '\n');
     return next;
 }
 
-// ── Triggers ─────────────────────────────────────────────────────────────────
+// ── Wakewords ─────────────────────────────────────────────────────────────────
 
-export function listTriggers() {
-    const root = resolveTriggersDir();
+export function listWakewords() {
+    const root = resolveWakewordsDir();
     if (!existsSync(root)) return [];
     return readdirSync(root, { withFileTypes: true })
         .filter((e) => e.isDirectory() && existsSync(join(root, e.name, 'manifest.json')))
@@ -94,13 +94,13 @@ export function listTriggers() {
         .sort();
 }
 
-export function triggerExists(name) {
-    return existsSync(resolveTriggerPaths(name).manifest);
+export function wakewordExists(name) {
+    return existsSync(resolveWakewordPaths(name).manifest);
 }
 
-// The merged trigger view: settings (config) + versions catalog (disk).
+// The merged wakeword view: settings (config) + versions catalog (disk).
 export function readManifest(name) {
-    if (!triggerExists(name)) throw new Error(`no such trigger: ${name}`);
+    if (!wakewordExists(name)) throw new Error(`no such wakeword: ${name}`);
     const cat = readCatalog(name) || { name, versions: [], createdAt: now() };
     const s = readSettings(name) || {};
     return {
@@ -115,12 +115,12 @@ export function readManifest(name) {
     };
 }
 
-export function createTrigger({ name, phrase, threshold = DEFAULT_THRESHOLD }) {
+export function createWakeword({ name, phrase, threshold = DEFAULT_THRESHOLD }) {
     assertValidName(name);
-    if (!phrase || !phrase.trim()) throw new Error('a trigger needs a phrase');
-    if (triggerExists(name)) throw new Error(`trigger already exists: ${name}`);
+    if (!phrase || !phrase.trim()) throw new Error('a wakeword needs a phrase');
+    if (wakewordExists(name)) throw new Error(`wakeword already exists: ${name}`);
 
-    const paths = resolveTriggerPaths(name);
+    const paths = resolveWakewordPaths(name);
     ensureDir(paths.positiveSamples);
     ensureDir(paths.negativeSamples);
     ensureDir(paths.models);
@@ -137,9 +137,9 @@ export function createTrigger({ name, phrase, threshold = DEFAULT_THRESHOLD }) {
     return readManifest(name);
 }
 
-export function removeTrigger(name) {
-    const { dir } = resolveTriggerPaths(name);
-    if (!existsSync(dir)) throw new Error(`no such trigger: ${name}`);
+export function removeWakeword(name) {
+    const { dir } = resolveWakewordPaths(name);
+    if (!existsSync(dir)) throw new Error(`no such wakeword: ${name}`);
     rmSync(dir, { recursive: true, force: true });
     deleteSettings(name);
 }
@@ -147,7 +147,7 @@ export function removeTrigger(name) {
 // ── Samples ──────────────────────────────────────────────────────────────
 
 function kindDir(name, kind) {
-    const paths = resolveTriggerPaths(name);
+    const paths = resolveWakewordPaths(name);
     if (kind === 'positive') return paths.positiveSamples;
     if (kind === 'negative') return paths.negativeSamples;
     throw new Error(`unknown sample kind: ${kind}`);
@@ -201,7 +201,7 @@ export function deleteSample(name, kind, file) {
     rmSync(path);
 }
 
-// Copy an existing directory of clip_*.wav recordings into a trigger's sample set,
+// Copy an existing directory of clip_*.wav recordings into a wakeword's sample set,
 // renumbered to continue the existing sequence. Used to migrate prior recordings
 // into the library.
 export function adoptSamples(name, kind, srcDir) {
@@ -225,7 +225,7 @@ export function adoptSamples(name, kind, srcDir) {
 // metrics. Does not change `current` — promotion is a separate, explicit step.
 export function registerVersion(name, { onnxPath, metrics = null }) {
     const cat = readCatalog(name) || { name, versions: [], createdAt: now() };
-    const paths = resolveTriggerPaths(name);
+    const paths = resolveWakewordPaths(name);
     ensureDir(paths.models);
     const version = `v${cat.versions.length + 1}`;
     const rel = join('models', `${name}.${version}.onnx`);
@@ -238,13 +238,13 @@ export function registerVersion(name, { onnxPath, metrics = null }) {
 export function versionModelPath(name, version) {
     const cat = readCatalog(name);
     const entry = cat?.versions.find((v) => v.version === version);
-    if (!entry) throw new Error(`no such version ${version} for trigger ${name}`);
-    return join(resolveTriggerPaths(name).dir, entry.model);
+    if (!entry) throw new Error(`no such version ${version} for wakeword ${name}`);
+    return join(resolveWakewordPaths(name).dir, entry.model);
 }
 
 export function currentModelPath(name) {
     const current = readSettings(name)?.current;
-    if (!current) throw new Error(`trigger ${name} has no promoted version`);
+    if (!current) throw new Error(`wakeword ${name} has no promoted version`);
     return versionModelPath(name, current);
 }
 
@@ -253,9 +253,9 @@ export function currentModelPath(name) {
 export function promote(name, version) {
     const cat = readCatalog(name);
     const target = version || cat?.versions[cat.versions.length - 1]?.version;
-    if (!target) throw new Error(`trigger ${name} has no trained versions to promote`);
+    if (!target) throw new Error(`wakeword ${name} has no trained versions to promote`);
     if (!cat.versions.some((v) => v.version === target)) {
-        throw new Error(`no such version ${target} for trigger ${name}`);
+        throw new Error(`no such version ${target} for wakeword ${name}`);
     }
     writeSettings(name, { current: target });
     return readManifest(name);
@@ -266,54 +266,54 @@ export function setThreshold(name, value) {
     if (!Number.isFinite(v) || v < 0 || v > 1) {
         throw new Error(`threshold must be between 0 and 1, got ${value}`);
     }
-    if (!triggerExists(name)) throw new Error(`no such trigger: ${name}`);
+    if (!wakewordExists(name)) throw new Error(`no such wakeword: ${name}`);
     writeSettings(name, { threshold: v });
     return readManifest(name);
 }
 
-// Bind a trigger to the session-lifecycle action it fires (converse/new).
+// Bind a wakeword to the session-lifecycle action it fires (converse/new).
 export function setBinding(name, action) {
     if (!ACTIONS.includes(action)) {
         throw new Error(`unknown action "${action}" — use one of: ${ACTIONS.join(', ')}`);
     }
-    if (!triggerExists(name)) throw new Error(`no such trigger: ${name}`);
+    if (!wakewordExists(name)) throw new Error(`no such wakeword: ${name}`);
     writeSettings(name, { binding: action });
     return readManifest(name);
 }
 
-// ── Enablement (additive — many triggers can be active at once) ─────────────
+// ── Enablement (additive — many wakewords can be active at once) ─────────────
 
-export function getEnabledTriggers() {
-    return listTriggers().filter((name) => readManifest(name).enabled);
+export function getEnabledWakewords() {
+    return listWakewords().filter((name) => readManifest(name).enabled);
 }
 
-function resolveOne(name, wakeConfig) {
+function resolveOne(name) {
     const m = readManifest(name);
-    const classifierPath = currentModelPath(name);
-    const threshold = m.threshold ?? wakeConfig.defaultThreshold;
-    const binding = m.binding ?? 'converse';
-    return { name, classifierPath, threshold, binding };
+    return {
+        name,
+        classifierPath: currentModelPath(name),
+        threshold: m.threshold,
+        binding: m.binding
+    };
 }
 
-// Resolve the set of triggers the daemon should load: an explicit config name
-// pins a single trigger, otherwise every enabled trigger. Each trigger owns its
-// model + threshold (the config defaultThreshold is only a fallback). Throws if
-// the resolved set is empty.
-export function resolveActiveTriggers(wakeConfig = {}) {
-    const names = wakeConfig.trigger ? [wakeConfig.trigger] : getEnabledTriggers();
+// Resolve the set of wakewords the daemon should load: every enabled wakeword.
+// Each owns its model + threshold. Throws if the resolved set is empty.
+export function resolveActiveWakewords() {
+    const names = getEnabledWakewords();
     if (names.length === 0) {
         throw new Error(
-            'no enabled wake triggers — create and enable one: `thinksuit-voice trigger init <name> --phrase "..."`'
+            'no enabled wakewords — create and enable one: `thinksuit-voice wakeword init <name> --phrase "..."`'
         );
     }
-    return names.map((name) => resolveOne(name, wakeConfig));
+    return names.map((name) => resolveOne(name));
 }
 
-// Additive: enabling adds a trigger to the listening set without touching the
+// Additive: enabling adds a wakeword to the listening set without touching the
 // others; disabling removes just that one. The daemon listens for every enabled
-// trigger at once.
+// wakeword at once.
 export function setEnabled(name, enabled) {
-    if (!triggerExists(name)) throw new Error(`no such trigger: ${name}`);
+    if (!wakewordExists(name)) throw new Error(`no such wakeword: ${name}`);
     if (enabled && !readSettings(name)?.current) {
         throw new Error(`cannot enable ${name}: no promoted version (run train + promote first)`);
     }
@@ -322,17 +322,17 @@ export function setEnabled(name, enabled) {
 }
 
 // ── Run logs ────────────────────────────────────────────────────────────────
-// A training run writes a JSONL log under the trigger's runs/ dir, one event per
+// A training run writes a JSONL log under the wakeword's runs/ dir, one event per
 // line. The detached worker appends; the console reads to drive progress + result.
 
 export function runLogPath(name, runId) {
-    return join(resolveTriggerPaths(name).runs, `${runId}.jsonl`);
+    return join(resolveWakewordPaths(name).runs, `${runId}.jsonl`);
 }
 
 // Run IDs are the log filenames without extension, sorted ascending so the last
 // is the most recent (IDs are timestamp-prefixed).
 export function listRunIds(name) {
-    const dir = resolveTriggerPaths(name).runs;
+    const dir = resolveWakewordPaths(name).runs;
     if (!existsSync(dir)) return [];
     return readdirSync(dir)
         .filter((f) => f.endsWith('.jsonl'))
@@ -342,7 +342,7 @@ export function listRunIds(name) {
 
 export function appendRunLog(name, runId, entry) {
     const path = runLogPath(name, runId);
-    ensureDir(resolveTriggerPaths(name).runs);
+    ensureDir(resolveWakewordPaths(name).runs);
     appendFileSync(path, JSON.stringify(entry) + '\n');
 }
 

@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { readSampleClip, deleteSample, triggerExists } from 'thinksuit-voice/triggers';
+import { readSampleClip, deleteSample, wakewordExists } from 'thinksuit-voice/wakewords';
 
 // One saved enrollment clip. GET streams the WAV (so a native <audio> can play
 // it); DELETE removes it. ?kind=positive|negative selects the set. The store
@@ -11,7 +11,7 @@ function kindOf(url) {
 
 export async function GET({ params, url }) {
     const { name, file } = params;
-    if (!triggerExists(name)) return json({ error: `no such trigger: ${name}` }, { status: 404 });
+    if (!wakewordExists(name)) return json({ error: `no such wakeword: ${name}` }, { status: 404 });
     try {
         const bytes = readSampleClip(name, kindOf(url), file);
         return new Response(bytes, {
@@ -28,7 +28,7 @@ export async function GET({ params, url }) {
 
 export async function DELETE({ params, url }) {
     const { name, file } = params;
-    if (!triggerExists(name)) return json({ error: `no such trigger: ${name}` }, { status: 404 });
+    if (!wakewordExists(name)) return json({ error: `no such wakeword: ${name}` }, { status: 404 });
     try {
         deleteSample(name, kindOf(url), file);
         return json({ success: true });

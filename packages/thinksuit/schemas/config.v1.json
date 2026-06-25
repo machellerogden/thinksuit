@@ -132,51 +132,36 @@
           },
           "additionalProperties": true
         },
-        "wake": {
+        "wakewords": {
           "type": "object",
-          "description": "Wake-word detection settings",
-          "properties": {
-            "trigger": {
-              "type": "string",
-              "description": "Pin a single trigger from the library by name, bypassing the enabled set (debug override)"
-            },
-            "defaultThreshold": {
-              "type": "number",
-              "description": "Fallback detection threshold (0-1) for a trigger without its own"
-            },
-            "triggers": {
-              "type": "object",
-              "description": "Per-trigger settings, keyed by trigger name. The trigger library's models/samples live on disk; these are the user-tunable knobs.",
-              "additionalProperties": {
-                "type": "object",
-                "properties": {
-                  "phrase": {
-                    "type": "string",
-                    "description": "The spoken phrase this trigger was trained on"
-                  },
-                  "enabled": {
-                    "type": "boolean",
-                    "description": "Whether this trigger is in the active listening set"
-                  },
-                  "binding": {
-                    "type": "string",
-                    "enum": ["converse", "new"],
-                    "description": "Session-lifecycle action this trigger fires"
-                  },
-                  "threshold": {
-                    "type": "number",
-                    "description": "Per-trigger detection threshold (0-1); overrides wake.defaultThreshold"
-                  },
-                  "current": {
-                    "type": ["string", "null"],
-                    "description": "Promoted model version (e.g. v3) from the on-disk catalog"
-                  }
-                },
-                "additionalProperties": true
+          "description": "Per-wakeword settings, keyed by wakeword name. The library's models/samples live on disk; these are the user-tunable knobs.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "phrase": {
+                "type": "string",
+                "description": "The spoken phrase this wakeword was trained on"
+              },
+              "enabled": {
+                "type": "boolean",
+                "description": "Whether this wakeword is in the active listening set"
+              },
+              "binding": {
+                "type": "string",
+                "enum": ["converse", "new"],
+                "description": "Session-lifecycle action this wakeword fires"
+              },
+              "threshold": {
+                "type": "number",
+                "description": "Detection threshold (0-1)"
+              },
+              "current": {
+                "type": ["string", "null"],
+                "description": "Promoted model version (e.g. v3) from the on-disk catalog"
               }
-            }
-          },
-          "additionalProperties": true
+            },
+            "additionalProperties": true
+          }
         },
         "stt": {
           "type": "object",

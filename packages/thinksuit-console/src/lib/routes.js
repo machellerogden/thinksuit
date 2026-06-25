@@ -3,7 +3,7 @@ import RunInterface from '$lib/components/RunInterface.svelte';
 import ConfigLayout from '$lib/components/ConfigLayout.svelte';
 import ServicesPanel from '$lib/components/ServicesPanel.svelte';
 import VoicePanel from '$lib/components/VoicePanel.svelte';
-import TriggerStudio from '$lib/components/TriggerStudio.svelte';
+import WakewordStudio from '$lib/components/WakewordStudio.svelte';
 import Sandbox from '$lib/components/Sandbox.svelte';
 import NotFound from '$lib/components/NotFound.svelte';
 import { location } from '$lib/components/HashRouter.svelte';
@@ -27,7 +27,7 @@ export const routes = new Map([
     ['/config/:tab', ConfigLayout],
     ['/services', ServicesPanel],
     ['/voice', VoicePanel],
-    ['/voice/studio', TriggerStudio],
+    ['/voice/studio', WakewordStudio],
     ['/sandbox', Sandbox],
     ['*', NotFound]
 ]);

@@ -2,7 +2,7 @@
 // keeps a 2s ring buffer, scores it every ~80ms, and fires onWake on a
 // threshold crossing (debounced). onScore is optional, for live monitoring.
 //
-// Multi-head: the pipeline scores every enabled trigger head and returns
+// Multi-head: the pipeline scores every enabled wakeword head and returns
 // { name: score }. Among the heads at or above their own threshold, the highest
 // score wins and onWake reports its name. A single debounce window is shared
 // across all heads.

@@ -11,7 +11,7 @@ vi.mock('node:child_process', () => ({
     spawn: () => h.child
 }));
 
-const { trainTrigger } = await import('../src/wakewords/trainer.js');
+const { trainWakeword } = await import('../src/wakewords/trainer.js');
 const store = await import('../src/wakewords/store.js');
 
 function makeChild() {
@@ -32,7 +32,7 @@ describe('trainer', () => {
         onnx = join(home, 'exported.onnx');
         writeFileSync(onnx, 'model-bytes');
         h.child = makeChild();
-        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        store.createWakeword({ name: 'demo', phrase: 'Hey ThinkSuit' });
     });
 
     afterEach(() => {
@@ -43,7 +43,7 @@ describe('trainer', () => {
 
     it('parses JSONL, registers the version, returns metrics', async () => {
         const progress = [];
-        const p = trainTrigger('demo', { onProgress: (m) => progress.push(m.event) });
+        const p = trainWakeword('demo', { onProgress: (m) => progress.push(m.event) });
 
         await tick();
         h.child.stdout.write(JSON.stringify({ event: 'phase', phase: 'train', status: 'start' }) + '\n');
@@ -70,7 +70,7 @@ describe('trainer', () => {
     });
 
     it('rejects when train.py reports an error', async () => {
-        const p = trainTrigger('demo');
+        const p = trainWakeword('demo');
         await tick();
         h.child.stdout.write(JSON.stringify({ event: 'error', message: 'boom' }) + '\n');
         await tick();
@@ -80,7 +80,7 @@ describe('trainer', () => {
     });
 
     it('rejects on nonzero exit with no result', async () => {
-        const p = trainTrigger('demo');
+        const p = trainWakeword('demo');
         await tick();
         h.child.emit('close', 1);
         await expect(p).rejects.toThrow(/exited with code 1/);

@@ -9,7 +9,7 @@ import { createWriteStream, existsSync } from 'node:fs';
 import { readFile, writeFile, appendFile, stat } from 'node:fs/promises';
 
 import build from 'pino-abstract-transport';
-import { SESSION_EVENTS, SESSION_STATUS } from '../constants/events.js';
+import { SESSION_EVENTS, SESSION_STATUS, INTERRUPTED_MARKER } from '../constants/events.js';
 import { exists, readSessionStatusData } from '../utils/fs.js';
 import { deriveSessionStatus } from '../sessions/deriveSessionStatus.js';
 import {
@@ -83,6 +83,13 @@ export async function loadSessionThread(sessionId) {
                     thread.push({
                         role: 'assistant',
                         content: entry.data.response
+                    });
+                } else if (entry.event === SESSION_EVENTS.INTERRUPTED) {
+                    // An interrupted turn produced no assistant response; record the
+                    // interruption user-side so the next turn's model sees it.
+                    thread.push({
+                        role: 'user',
+                        content: INTERRUPTED_MARKER
                     });
                 }
             } catch {
@@ -336,7 +343,7 @@ export default async function (_opts) {
  */
 export async function flushAllSessionStreams() {
     const flushPromises = [];
-    for (const [sessionId, stream] of streams.entries()) {
+    for (const [_sessionId, stream] of streams.entries()) {
         if (stream && !stream.destroyed) {
             flushPromises.push(new Promise((resolve) => {
                 // Force flush by writing empty string and waiting for drain

@@ -1,10 +1,10 @@
 import { json } from '@sveltejs/kit';
-import { listTriggers, readManifest, countSamples, createTrigger } from 'thinksuit-voice/triggers';
+import { listWakewords, readManifest, countSamples, createWakeword } from 'thinksuit-voice/wakewords';
 import { ACTIONS } from 'thinksuit-voice/session';
 import { NEG_PROMPTS } from 'thinksuit-voice/recorder';
 
-// The trigger library, read through the voice package's store (never the
-// filesystem directly). GET returns a summary per trigger plus the action
+// The wakeword library, read through the voice package's store (never the
+// filesystem directly). GET returns a summary per wakeword plus the action
 // vocabulary so the UI can render the binding control. Mutations live on
 // [name]/.
 
@@ -29,21 +29,21 @@ function summarize(name) {
 
 export async function GET() {
     try {
-        const triggers = listTriggers().map(summarize);
-        return json({ triggers, actions: ACTIONS, negPrompts: NEG_PROMPTS });
+        const wakewords = listWakewords().map(summarize);
+        return json({ wakewords, actions: ACTIONS, negPrompts: NEG_PROMPTS });
     } catch (error) {
-        console.error('Error listing triggers:', error);
+        console.error('Error listing wakewords:', error);
         return json({ error: error.message }, { status: 500 });
     }
 }
 
-// Create a new (empty) trigger from a name + phrase. Samples are enrolled
+// Create a new (empty) wakeword from a name + phrase. Samples are enrolled
 // separately via [name]/samples; training is still a CLI step until Slice 3.
 export async function POST({ request }) {
     const { name, phrase } = await request.json().catch(() => ({}));
     try {
-        createTrigger({ name, phrase });
-        return json({ success: true, trigger: summarize(name) }, { status: 201 });
+        createWakeword({ name, phrase });
+        return json({ success: true, wakeword: summarize(name) }, { status: 201 });
     } catch (error) {
         // Bad name, missing phrase, or already-exists are user errors.
         return json({ error: error.message }, { status: 400 });

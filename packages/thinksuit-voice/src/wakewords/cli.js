@@ -1,5 +1,5 @@
-// The `trigger` noun group for the thinksuit-voice CLI: define / train / manage /
-// augment the trigger library. Thin surface over store + recorder + trainer.
+// The `wakeword` noun group for the thinksuit-voice CLI: define / train / manage /
+// augment the wakeword library. Thin surface over store + recorder + trainer.
 
 import { createInterface } from 'node:readline/promises';
 import { existsSync } from 'node:fs';
@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as store from './store.js';
-import { trainTrigger } from './trainer.js';
+import { trainWakeword } from './trainer.js';
 import {
     assertMicAvailable,
     createRecorderSession,
@@ -20,24 +20,24 @@ import { SAMPLE_RATE } from '../audio/constants.js';
 
 const TRAINING_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'training');
 
-export const TRIGGER_USAGE = `Usage: thinksuit-voice trigger <command>
+export const WAKEWORD_USAGE = `Usage: thinksuit-voice wakeword <command>
 
   setup                                 Fetch shared training deps (one-time)
-  new <name> --phrase "..."             Define a new trigger
+  new <name> --phrase "..."             Define a new wakeword
   import <name> --phrase "..." --model <onnx> [--samples dir] [--neg-samples dir] [--no-enable]
                                         Adopt an existing model + recordings
-  ls                                    List triggers (* = enabled, all enabled are live)
-  show <name>                           Show a trigger's details
-  rm <name>                             Remove a trigger
+  ls                                    List wakewords (* = enabled, all enabled are live)
+  show <name>                           Show a wakeword's details
+  rm <name>                             Remove a wakeword
   enroll <name> [--positive|--negative] [-n N] [--device id]
                                         Record samples (augment)
   train <name>                          Train/retrain; prints metric delta
   test <name> [--version vN] [--device id]
                                         Live-mic scoring (Ctrl-C to stop)
   promote <name> [vN]                   Make a version current (default latest)
-  enable <name>                         Add a trigger to the listening set (additive)
-  disable <name>                        Remove a trigger from the listening set
-  bind <name> <converse|new>            Bind a trigger to a session action
+  enable <name>                         Add a wakeword to the listening set (additive)
+  disable <name>                        Remove a wakeword from the listening set
+  bind <name> <converse|new>            Bind a wakeword to a session action
   threshold <name> <0..1>               Set the detection threshold
   init <name> --phrase "..."            Guided new -> enroll -> train -> enable`;
 
@@ -65,7 +65,7 @@ function parseArgs(args) {
 }
 
 function requireName(name, verb) {
-    if (!name) throw new Error(`usage: thinksuit-voice trigger ${verb} <name>`);
+    if (!name) throw new Error(`usage: thinksuit-voice wakeword ${verb} <name>`);
     return name;
 }
 
@@ -102,25 +102,25 @@ async function setup() {
     await spawnInherit('uv', ['run', 'livekit-wakeword', 'setup', '--skip-acav'], TRAINING_DIR);
 }
 
-function newTrigger(name, flags) {
+function newWakeword(name, flags) {
     requireName(name, 'new');
     if (!flags.phrase || flags.phrase === true) {
-        throw new Error('usage: thinksuit-voice trigger new <name> --phrase "Hey ThinkSuit"');
+        throw new Error('usage: thinksuit-voice wakeword new <name> --phrase "Hey ThinkSuit"');
     }
-    store.createTrigger({ name, phrase: flags.phrase });
-    console.log(`created trigger "${name}" — phrase "${flags.phrase}"`);
-    console.log(`next: thinksuit-voice trigger enroll ${name} --positive -n 40`);
+    store.createWakeword({ name, phrase: flags.phrase });
+    console.log(`created wakeword "${name}" — phrase "${flags.phrase}"`);
+    console.log(`next: thinksuit-voice wakeword enroll ${name} --positive -n 40`);
 }
 
-function importTrigger(name, flags) {
+function importWakeword(name, flags) {
     requireName(name, 'import');
     if (!flags.phrase || flags.phrase === true) {
-        throw new Error('usage: thinksuit-voice trigger import <name> --phrase "..." --model <onnx>');
+        throw new Error('usage: thinksuit-voice wakeword import <name> --phrase "..." --model <onnx>');
     }
     if (!flags.model || flags.model === true) throw new Error('need --model <path to .onnx>');
     if (!existsSync(flags.model)) throw new Error(`model not found: ${flags.model}`);
 
-    store.createTrigger({ name, phrase: flags.phrase });
+    store.createWakeword({ name, phrase: flags.phrase });
     const version = store.registerVersion(name, { onnxPath: flags.model, metrics: null });
     store.promote(name, version);
     const pos = flags.samples && flags.samples !== true ? store.adoptSamples(name, 'positive', flags.samples) : 0;
@@ -139,9 +139,9 @@ function importTrigger(name, flags) {
 }
 
 function ls() {
-    const names = store.listTriggers();
+    const names = store.listWakewords();
     if (!names.length) {
-        console.log('no triggers yet — create one: thinksuit-voice trigger new <name> --phrase "..."');
+        console.log('no wakewords yet — create one: thinksuit-voice wakeword new <name> --phrase "..."');
         return;
     }
     for (const n of names) {
@@ -169,8 +169,8 @@ function show(name) {
 
 function rm(name) {
     requireName(name, 'rm');
-    store.removeTrigger(name);
-    console.log(`removed trigger "${name}"`);
+    store.removeWakeword(name);
+    console.log(`removed wakeword "${name}"`);
 }
 
 async function enroll(name, flags) {
@@ -203,7 +203,7 @@ async function enroll(name, flags) {
         session.close();
         rl.close();
     }
-    console.log(`enrolled ${count} ${kind} clips. Next: thinksuit-voice trigger train ${name}`);
+    console.log(`enrolled ${count} ${kind} clips. Next: thinksuit-voice wakeword train ${name}`);
 }
 
 async function train(name) {
@@ -214,7 +214,7 @@ async function train(name) {
         : null;
 
     console.log(`training "${name}"… first run ~50 min, augment ~12 min. Live logs below.`);
-    const { version, metrics } = await trainTrigger(name, {
+    const { version, metrics } = await trainWakeword(name, {
         onProgress: (msg) => {
             if (msg.event === 'phase') console.log(`  ${msg.phase}: ${msg.status}`);
         }
@@ -224,7 +224,7 @@ async function train(name) {
         const d = (a, b) => (a == null || b == null ? '?' : (b - a >= 0 ? '+' : '') + (b - a).toFixed(3));
         console.log(`  vs ${before.current}: recall ${d(prev.recall, metrics.recall)} aut ${d(prev.aut, metrics.aut)} fpph ${d(prev.fpph, metrics.fpph)}`);
     }
-    console.log(`promote when ready: thinksuit-voice trigger promote ${name} ${version}`);
+    console.log(`promote when ready: thinksuit-voice wakeword promote ${name} ${version}`);
 }
 
 async function test(name, flags) {
@@ -275,14 +275,14 @@ function promote(name, version) {
 function enable(name) {
     requireName(name, 'enable');
     store.setEnabled(name, true);
-    const live = store.getEnabledTriggers();
+    const live = store.getEnabledWakewords();
     console.log(`"${name}" enabled. Listening set: ${live.join(', ')}. Restart the voice daemon to load it.`);
 }
 
 function disable(name) {
     requireName(name, 'disable');
     store.setEnabled(name, false);
-    const live = store.getEnabledTriggers();
+    const live = store.getEnabledWakewords();
     console.log(
         `"${name}" disabled. Listening set: ${live.length ? live.join(', ') : '(none)'}. Restart the voice daemon to apply.`
     );
@@ -290,14 +290,14 @@ function disable(name) {
 
 function bind(name, action) {
     requireName(name, 'bind');
-    if (!action) throw new Error('usage: thinksuit-voice trigger bind <name> <converse|new>');
+    if (!action) throw new Error('usage: thinksuit-voice wakeword bind <name> <converse|new>');
     const m = store.setBinding(name, action);
     console.log(`"${name}" bound → ${m.binding}. Restart the voice daemon to apply.`);
 }
 
 function thresholdCmd(name, value) {
     requireName(name, 'threshold');
-    if (value == null) throw new Error('usage: thinksuit-voice trigger threshold <name> <0..1>');
+    if (value == null) throw new Error('usage: thinksuit-voice wakeword threshold <name> <0..1>');
     const m = store.setThreshold(name, value);
     console.log(`"${name}" threshold → ${m.threshold}`);
 }
@@ -305,9 +305,9 @@ function thresholdCmd(name, value) {
 async function init(name, flags) {
     requireName(name, 'init');
     if (!flags.phrase || flags.phrase === true) {
-        throw new Error('usage: thinksuit-voice trigger init <name> --phrase "Hey ThinkSuit"');
+        throw new Error('usage: thinksuit-voice wakeword init <name> --phrase "Hey ThinkSuit"');
     }
-    store.createTrigger({ name, phrase: flags.phrase });
+    store.createWakeword({ name, phrase: flags.phrase });
     console.log(`created "${name}". Let's enroll your voice, then train.\n`);
     await enroll(name, { ...flags, positive: true });
     console.log('\nNow some negatives (things that are NOT the phrase):\n');
@@ -316,17 +316,17 @@ async function init(name, flags) {
     await train(name);
     store.promote(name);
     store.setEnabled(name, true);
-    console.log(`\n"${name}" is trained, promoted, and enabled. Test it: thinksuit-voice trigger test ${name}`);
+    console.log(`\n"${name}" is trained, promoted, and enabled. Test it: thinksuit-voice wakeword test ${name}`);
     console.log('Restart the voice daemon to use it hands-free.');
 }
 
-export async function runTriggerCli(args) {
+export async function runWakewordCli(args) {
     const [verb, ...rest] = args;
     const { positional, flags } = parseArgs(rest);
     switch (verb) {
         case 'setup': return setup();
-        case 'new': return newTrigger(positional[0], flags);
-        case 'import': return importTrigger(positional[0], flags);
+        case 'new': return newWakeword(positional[0], flags);
+        case 'import': return importWakeword(positional[0], flags);
         case 'ls': case 'list': return ls();
         case 'show': return show(positional[0]);
         case 'rm': case 'remove': return rm(positional[0]);
@@ -340,7 +340,7 @@ export async function runTriggerCli(args) {
         case 'threshold': return thresholdCmd(positional[0], positional[1]);
         case 'init': return init(positional[0], flags);
         default:
-            console.error(TRIGGER_USAGE);
+            console.error(WAKEWORD_USAGE);
             process.exitCode = 1;
     }
 }

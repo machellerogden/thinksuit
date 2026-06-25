@@ -4,7 +4,7 @@
 // 76-wide/stride-8 sliding window, and the last 16 embeddings.
 //
 // Multi-head: the mel + embedding frontend is computed once per window and
-// shared; each trigger is a small classifier head scored on that one embedding
+// shared; each wakeword is a small classifier head scored on that one embedding
 // sequence. score() returns { [name]: score } — matching livekit-wakeword's
 // predict() (see tests/parity.test.js).
 

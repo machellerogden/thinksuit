@@ -19,7 +19,7 @@ import { createTTS } from './tts/index.js';
 import { loadVoiceConfig } from './config.js';
 import { startControlServer } from './control/server.js';
 import { resolveMelModelPath, resolveEmbeddingModelPath } from './paths.js';
-import { resolveActiveTriggers } from './wakewords/store.js';
+import { resolveActiveWakewords } from './wakewords/store.js';
 import { sessionForAction } from './session.js';
 
 // Resolve the configured input device. Prefer deviceName (stable across CoreAudio
@@ -51,24 +51,23 @@ export async function createVoiceDaemon(overrides = {}) {
             `cues ${config.cues.enabled ? 'on' : 'off'}`
     );
 
-    // Select the active triggers from the library: an explicit config name pins
-    // one, else every enabled trigger. Each trigger owns its model + threshold,
-    // and the daemon listens for all of them at once.
-    const triggers = resolveActiveTriggers(config.wake);
+    // Select the active wakewords from the library: every enabled wakeword. Each
+    // owns its model + threshold, and the daemon listens for all of them at once.
+    const wakewords = resolveActiveWakewords();
     console.log(
-        `wake triggers: ${triggers
-            .map((t) => `${t.name}→${t.binding} (threshold ${t.threshold})`)
+        `wakewords: ${wakewords
+            .map((w) => `${w.name}→${w.binding} (threshold ${w.threshold})`)
             .join(', ')}`
     );
 
     const pipeline = await createPipeline({
         melPath: resolveMelModelPath(),
         embeddingPath: resolveEmbeddingModelPath(),
-        heads: triggers.map((t) => ({ name: t.name, classifierPath: t.classifierPath }))
+        heads: wakewords.map((t) => ({ name: t.name, classifierPath: t.classifierPath }))
     });
-    const thresholds = Object.fromEntries(triggers.map((t) => [t.name, t.threshold]));
-    // name → session action; what each fired trigger does (converse/new/prior).
-    const bindings = Object.fromEntries(triggers.map((t) => [t.name, t.binding]));
+    const thresholds = Object.fromEntries(wakewords.map((t) => [t.name, t.threshold]));
+    // name → session action; what each fired wakeword does (converse/new/prior).
+    const bindings = Object.fromEntries(wakewords.map((t) => [t.name, t.binding]));
 
     const stt = createSTT(config.stt);
     const tts = createTTS(config.tts);
@@ -100,7 +99,7 @@ export async function createVoiceDaemon(overrides = {}) {
         mode: 'listening',
         turnActive: false, // a broker turn is in flight (for re-wake interrupt)
         lastSessionId: mainSessionId, // current pointer; seeded to the home thread
-        pendingAction: 'converse', // action of the trigger that woke us, applied at turn time
+        pendingAction: 'converse', // action of the wakeword that woke us, applied at turn time
         device: null,
         lastWake: null, // { confidence, at }
         lastError: null, // { message, at }
@@ -184,7 +183,7 @@ export async function createVoiceDaemon(overrides = {}) {
             }
             console.log(`heard: ${input}`);
 
-            // Apply the woken trigger's action at the turn boundary (not at wake),
+            // Apply the woken wakeword's action at the turn boundary (not at wake),
             // so an aborted/silent capture doesn't consume a `new`. This repoints
             // the session the turn targets; runTurn reads lastSessionId.
             const action = state.pendingAction || 'converse';
@@ -223,7 +222,7 @@ export async function createVoiceDaemon(overrides = {}) {
         // Flip to 'capturing' synchronously so capture is continuous from this
         // instant (no deaf window) and no re-entrant wake fires.
         state.mode = 'capturing';
-        // Stash which action this trigger fires; it's applied at the turn boundary.
+        // Stash which action this wakeword fires; it's applied at the turn boundary.
         const action = bindings[name] || 'converse';
         state.pendingAction = action;
         state.lastWake = { name, action, confidence, at: Date.now() };

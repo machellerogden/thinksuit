@@ -404,19 +404,36 @@ export function formatFinalResult(status, result, sessionId, logger, turnBoundar
         };
     }
 
-    // Log the response (now a regular event, not a boundary)
-    logger.info(
-        {
-            event: SESSION_EVENTS.RESPONSE,
-            parentBoundaryId: turnBoundaryId,
-            data: {
-                response: finalResult.response,
-                usage: finalResult.usage,
-                success: finalResult.success
-            }
-        },
-        'Assistant response generated'
-    );
+    if (status === 'interrupted') {
+        // Interrupt is a first-class outcome: emit session.interrupted instead of a
+        // synthetic assistant response. loadSessionThread renders this as a
+        // user-side marker; the structural turn boundary still closes below.
+        logger.info(
+            {
+                event: SESSION_EVENTS.INTERRUPTED,
+                parentBoundaryId: turnBoundaryId,
+                data: {
+                    reason: finalResult.response,
+                    partialData: finalResult.partialData ?? null
+                }
+            },
+            'Turn interrupted by user'
+        );
+    } else {
+        // Log the response (now a regular event, not a boundary)
+        logger.info(
+            {
+                event: SESSION_EVENTS.RESPONSE,
+                parentBoundaryId: turnBoundaryId,
+                data: {
+                    response: finalResult.response,
+                    usage: finalResult.usage,
+                    success: finalResult.success
+                }
+            },
+            'Assistant response generated'
+        );
+    }
 
     // Log turn complete boundary
     logger.info(

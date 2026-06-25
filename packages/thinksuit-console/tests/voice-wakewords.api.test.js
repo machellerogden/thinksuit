@@ -2,14 +2,14 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import * as store from 'thinksuit-voice/triggers';
+import * as store from 'thinksuit-voice/wakewords';
 
-import { GET as listGET, POST as createPOST } from '../src/routes/api/voice/triggers/+server.js';
-import { GET as oneGET, PATCH, DELETE } from '../src/routes/api/voice/triggers/[name]/+server.js';
-import { POST as promotePOST } from '../src/routes/api/voice/triggers/[name]/promote/+server.js';
-import { GET as samplesGET, POST as samplesPOST } from '../src/routes/api/voice/triggers/[name]/samples/+server.js';
-import { GET as clipGET, DELETE as clipDELETE } from '../src/routes/api/voice/triggers/[name]/samples/[file]/+server.js';
-import { POST as trainPOST, GET as trainGET } from '../src/routes/api/voice/triggers/[name]/train/+server.js';
+import { GET as listGET, POST as createPOST } from '../src/routes/api/voice/wakewords/+server.js';
+import { GET as oneGET, PATCH, DELETE } from '../src/routes/api/voice/wakewords/[name]/+server.js';
+import { POST as promotePOST } from '../src/routes/api/voice/wakewords/[name]/promote/+server.js';
+import { GET as samplesGET, POST as samplesPOST } from '../src/routes/api/voice/wakewords/[name]/samples/+server.js';
+import { GET as clipGET, DELETE as clipDELETE } from '../src/routes/api/voice/wakewords/[name]/samples/[file]/+server.js';
+import { POST as trainPOST, GET as trainGET } from '../src/routes/api/voice/wakewords/[name]/train/+server.js';
 
 // Exercise the Studio endpoints against the real store pointed at a temp voice
 // home — no mocking. Mirrors tests/wakewords.store.test.js in thinksuit-voice.
@@ -20,12 +20,12 @@ const jsonRequest = (method, body) =>
         body: JSON.stringify(body)
     });
 
-describe('voice triggers API', () => {
+describe('voice wakewords API', () => {
     let home;
     let dummyOnnx;
 
     beforeEach(() => {
-        home = mkdtempSync(join(tmpdir(), 'ts-console-triggers-'));
+        home = mkdtempSync(join(tmpdir(), 'ts-console-wakewords-'));
         process.env.THINKSUIT_VOICE_HOME = home;
         process.env.THINKSUIT_CONFIG = join(home, 'config.json');
         dummyOnnx = join(home, 'fake.onnx');
@@ -38,19 +38,19 @@ describe('voice triggers API', () => {
     });
 
     function seedPromoted(name) {
-        store.createTrigger({ name, phrase: 'Hey ThinkSuit' });
+        store.createWakeword({ name, phrase: 'Hey ThinkSuit' });
         store.registerVersion(name, { onnxPath: dummyOnnx, metrics: { recall: 0.9 } });
         store.promote(name);
     }
 
-    it('GET lists triggers with a summary and the action vocabulary', async () => {
+    it('GET lists wakewords with a summary and the action vocabulary', async () => {
         seedPromoted('demo');
         const res = await listGET();
         const data = await res.json();
         expect(res.status).toBe(200);
         expect(data.actions).toEqual(['converse', 'new']);
-        expect(data.triggers).toHaveLength(1);
-        expect(data.triggers[0]).toMatchObject({
+        expect(data.wakewords).toHaveLength(1);
+        expect(data.wakewords[0]).toMatchObject({
             name: 'demo',
             phrase: 'Hey ThinkSuit',
             binding: 'converse',
@@ -80,8 +80,8 @@ describe('voice triggers API', () => {
         expect(res.status).toBe(400);
     });
 
-    it('PATCH rejects enabling a trigger with no promoted version with 400', async () => {
-        store.createTrigger({ name: 'green', phrase: 'Hey ThinkSuit' });
+    it('PATCH rejects enabling a wakeword with no promoted version with 400', async () => {
+        store.createWakeword({ name: 'green', phrase: 'Hey ThinkSuit' });
         const res = await PATCH({ params: { name: 'green' }, request: jsonRequest('PATCH', { enabled: true }) });
         expect(res.status).toBe(400);
     });
@@ -92,7 +92,7 @@ describe('voice triggers API', () => {
         expect(res.status).toBe(400);
     });
 
-    it('GET/PATCH/DELETE on a missing trigger return 404', async () => {
+    it('GET/PATCH/DELETE on a missing wakeword return 404', async () => {
         expect((await oneGET({ params: { name: 'ghost' } })).status).toBe(404);
         expect(
             (await PATCH({ params: { name: 'ghost' }, request: jsonRequest('PATCH', { binding: 'new' }) })).status
@@ -101,7 +101,7 @@ describe('voice triggers API', () => {
     });
 
     it('POST promote makes the latest version current', async () => {
-        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        store.createWakeword({ name: 'demo', phrase: 'Hey ThinkSuit' });
         store.registerVersion('demo', { onnxPath: dummyOnnx });
         store.registerVersion('demo', { onnxPath: dummyOnnx });
         const res = await promotePOST({ params: { name: 'demo' }, request: jsonRequest('POST', {}) });
@@ -109,11 +109,11 @@ describe('voice triggers API', () => {
         expect(store.readManifest('demo').current).toBe('v2');
     });
 
-    it('DELETE removes the trigger', async () => {
+    it('DELETE removes the wakeword', async () => {
         seedPromoted('demo');
         const res = await DELETE({ params: { name: 'demo' } });
         expect(res.status).toBe(200);
-        expect(store.listTriggers()).toEqual([]);
+        expect(store.listWakewords()).toEqual([]);
     });
 
     // ── enrollment (Slice 2) ──────────────────────────────────────────────
@@ -129,18 +129,18 @@ describe('voice triggers API', () => {
             body: int16.buffer
         });
     const samplesUrl = (name, kind) =>
-        new URL(`http://localhost/api/voice/triggers/${name}/samples?kind=${kind}`);
+        new URL(`http://localhost/api/voice/wakewords/${name}/samples?kind=${kind}`);
 
-    it('POST create makes a trigger from name + phrase', async () => {
+    it('POST create makes a wakeword from name + phrase', async () => {
         const res = await createPOST({ request: jsonRequest('POST', { name: 'fresh', phrase: 'Hey ThinkSuit' }) });
         expect(res.status).toBe(201);
-        expect(store.triggerExists('fresh')).toBe(true);
+        expect(store.wakewordExists('fresh')).toBe(true);
     });
 
     it('POST create rejects bad name / missing phrase / duplicate with 400', async () => {
         expect((await createPOST({ request: jsonRequest('POST', { name: 'bad name', phrase: 'x' }) })).status).toBe(400);
         expect((await createPOST({ request: jsonRequest('POST', { name: 'ok', phrase: '' }) })).status).toBe(400);
-        store.createTrigger({ name: 'dup', phrase: 'Hey ThinkSuit' });
+        store.createWakeword({ name: 'dup', phrase: 'Hey ThinkSuit' });
         expect((await createPOST({ request: jsonRequest('POST', { name: 'dup', phrase: 'x' }) })).status).toBe(400);
     });
 
@@ -151,7 +151,7 @@ describe('voice triggers API', () => {
     });
 
     it('POST samples writes a clip and increments the count', async () => {
-        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        store.createWakeword({ name: 'demo', phrase: 'Hey ThinkSuit' });
         const res = await samplesPOST({
             params: { name: 'demo' },
             request: pcmReq(loud(16000)),
@@ -165,7 +165,7 @@ describe('voice triggers API', () => {
     });
 
     it('POST samples rejects a too-short clip with 400', async () => {
-        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        store.createWakeword({ name: 'demo', phrase: 'Hey ThinkSuit' });
         const res = await samplesPOST({
             params: { name: 'demo' },
             request: pcmReq(loud(200)),
@@ -174,8 +174,8 @@ describe('voice triggers API', () => {
         expect(res.status).toBe(400);
     });
 
-    it('POST samples rejects unknown kind (400) and missing trigger (404)', async () => {
-        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+    it('POST samples rejects unknown kind (400) and missing wakeword (404)', async () => {
+        store.createWakeword({ name: 'demo', phrase: 'Hey ThinkSuit' });
         expect(
             (await samplesPOST({ params: { name: 'demo' }, request: pcmReq(loud(16000)), url: samplesUrl('demo', 'bogus') })).status
         ).toBe(400);
@@ -186,14 +186,14 @@ describe('voice triggers API', () => {
 
     // ── manage samples (list / serve / delete) ─────────────────────────────
     const clipUrl = (name, file, kind) =>
-        new URL(`http://localhost/api/voice/triggers/${name}/samples/${file}?kind=${kind}`);
+        new URL(`http://localhost/api/voice/wakewords/${name}/samples/${file}?kind=${kind}`);
 
     async function seedClip(name, kind) {
         await samplesPOST({ params: { name }, request: pcmReq(loud(16000)), url: samplesUrl(name, kind) });
     }
 
     it('GET samples lists clips per kind', async () => {
-        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        store.createWakeword({ name: 'demo', phrase: 'Hey ThinkSuit' });
         await seedClip('demo', 'positive');
         await seedClip('demo', 'negative');
         const data = await (await samplesGET({ params: { name: 'demo' } })).json();
@@ -202,7 +202,7 @@ describe('voice triggers API', () => {
     });
 
     it('GET a clip streams audio/wav bytes', async () => {
-        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        store.createWakeword({ name: 'demo', phrase: 'Hey ThinkSuit' });
         await seedClip('demo', 'positive');
         const res = await clipGET({ params: { name: 'demo', file: 'clip_000000.wav' }, url: clipUrl('demo', 'clip_000000.wav', 'positive') });
         expect(res.status).toBe(200);
@@ -211,15 +211,15 @@ describe('voice triggers API', () => {
     });
 
     it('DELETE a clip removes it and drops the count', async () => {
-        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        store.createWakeword({ name: 'demo', phrase: 'Hey ThinkSuit' });
         await seedClip('demo', 'positive');
         const res = await clipDELETE({ params: { name: 'demo', file: 'clip_000000.wav' }, url: clipUrl('demo', 'clip_000000.wav', 'positive') });
         expect(res.status).toBe(200);
         expect(store.countSamples('demo', 'positive')).toBe(0);
     });
 
-    it('clip GET/DELETE 404 a missing trigger; DELETE 400s a bad filename', async () => {
-        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+    it('clip GET/DELETE 404 a missing wakeword; DELETE 400s a bad filename', async () => {
+        store.createWakeword({ name: 'demo', phrase: 'Hey ThinkSuit' });
         expect(
             (await clipGET({ params: { name: 'ghost', file: 'clip_000000.wav' }, url: clipUrl('ghost', 'clip_000000.wav', 'positive') })).status
         ).toBe(404);
@@ -231,25 +231,25 @@ describe('voice triggers API', () => {
     // ── training (Slice 3) ─────────────────────────────────────────────────
     // The happy-path POST spawns a real ~50-min worker, so we only exercise the
     // guard branches (which short-circuit before spawn) and GET's run-log parsing.
-    it('POST train returns 404 for a missing trigger', async () => {
+    it('POST train returns 404 for a missing wakeword', async () => {
         expect((await trainPOST({ params: { name: 'ghost' } })).status).toBe(404);
     });
 
     it('POST train returns 409 when a run is already in progress', async () => {
-        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        store.createWakeword({ name: 'demo', phrase: 'Hey ThinkSuit' });
         store.appendRunLog('demo', 'run-1', { event: 'started' });
         store.appendRunLog('demo', 'run-1', { event: 'phase', phase: 'train', status: 'start' });
         expect((await trainPOST({ params: { name: 'demo' } })).status).toBe(409);
     });
 
     it('GET train reports no run before any training', async () => {
-        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        store.createWakeword({ name: 'demo', phrase: 'Hey ThinkSuit' });
         const data = await (await trainGET({ params: { name: 'demo' } })).json();
         expect(data).toMatchObject({ running: false, runId: null, phase: null, result: null });
     });
 
     it('GET train surfaces a running run with its current phase', async () => {
-        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        store.createWakeword({ name: 'demo', phrase: 'Hey ThinkSuit' });
         store.appendRunLog('demo', 'run-1', { event: 'started' });
         store.appendRunLog('demo', 'run-1', { event: 'phase', phase: 'augment', status: 'start' });
         const data = await (await trainGET({ params: { name: 'demo' } })).json();
@@ -259,7 +259,7 @@ describe('voice triggers API', () => {
     });
 
     it('GET train treats a dead worker (no terminal event) as crashed, not running', async () => {
-        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        store.createWakeword({ name: 'demo', phrase: 'Hey ThinkSuit' });
         // A pid that can't exist → liveness check fails → reported as crashed.
         store.appendRunLog('demo', 'run-1', { event: 'started', pid: 2147483647 });
         store.appendRunLog('demo', 'run-1', { event: 'phase', phase: 'train', status: 'start' });
@@ -269,7 +269,7 @@ describe('voice triggers API', () => {
     });
 
     it('GET train keeps a run with a live worker pid as running', async () => {
-        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        store.createWakeword({ name: 'demo', phrase: 'Hey ThinkSuit' });
         store.appendRunLog('demo', 'run-1', { event: 'started', pid: process.pid });
         store.appendRunLog('demo', 'run-1', { event: 'phase', phase: 'augment', status: 'start' });
         const data = await (await trainGET({ params: { name: 'demo' } })).json();
@@ -277,7 +277,7 @@ describe('voice triggers API', () => {
     });
 
     it('GET train surfaces a completed run with its result', async () => {
-        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        store.createWakeword({ name: 'demo', phrase: 'Hey ThinkSuit' });
         store.appendRunLog('demo', 'run-1', { event: 'started' });
         store.appendRunLog('demo', 'run-1', { event: 'complete', version: 'v1', promoted: true });
         const data = await (await trainGET({ params: { name: 'demo' } })).json();

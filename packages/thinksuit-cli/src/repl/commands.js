@@ -264,58 +264,9 @@ export async function* executeCommand(args, session) {
         // Interrupt routes over the socket to the owning worker.
         executionState.interrupt = (reason) => client.interrupt(sessionId, reason);
 
-        // Observe this turn over the broker tail SSE.
-        let finalResult = null;
-        let resolveDone;
-        const done = new Promise((resolve) => {
-            resolveDone = resolve;
-        });
-
-        const handleEvent = (event) => {
-            const ev = event.event || event.type;
-
-            if (ev === 'execution.tool.approval-requested') {
-                approvalQueue.push({
-                    approvalId: event.approvalId,
-                    tool: event.data?.tool || 'unknown',
-                    args: event.data?.args || {},
-                    sessionId: event.sessionId
-                });
-            }
-
-            if (ev === 'session.response') {
-                finalResult = {
-                    response: event.data?.response,
-                    error: event.data?.error,
-                    interrupted: event.data?.interrupted
-                };
-            }
-
-            // Terminal signals: normal completion, interrupt, or (failsafe) the
-            // worker exiting before it could emit turn.complete.
-            if (
-                ev === 'session.turn.complete' ||
-                ev === 'session.interrupted' ||
-                ev === 'broker.worker.exited'
-            ) {
-                resolveDone();
-            }
-
-            if (event.msg) {
-                const message = formatEventMessage(event);
-                if (message) {
-                    session.controlDock.updateStatus(message);
-                }
-            }
-        };
-
-        const tailHandle = client.tail(sessionId, handleEvent, {
-            from: from || 0,
-            onError: () => {}
-        });
-
         // Approval processor: drain queued approvals through the dock and resolve
-        // them over the socket.
+        // them over the socket. Runs concurrently with the turn; awaitTurn's
+        // onEvent fills the queue.
         let approvalProcessorRunning = true;
         const approvalProcessorPromise = (async () => {
             while (approvalProcessorRunning && executionState.busy) {
@@ -335,9 +286,29 @@ export async function* executeCommand(args, session) {
             }
         })();
 
-        // Wait for the turn to finish, then stop observing.
-        await done;
-        tailHandle.close();
+        // Observe this turn via the shared turn-lifecycle primitive. `from` is the
+        // pre-run entry count, so we see only this turn, not session history. The
+        // terminal set + failsafe live in awaitTurn, not here.
+        const { outcome, response, error } = await client.awaitTurn(sessionId, {
+            from: from || 0,
+            onEvent: (event) => {
+                const ev = event.event || event.type;
+                if (ev === 'execution.tool.approval-requested') {
+                    approvalQueue.push({
+                        approvalId: event.approvalId,
+                        tool: event.data?.tool || 'unknown',
+                        args: event.data?.args || {},
+                        sessionId: event.sessionId
+                    });
+                }
+                if (event.msg) {
+                    const message = formatEventMessage(event);
+                    if (message) {
+                        session.controlDock.updateStatus(message);
+                    }
+                }
+            }
+        });
 
         approvalProcessorRunning = false;
         await approvalProcessorPromise;
@@ -347,17 +318,14 @@ export async function* executeCommand(args, session) {
         yield fx('status-clear');
         yield fx('clear-dock');
 
-        if (finalResult?.error) {
-            yield fx('error', finalResult.error);
-            yield fx('output', '');
-        } else if (finalResult?.interrupted) {
+        if (outcome === 'interrupted') {
             yield fx('output', chalk.yellow('Execution interrupted'));
             yield fx('output', '');
-        } else if (finalResult?.response != null) {
-            const text =
-                typeof finalResult.response === 'string'
-                    ? finalResult.response
-                    : JSON.stringify(finalResult.response);
+        } else if (outcome === 'failed') {
+            yield fx('error', error || (typeof response === 'string' ? response : 'Execution failed'));
+            yield fx('output', '');
+        } else if (response != null) {
+            const text = typeof response === 'string' ? response : JSON.stringify(response);
             const [first, ...rest] = text.split('\n');
             yield fx('output', `⏺ ${first}`);
             for (const line of rest) {

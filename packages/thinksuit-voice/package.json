@@ -18,7 +18,7 @@
         ".": "./src/index.js",
         "./devices": "./src/audio/devices.js",
         "./control": "./src/control/client.js",
-        "./triggers": "./src/wakewords/store.js",
+        "./wakewords": "./src/wakewords/store.js",
         "./session": "./src/session.js",
         "./recorder": "./src/wakewords/recorder.js",
         "./training-worker": "./bin/train.mjs"

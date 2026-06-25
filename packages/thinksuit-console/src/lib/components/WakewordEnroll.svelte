@@ -88,7 +88,7 @@
         busy = true;
         try {
             const res = await fetch(
-                `/api/voice/triggers/${encodeURIComponent(name)}/samples?kind=${kind}`,
+                `/api/voice/wakewords/${encodeURIComponent(name)}/samples?kind=${kind}`,
                 { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: pending.pcm.buffer }
             );
             const data = await res.json();
