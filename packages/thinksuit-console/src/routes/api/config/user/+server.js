@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { validateConfig } from 'thinksuit/schemas/validate';
 
 const CONFIG_FILE = '.thinksuit.json';
-const getUserConfigPath = () => join(homedir(), CONFIG_FILE);
+const getUserConfigPath = () => process.env.THINKSUIT_CONFIG || join(homedir(), CONFIG_FILE);
 
 export async function GET() {
     const configPath = getUserConfigPath();
@@ -85,6 +85,23 @@ export async function PUT({ request }) {
         }
 
         const configPath = getUserConfigPath();
+
+        // Per-trigger settings (voice.wake.triggers) are owned by the trigger store,
+        // not this form. The form rebuilds `voice` wholesale, so carry the existing
+        // triggers subtree forward to avoid wiping it on every save.
+        if (existsSync(configPath)) {
+            try {
+                const existing = JSON.parse(readFileSync(configPath, 'utf-8'));
+                const existingTriggers = existing?.voice?.wake?.triggers;
+                if (existingTriggers) {
+                    config.voice = config.voice || {};
+                    config.voice.wake = config.voice.wake || {};
+                    config.voice.wake.triggers = existingTriggers;
+                }
+            } catch {
+                // unparseable existing file — nothing to preserve
+            }
+        }
 
         // Validate JSON can be stringified
         const jsonString = JSON.stringify(config, null, 4);

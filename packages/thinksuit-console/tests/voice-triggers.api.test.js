@@ -26,6 +26,7 @@ describe('voice triggers API', () => {
     beforeEach(() => {
         home = mkdtempSync(join(tmpdir(), 'ts-console-triggers-'));
         process.env.THINKSUIT_VOICE_HOME = home;
+        process.env.THINKSUIT_CONFIG = join(home, 'config.json');
         dummyOnnx = join(home, 'fake.onnx');
         writeFileSync(dummyOnnx, 'not-a-real-model');
     });

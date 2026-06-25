@@ -18,7 +18,7 @@ export { getSessionStatus, flushAllSessionStreams } from './engine/transports/se
 export { createSessionSubscriber, subscribeToSession } from './engine/subscribe.js';
 export { getTrace } from './engine/traces.js';
 export { resolveApproval, getApprovalInfo } from './engine/approval/async.js';
-export { buildConfig } from './engine/config.js';
+export { buildConfig, readUserConfig, patchUserConfig } from './engine/config.js';
 export { resolveSecret } from './engine/secrets/index.js';
 export { evaluateRulesCore as evaluateRules } from './engine/handlers/evaluateRules.js';
 export { detectSignalsCore as detectSignals } from './engine/handlers/detectSignals.js';

@@ -13,12 +13,14 @@ describe('trigger store', () => {
     beforeEach(() => {
         home = mkdtempSync(join(tmpdir(), 'ts-voice-store-'));
         process.env.THINKSUIT_VOICE_HOME = home;
+        process.env.THINKSUIT_CONFIG = join(home, 'config.json');
         dummyOnnx = join(home, 'fake.onnx');
         writeFileSync(dummyOnnx, 'not-a-real-model');
     });
 
     afterEach(() => {
         delete process.env.THINKSUIT_VOICE_HOME;
+        delete process.env.THINKSUIT_CONFIG;
         rmSync(home, { recursive: true, force: true });
     });
 

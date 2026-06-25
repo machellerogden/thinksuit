@@ -28,6 +28,7 @@ describe('trainer', () => {
     beforeEach(() => {
         home = mkdtempSync(join(tmpdir(), 'ts-trainer-'));
         process.env.THINKSUIT_VOICE_HOME = home;
+        process.env.THINKSUIT_CONFIG = join(home, 'config.json');
         onnx = join(home, 'exported.onnx');
         writeFileSync(onnx, 'model-bytes');
         h.child = makeChild();
@@ -36,6 +37,7 @@ describe('trainer', () => {
 
     afterEach(() => {
         delete process.env.THINKSUIT_VOICE_HOME;
+        delete process.env.THINKSUIT_CONFIG;
         rmSync(home, { recursive: true, force: true });
     });
 

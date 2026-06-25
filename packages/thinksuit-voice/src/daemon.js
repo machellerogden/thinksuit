@@ -26,15 +26,15 @@ import { sessionForAction } from './session.js';
 // index shuffles): match it case-insensitively against the live input devices and
 // use whatever id it currently has. Fail loudly if absent rather than silently
 // binding the wrong mic.
-function resolveInputDevice(wake) {
-    if (!wake.deviceName) return { id: wake.deviceId, name: null };
-    const needle = wake.deviceName.toLowerCase();
+function resolveInputDevice(input) {
+    if (!input.deviceName) return { id: input.deviceId, name: null };
+    const needle = input.deviceName.toLowerCase();
     const devices = listInputDevices();
     const match = devices.find((d) => d.name.toLowerCase().includes(needle));
     if (!match) {
         const list = devices.map((d) => `  - ${d.name} (id ${d.id})`).join('\n');
         throw new Error(
-            `no input device matching name "${wake.deviceName}". Available input devices:\n${list}`
+            `no input device matching name "${input.deviceName}". Available input devices:\n${list}`
         );
     }
     return match;
@@ -248,11 +248,11 @@ export async function createVoiceDaemon(overrides = {}) {
         detector.push(frames);
     }
 
-    const device = resolveInputDevice(config.wake);
-    config.wake.deviceId = device.id;
-    state.device = { id: device.id, name: device.name || config.wake.deviceName || null };
+    const device = resolveInputDevice(config.input);
+    config.input.deviceId = device.id;
+    state.device = { id: device.id, name: device.name || config.input.deviceName || null };
     if (device.name) {
-        console.log(`input device "${config.wake.deviceName}" resolved to ${device.name} (id ${device.id})`);
+        console.log(`input device "${config.input.deviceName}" resolved to ${device.name} (id ${device.id})`);
     }
 
     // capture.stop() destroys the PortAudio stream (ai.quit), so re-arming after a

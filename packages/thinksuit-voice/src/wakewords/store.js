@@ -1,7 +1,13 @@
-// The trigger library on disk. A trigger is a self-contained bundle under the
-// voice home (see paths.js): manifest + recorded samples + trained model
-// versions + per-run logs. This module is the sole owner of that layout. It
-// knows nothing about the mic or about Python — it only reads and writes files.
+// The trigger library. A trigger has two homes by design:
+//   - SETTINGS (the user-tunable knobs: phrase, enabled, binding, threshold,
+//     current) live in the shared user config under voice.wake.triggers.<name>,
+//     so config has one source of truth.
+//   - ARTIFACTS (recorded samples, trained .onnx versions, run-logs, and the
+//     version→metrics catalog) live in a per-trigger bundle on disk under the
+//     voice home (see paths.js), because they can't live in JSON config.
+// This module is the sole owner of that layout. The on-disk manifest.json is now
+// a slim artifact *catalog* (versions only); readManifest() returns a merged view
+// (settings + catalog) so callers see one trigger object.
 
 import {
     existsSync,
@@ -14,6 +20,7 @@ import {
     rmSync
 } from 'node:fs';
 import { join } from 'node:path';
+import { readUserConfig, patchUserConfig } from 'thinksuit';
 import { resolveTriggersDir, resolveTriggerPaths } from '../paths.js';
 import { ACTIONS } from '../session.js';
 
@@ -36,6 +43,48 @@ function ensureDir(dir) {
     mkdirSync(dir, { recursive: true });
 }
 
+// ── Settings (in user config: voice.wake.triggers.<name>) ───────────────────
+
+function readSettingsAll() {
+    return readUserConfig().voice?.wake?.triggers || {};
+}
+
+function readSettings(name) {
+    return readSettingsAll()[name] || null;
+}
+
+function writeSettings(name, patch) {
+    patchUserConfig((c) => {
+        const triggers = (((c.voice ??= {}).wake ??= {}).triggers ??= {});
+        triggers[name] = { ...(triggers[name] || {}), ...patch };
+    });
+}
+
+function deleteSettings(name) {
+    patchUserConfig((c) => {
+        const triggers = c.voice?.wake?.triggers;
+        if (triggers) delete triggers[name];
+    });
+}
+
+// ── Catalog (on disk: triggers/<name>/manifest.json — versions only) ─────────
+
+function readCatalog(name) {
+    const { manifest } = resolveTriggerPaths(name);
+    if (!existsSync(manifest)) return null;
+    return JSON.parse(readFileSync(manifest, 'utf8'));
+}
+
+function writeCatalog(name, catalog) {
+    const paths = resolveTriggerPaths(name);
+    ensureDir(paths.dir);
+    const next = { ...catalog, updatedAt: now() };
+    writeFileSync(paths.manifest, JSON.stringify(next, null, 2) + '\n');
+    return next;
+}
+
+// ── Triggers ─────────────────────────────────────────────────────────────────
+
 export function listTriggers() {
     const root = resolveTriggersDir();
     if (!existsSync(root)) return [];
@@ -49,18 +98,21 @@ export function triggerExists(name) {
     return existsSync(resolveTriggerPaths(name).manifest);
 }
 
+// The merged trigger view: settings (config) + versions catalog (disk).
 export function readManifest(name) {
-    const { manifest } = resolveTriggerPaths(name);
-    if (!existsSync(manifest)) throw new Error(`no such trigger: ${name}`);
-    return JSON.parse(readFileSync(manifest, 'utf8'));
-}
-
-export function writeManifest(name, manifest) {
-    const paths = resolveTriggerPaths(name);
-    ensureDir(paths.dir);
-    const next = { ...manifest, updatedAt: now() };
-    writeFileSync(paths.manifest, JSON.stringify(next, null, 2) + '\n');
-    return next;
+    if (!triggerExists(name)) throw new Error(`no such trigger: ${name}`);
+    const cat = readCatalog(name) || { name, versions: [], createdAt: now() };
+    const s = readSettings(name) || {};
+    return {
+        name,
+        phrase: s.phrase ?? '',
+        enabled: s.enabled ?? false,
+        binding: s.binding ?? 'converse',
+        threshold: s.threshold ?? DEFAULT_THRESHOLD,
+        current: s.current ?? null,
+        versions: cat.versions || [],
+        createdAt: cat.createdAt
+    };
 }
 
 export function createTrigger({ name, phrase, threshold = DEFAULT_THRESHOLD }) {
@@ -74,23 +126,22 @@ export function createTrigger({ name, phrase, threshold = DEFAULT_THRESHOLD }) {
     ensureDir(paths.models);
     ensureDir(paths.runs);
 
-    const manifest = {
-        name,
+    writeCatalog(name, { name, versions: [], createdAt: now() });
+    writeSettings(name, {
         phrase: phrase.trim(),
-        threshold,
         enabled: false,
-        binding: 'converse', // reserved; only action wired in iteration 1
-        current: null,
-        versions: [],
-        createdAt: now()
-    };
-    return writeManifest(name, manifest);
+        binding: 'converse',
+        threshold,
+        current: null
+    });
+    return readManifest(name);
 }
 
 export function removeTrigger(name) {
     const { dir } = resolveTriggerPaths(name);
     if (!existsSync(dir)) throw new Error(`no such trigger: ${name}`);
     rmSync(dir, { recursive: true, force: true });
+    deleteSettings(name);
 }
 
 // ── Samples ──────────────────────────────────────────────────────────────
@@ -150,44 +201,46 @@ export function adoptSamples(name, kind, srcDir) {
     return n;
 }
 
-// ── Model versions ───────────────────────────────────────────────────────
+// ── Model versions (catalog on disk) ──────────────────────────────────────
 
 // Copy an exported .onnx into the bundle as the next version and record its
 // metrics. Does not change `current` — promotion is a separate, explicit step.
 export function registerVersion(name, { onnxPath, metrics = null }) {
-    const manifest = readManifest(name);
+    const cat = readCatalog(name) || { name, versions: [], createdAt: now() };
     const paths = resolveTriggerPaths(name);
     ensureDir(paths.models);
-    const version = `v${manifest.versions.length + 1}`;
+    const version = `v${cat.versions.length + 1}`;
     const rel = join('models', `${name}.${version}.onnx`);
     copyFileSync(onnxPath, join(paths.dir, rel));
-    manifest.versions.push({ version, model: rel, metrics, createdAt: now() });
-    writeManifest(name, manifest);
+    cat.versions.push({ version, model: rel, metrics, createdAt: now() });
+    writeCatalog(name, cat);
     return version;
 }
 
 export function versionModelPath(name, version) {
-    const manifest = readManifest(name);
-    const entry = manifest.versions.find((v) => v.version === version);
+    const cat = readCatalog(name);
+    const entry = cat?.versions.find((v) => v.version === version);
     if (!entry) throw new Error(`no such version ${version} for trigger ${name}`);
     return join(resolveTriggerPaths(name).dir, entry.model);
 }
 
 export function currentModelPath(name) {
-    const manifest = readManifest(name);
-    if (!manifest.current) throw new Error(`trigger ${name} has no promoted version`);
-    return versionModelPath(name, manifest.current);
+    const current = readSettings(name)?.current;
+    if (!current) throw new Error(`trigger ${name} has no promoted version`);
+    return versionModelPath(name, current);
 }
 
+// Promote a trained version: writes `current` to config (the user's choice of
+// which on-disk model is active).
 export function promote(name, version) {
-    const manifest = readManifest(name);
-    const target = version || manifest.versions[manifest.versions.length - 1]?.version;
+    const cat = readCatalog(name);
+    const target = version || cat?.versions[cat.versions.length - 1]?.version;
     if (!target) throw new Error(`trigger ${name} has no trained versions to promote`);
-    if (!manifest.versions.some((v) => v.version === target)) {
+    if (!cat.versions.some((v) => v.version === target)) {
         throw new Error(`no such version ${target} for trigger ${name}`);
     }
-    manifest.current = target;
-    return writeManifest(name, manifest);
+    writeSettings(name, { current: target });
+    return readManifest(name);
 }
 
 export function setThreshold(name, value) {
@@ -195,19 +248,19 @@ export function setThreshold(name, value) {
     if (!Number.isFinite(v) || v < 0 || v > 1) {
         throw new Error(`threshold must be between 0 and 1, got ${value}`);
     }
-    const manifest = readManifest(name);
-    manifest.threshold = v;
-    return writeManifest(name, manifest);
+    if (!triggerExists(name)) throw new Error(`no such trigger: ${name}`);
+    writeSettings(name, { threshold: v });
+    return readManifest(name);
 }
 
-// Bind a trigger to the session-lifecycle action it fires (converse/new/prior).
+// Bind a trigger to the session-lifecycle action it fires (converse/new).
 export function setBinding(name, action) {
     if (!ACTIONS.includes(action)) {
         throw new Error(`unknown action "${action}" — use one of: ${ACTIONS.join(', ')}`);
     }
-    const manifest = readManifest(name);
-    manifest.binding = action;
-    return writeManifest(name, manifest);
+    if (!triggerExists(name)) throw new Error(`no such trigger: ${name}`);
+    writeSettings(name, { binding: action });
+    return readManifest(name);
 }
 
 // ── Enablement (additive — many triggers can be active at once) ─────────────
@@ -217,17 +270,17 @@ export function getEnabledTriggers() {
 }
 
 function resolveOne(name, wakeConfig) {
-    const manifest = readManifest(name);
-    const classifierPath = wakeConfig.classifierPath || currentModelPath(name);
-    const threshold = manifest.threshold ?? wakeConfig.threshold;
-    const binding = manifest.binding ?? 'converse';
+    const m = readManifest(name);
+    const classifierPath = currentModelPath(name);
+    const threshold = m.threshold ?? wakeConfig.defaultThreshold;
+    const binding = m.binding ?? 'converse';
     return { name, classifierPath, threshold, binding };
 }
 
 // Resolve the set of triggers the daemon should load: an explicit config name
 // pins a single trigger, otherwise every enabled trigger. Each trigger owns its
-// model + threshold (the config threshold is only a fallback). Throws if the
-// resolved set is empty.
+// model + threshold (the config defaultThreshold is only a fallback). Throws if
+// the resolved set is empty.
 export function resolveActiveTriggers(wakeConfig = {}) {
     const names = wakeConfig.trigger ? [wakeConfig.trigger] : getEnabledTriggers();
     if (names.length === 0) {
@@ -243,12 +296,11 @@ export function resolveActiveTriggers(wakeConfig = {}) {
 // trigger at once.
 export function setEnabled(name, enabled) {
     if (!triggerExists(name)) throw new Error(`no such trigger: ${name}`);
-    const manifest = readManifest(name);
-    if (enabled && !manifest.current) {
+    if (enabled && !readSettings(name)?.current) {
         throw new Error(`cannot enable ${name}: no promoted version (run train + promote first)`);
     }
-    manifest.enabled = enabled;
-    return writeManifest(name, manifest);
+    writeSettings(name, { enabled });
+    return readManifest(name);
 }
 
 // ── Run logs ────────────────────────────────────────────────────────────────

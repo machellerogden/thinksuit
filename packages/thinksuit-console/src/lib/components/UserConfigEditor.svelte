@@ -30,9 +30,8 @@
     let approvalTimeout = $state(43200000);
 
     // Voice (thinksuit-voice daemon) — backend selection + device, never secrets
-    let voiceWakePhrase = $state('');
-    let voiceWakeThreshold = $state(0.7);
-    let voiceWakeDeviceName = $state('');
+    let voiceWakeDefaultThreshold = $state(0.7);
+    let voiceInputDeviceName = $state('');
     let voiceSttProvider = $state('');
     let voiceTtsProvider = $state('');
 
@@ -105,9 +104,8 @@
             approvalTimeout = config.approvalTimeout !== undefined ? config.approvalTimeout : 43200000;
 
             const voice = config.voice || {};
-            voiceWakePhrase = voice.wake?.phrase || '';
-            voiceWakeThreshold = voice.wake?.threshold ?? 0.7;
-            voiceWakeDeviceName = voice.wake?.deviceName || '';
+            voiceWakeDefaultThreshold = voice.wake?.defaultThreshold ?? 0.7;
+            voiceInputDeviceName = voice.input?.deviceName || '';
             voiceSttProvider = voice.stt?.provider || '';
             voiceTtsProvider = voice.tts?.provider || '';
             voiceCaptureRmsThreshold = voice.capture?.rmsThreshold ?? 400;
@@ -166,10 +164,10 @@
             }
 
             // Voice config (only emit sub-sections that have values; never secrets)
+            const input = {};
+            if (voiceInputDeviceName) input.deviceName = voiceInputDeviceName;
             const wake = {};
-            if (voiceWakePhrase) wake.phrase = voiceWakePhrase;
-            if (voiceWakeThreshold !== undefined && voiceWakeThreshold !== '') wake.threshold = Number(voiceWakeThreshold);
-            if (voiceWakeDeviceName) wake.deviceName = voiceWakeDeviceName;
+            if (voiceWakeDefaultThreshold !== undefined && voiceWakeDefaultThreshold !== '') wake.defaultThreshold = Number(voiceWakeDefaultThreshold);
             const capture = {};
             if (voiceCaptureRmsThreshold !== undefined && voiceCaptureRmsThreshold !== '') capture.rmsThreshold = Number(voiceCaptureRmsThreshold);
             if (voiceCaptureSilenceMs !== undefined && voiceCaptureSilenceMs !== '') capture.silenceMs = Number(voiceCaptureSilenceMs);
@@ -181,6 +179,7 @@
             if (voiceCuesError) cues.error = voiceCuesError;
             if (voiceCuesWorking) cues.working = voiceCuesWorking;
             const voice = {};
+            if (Object.keys(input).length) voice.input = input;
             if (Object.keys(wake).length) voice.wake = wake;
             if (Object.keys(capture).length) voice.capture = capture;
             voice.cues = cues;
@@ -238,9 +237,8 @@
         mcpServersJson = config.mcpServers ? JSON.stringify(config.mcpServers, null, 2) : '{}';
         approvalTimeout = config.approvalTimeout !== undefined ? config.approvalTimeout : 43200000;
         const voice = config.voice || {};
-        voiceWakePhrase = voice.wake?.phrase || '';
-        voiceWakeThreshold = voice.wake?.threshold ?? 0.7;
-        voiceWakeDeviceName = voice.wake?.deviceName || '';
+        voiceWakeDefaultThreshold = voice.wake?.defaultThreshold ?? 0.7;
+        voiceInputDeviceName = voice.input?.deviceName || '';
         voiceSttProvider = voice.stt?.provider || '';
         voiceTtsProvider = voice.tts?.provider || '';
         voiceCaptureRmsThreshold = voice.capture?.rmsThreshold ?? 400;
@@ -263,7 +261,7 @@
             allowedDirectories: allowedDirectories.split('\n').map(d => d.trim()).filter(Boolean),
             mcpServersJson,
             approvalTimeout,
-            voiceWakePhrase, voiceWakeThreshold, voiceWakeDeviceName, voiceSttProvider, voiceTtsProvider,
+            voiceWakeDefaultThreshold, voiceInputDeviceName, voiceSttProvider, voiceTtsProvider,
             voiceCaptureRmsThreshold, voiceCaptureSilenceMs, voiceCaptureStartTimeoutMs, voiceCaptureMaxMs,
             voiceCuesEnabled, voiceCuesStart, voiceCuesEnd, voiceCuesError, voiceCuesWorking
         };
@@ -283,9 +281,8 @@
             allowedDirectories: Array.isArray(originalConfig.allowedDirectories) ? originalConfig.allowedDirectories : [],
             mcpServersJson: originalConfig.mcpServers ? JSON.stringify(originalConfig.mcpServers, null, 2) : '{}',
             approvalTimeout: originalConfig.approvalTimeout !== undefined ? originalConfig.approvalTimeout : 43200000,
-            voiceWakePhrase: originalConfig.voice?.wake?.phrase || '',
-            voiceWakeThreshold: originalConfig.voice?.wake?.threshold ?? 0.7,
-            voiceWakeDeviceName: originalConfig.voice?.wake?.deviceName || '',
+            voiceWakeDefaultThreshold: originalConfig.voice?.wake?.defaultThreshold ?? 0.7,
+            voiceInputDeviceName: originalConfig.voice?.input?.deviceName || '',
             voiceSttProvider: originalConfig.voice?.stt?.provider || '',
             voiceTtsProvider: originalConfig.voice?.tts?.provider || '',
             voiceCaptureRmsThreshold: originalConfig.voice?.capture?.rmsThreshold ?? 400,
@@ -574,7 +571,7 @@
                                 {#if inputDevices.length > 0}
                                     <select
                                         id="voice-device"
-                                        bind:value={voiceWakeDeviceName}
+                                        bind:value={voiceInputDeviceName}
                                         class="w-full px-3 py-2 border border-gray-300 rounded text-sm"
                                     >
                                         <option value="">System default</option>
@@ -585,7 +582,7 @@
                                 {:else}
                                     <Input
                                         name="voice-device"
-                                        bind:value={voiceWakeDeviceName}
+                                        bind:value={voiceInputDeviceName}
                                         placeholder="MacBook Pro Microphone"
                                     />
                                     <p class="text-xs text-orange-600 mt-1">
@@ -593,36 +590,23 @@
                                     </p>
                                 {/if}
                                 <p class="text-xs text-gray-500 mt-1">
-                                    Saved by name and resolved to the live device id at startup, so it survives id changes. System default follows macOS Sound settings.
-                                </p>
-                            </div>
-                            <div>
-                                <label for="voice-wake-phrase" class="block text-xs font-medium text-gray-600 mb-1">
-                                    Wake Phrase
-                                    <Input
-                                        name="voice-wake-phrase"
-                                        bind:value={voiceWakePhrase}
-                                        placeholder="hey_thinksuit"
-                                    />
-                                </label>
-                                <p class="text-xs text-gray-500 mt-1">
-                                    Selects the trained classifier head (slug)
+                                    The one microphone for the whole voice harness (wake + capture). Saved by name and resolved to the live device id at startup. System default follows macOS Sound settings.
                                 </p>
                             </div>
                             <div>
                                 <label for="voice-wake-threshold" class="block text-xs font-medium text-gray-600 mb-1">
-                                    Detection Threshold
+                                    Default Detection Threshold
                                     <Input
                                         name="voice-wake-threshold"
                                         type="number"
-                                        bind:value={voiceWakeThreshold}
+                                        bind:value={voiceWakeDefaultThreshold}
                                         min="0"
                                         max="1"
                                         step="0.05"
                                     />
                                 </label>
                                 <p class="text-xs text-gray-500 mt-1">
-                                    Score required to fire (0–1; default 0.7)
+                                    Fallback score for a trigger without its own (0–1; default 0.7). Per-trigger thresholds are set in the Trigger Word Studio and take precedence.
                                 </p>
                             </div>
                             <div class="grid grid-cols-2 gap-3">

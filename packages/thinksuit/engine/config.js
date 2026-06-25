@@ -1,6 +1,6 @@
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import {
     DEFAULT_CONFIG_FILE,
     DEFAULT_APPROVAL_TIMEOUT_MS,
@@ -432,5 +432,45 @@ function buildConfig(options = {}) {
     return config;
 }
 
-// Export only the build function to avoid import-time side effects
-export { buildConfig };
+// ── User config read / patch ────────────────────────────────────────────────
+// Targeted access to the global user config file, separate from buildConfig's
+// layered/validated load. Used by surfaces that must persist a slice of config
+// (e.g. the voice trigger store) without owning the whole document. Honors a
+// THINKSUIT_CONFIG path override so callers and tests can isolate.
+
+function resolveUserConfigPath() {
+    return process.env.THINKSUIT_CONFIG || join(homedir(), DEFAULT_CONFIG_FILE);
+}
+
+function isPlainObject(v) {
+    return v != null && typeof v === 'object' && !Array.isArray(v);
+}
+
+function deepMerge(target, patch) {
+    for (const [k, v] of Object.entries(patch)) {
+        if (isPlainObject(v) && isPlainObject(target[k])) deepMerge(target[k], v);
+        else target[k] = v;
+    }
+    return target;
+}
+
+// Read+parse the global user config; {} if absent. No layering, no validation.
+function readUserConfig() {
+    const path = resolveUserConfigPath();
+    if (!existsSync(path)) return {};
+    return JSON.parse(readFileSync(path, 'utf-8'));
+}
+
+// Read-modify-write the global user config. `mutator` is either a function that
+// mutates the draft in place, or a partial object deep-merged into it. Returns
+// the written config. Matches the console's 4-space format.
+function patchUserConfig(mutator) {
+    const config = readUserConfig();
+    if (typeof mutator === 'function') mutator(config);
+    else deepMerge(config, mutator);
+    writeFileSync(resolveUserConfigPath(), JSON.stringify(config, null, 4), 'utf-8');
+    return config;
+}
+
+// Export only functions to avoid import-time side effects
+export { buildConfig, readUserConfig, patchUserConfig };

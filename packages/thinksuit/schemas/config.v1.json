@@ -113,33 +113,63 @@
       "type": "object",
       "description": "thinksuit-voice daemon configuration (backend selection + device; never secrets)",
       "properties": {
+        "input": {
+          "type": "object",
+          "description": "Shared audio input (microphone) for the whole voice harness — wake and capture use the same stream",
+          "properties": {
+            "deviceName": {
+              "type": "string",
+              "description": "Input device name (case-insensitive substring), resolved to the current id at startup. Preferred over deviceId."
+            },
+            "deviceId": {
+              "type": "integer",
+              "description": "Input device id (-1 for system default). Fragile across device changes; prefer deviceName."
+            }
+          },
+          "additionalProperties": true
+        },
         "wake": {
           "type": "object",
           "description": "Wake-word detection settings",
           "properties": {
             "trigger": {
               "type": "string",
-              "description": "Name of the trigger to use from the trigger library; defaults to whichever trigger is enabled"
+              "description": "Pin a single trigger from the library by name, bypassing the enabled set (debug override)"
             },
-            "phrase": {
-              "type": "string",
-              "description": "Legacy wake-word phrase slug; superseded by the trigger library"
-            },
-            "threshold": {
+            "defaultThreshold": {
               "type": "number",
-              "description": "Detection score threshold (0-1)"
+              "description": "Fallback detection threshold (0-1) for a trigger without its own"
             },
-            "deviceId": {
-              "type": "integer",
-              "description": "Input device id (-1 for system default). Fragile across device changes; prefer deviceName."
-            },
-            "deviceName": {
-              "type": "string",
-              "description": "Input device name (case-insensitive substring), resolved to the current id at startup. Preferred over deviceId."
-            },
-            "classifierPath": {
-              "type": "string",
-              "description": "Explicit path to the classifier .onnx (overrides phrase resolution)"
+            "triggers": {
+              "type": "object",
+              "description": "Per-trigger settings, keyed by trigger name. The trigger library's models/samples live on disk; these are the user-tunable knobs.",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "phrase": {
+                    "type": "string",
+                    "description": "The spoken phrase this trigger was trained on"
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "description": "Whether this trigger is in the active listening set"
+                  },
+                  "binding": {
+                    "type": "string",
+                    "enum": ["converse", "new"],
+                    "description": "Session-lifecycle action this trigger fires"
+                  },
+                  "threshold": {
+                    "type": "number",
+                    "description": "Per-trigger detection threshold (0-1); overrides wake.defaultThreshold"
+                  },
+                  "current": {
+                    "type": ["string", "null"],
+                    "description": "Promoted model version (e.g. v3) from the on-disk catalog"
+                  }
+                },
+                "additionalProperties": true
+              }
             }
           },
           "additionalProperties": true
