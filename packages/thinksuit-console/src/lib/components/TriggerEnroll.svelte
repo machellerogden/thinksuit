@@ -61,9 +61,12 @@
         };
     });
 
+    // Record a take, implicitly committing whatever take is pending first. A take
+    // is kept by moving on (recording again, or Done); only Discard drops it.
     async function recordOne() {
-        if (!recorder || recording || busy || pending) return;
+        if (!recorder || recording || busy) return;
         error = null;
+        if (pending && !(await commitPending())) return; // save failed — keep the take
         recording = true;
         recorder.start();
         await new Promise((r) => setTimeout(r, CLIP_MS));
@@ -78,9 +81,10 @@
         };
     }
 
-    // Keep the pending take: only now does it hit disk.
-    async function keep() {
-        if (!pending || busy) return;
+    // Save the pending take to disk. Returns false (and keeps `pending`) on
+    // failure so the caller can stop rather than lose the clip.
+    async function commitPending() {
+        if (!pending) return true;
         busy = true;
         try {
             const res = await fetch(
@@ -92,8 +96,10 @@
             counts = data.samples;
             playSource?.stop();
             pending = null;
+            return true;
         } catch (e) {
             error = e.message;
+            return false;
         } finally {
             busy = false;
         }
@@ -116,7 +122,11 @@
         playSource.onended = () => (playing = false);
     }
 
-    function finish() {
+    // Done implicitly keeps the pending take. If the save fails, stay put so the
+    // clip isn't silently lost.
+    async function finish() {
+        if (busy || recording) return;
+        if (pending && !(await commitPending())) return;
         recorder?.close();
         recorder = null;
         onDone?.();
@@ -127,7 +137,7 @@
     <div class="p-6 space-y-4 max-w-2xl mx-auto">
         <div class="flex items-center justify-between">
             <h1 class="text-xl font-bold">Enroll · {name}</h1>
-            <Button variant="secondary" onclick={finish}>Done</Button>
+            <Button variant="secondary" disabled={recording || busy} onclick={finish}>Done</Button>
         </div>
 
         <div class="flex items-center gap-2 text-sm">
@@ -169,11 +179,11 @@
                     {/if}
                 </div>
 
-                <!-- primary action: one fixed slot, morphs Record → Keep → Record -->
+                <!-- one fixed slot; recording again keeps the previous take -->
                 <Button
                     variant={recording ? 'danger' : 'success'}
                     disabled={!ready || recording || busy}
-                    onclick={pending ? keep : recordOne}
+                    onclick={recordOne}
                 >
                     {#if !ready}
                         Waiting for mic…
@@ -182,7 +192,7 @@
                     {:else if busy}
                         Saving…
                     {:else if pending}
-                        Keep
+                        Record next {kind === 'positive' ? 'phrase' : 'negative'}
                     {:else}
                         Record {kind === 'positive' ? 'phrase' : 'negative'}
                     {/if}
@@ -195,7 +205,7 @@
                             {playing ? 'Playing…' : 'Play'}
                         </Button>
                         <Button variant="default" size="sm" disabled={busy} onclick={discard}>
-                            Discard &amp; re-record
+                            Discard
                         </Button>
                     {/if}
                 </div>
