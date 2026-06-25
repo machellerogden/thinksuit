@@ -8,6 +8,7 @@ import { GET as listGET, POST as createPOST } from '../src/routes/api/voice/trig
 import { GET as oneGET, PATCH, DELETE } from '../src/routes/api/voice/triggers/[name]/+server.js';
 import { POST as promotePOST } from '../src/routes/api/voice/triggers/[name]/promote/+server.js';
 import { POST as samplesPOST } from '../src/routes/api/voice/triggers/[name]/samples/+server.js';
+import { POST as trainPOST, GET as trainGET } from '../src/routes/api/voice/triggers/[name]/train/+server.js';
 
 // Exercise the Studio endpoints against the real store pointed at a temp voice
 // home — no mocking. Mirrors tests/wakewords.store.test.js in thinksuit-voice.
@@ -179,5 +180,51 @@ describe('voice triggers API', () => {
         expect(
             (await samplesPOST({ params: { name: 'ghost' }, request: pcmReq(loud(16000)), url: samplesUrl('ghost', 'positive') })).status
         ).toBe(404);
+    });
+
+    // ── training (Slice 3) ─────────────────────────────────────────────────
+    // The happy-path POST spawns a real ~50-min worker, so we only exercise the
+    // guard branches (which short-circuit before spawn) and GET's run-log parsing.
+    it('POST train returns 404 for a missing trigger', async () => {
+        expect((await trainPOST({ params: { name: 'ghost' } })).status).toBe(404);
+    });
+
+    it('POST train returns 400 when the trigger has no positive samples', async () => {
+        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        expect((await trainPOST({ params: { name: 'demo' } })).status).toBe(400);
+    });
+
+    it('POST train returns 409 when a run is already in progress', async () => {
+        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        writeFileSync(store.sampleClipPath('demo', 'positive', 0), 'x'); // satisfy the sample guard
+        store.appendRunLog('demo', 'run-1', { event: 'started' });
+        store.appendRunLog('demo', 'run-1', { event: 'phase', phase: 'train', status: 'start' });
+        expect((await trainPOST({ params: { name: 'demo' } })).status).toBe(409);
+    });
+
+    it('GET train reports no run before any training', async () => {
+        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        const data = await (await trainGET({ params: { name: 'demo' } })).json();
+        expect(data).toMatchObject({ running: false, runId: null, phase: null, result: null });
+    });
+
+    it('GET train surfaces a running run with its current phase', async () => {
+        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        store.appendRunLog('demo', 'run-1', { event: 'started' });
+        store.appendRunLog('demo', 'run-1', { event: 'phase', phase: 'augment', status: 'start' });
+        const data = await (await trainGET({ params: { name: 'demo' } })).json();
+        expect(data.running).toBe(true);
+        expect(data.runId).toBe('run-1');
+        expect(data.phase).toBe('augment:start');
+    });
+
+    it('GET train surfaces a completed run with its result', async () => {
+        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        store.appendRunLog('demo', 'run-1', { event: 'started' });
+        store.appendRunLog('demo', 'run-1', { event: 'complete', version: 'v1', promoted: true });
+        const data = await (await trainGET({ params: { name: 'demo' } })).json();
+        expect(data.running).toBe(false);
+        expect(data.phase).toBe('complete');
+        expect(data.result).toMatchObject({ event: 'complete', version: 'v1', promoted: true });
     });
 });

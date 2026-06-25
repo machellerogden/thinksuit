@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as store from '../src/wakewords/store.js';
@@ -128,6 +128,26 @@ describe('trigger store', () => {
 
         expect(store.adoptSamples('demo', 'negative', join(tmpdir(), 'does-not-exist'))).toBe(0);
         rmSync(src, { recursive: true, force: true });
+    });
+
+    it('round-trips run logs and tolerates a partial trailing line', () => {
+        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        expect(store.listRunIds('demo')).toEqual([]);
+        expect(store.readRunLog('demo', 'nope')).toEqual([]);
+
+        store.appendRunLog('demo', 'run-a', { event: 'started' });
+        store.appendRunLog('demo', 'run-a', { event: 'progress', phase: 'train', status: 'start' });
+        store.appendRunLog('demo', 'run-b', { event: 'complete', version: 'v1' });
+
+        expect(store.listRunIds('demo')).toEqual(['run-a', 'run-b']); // sorted
+        const a = store.readRunLog('demo', 'run-a');
+        expect(a).toHaveLength(2);
+        expect(a[1]).toMatchObject({ event: 'progress', phase: 'train' });
+
+        // a crash mid-write leaves a partial JSON line — it should be skipped, not throw
+        appendFileSync(store.runLogPath('demo', 'run-a'), '{"event":"progr');
+        const stillTwo = store.readRunLog('demo', 'run-a');
+        expect(stillTwo).toHaveLength(2);
     });
 
     it('resolveActiveTriggers returns every enabled trigger with its model + threshold', () => {

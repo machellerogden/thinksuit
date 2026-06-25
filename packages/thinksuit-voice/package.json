@@ -20,7 +20,8 @@
         "./control": "./src/control/client.js",
         "./triggers": "./src/wakewords/store.js",
         "./session": "./src/session.js",
-        "./recorder": "./src/wakewords/recorder.js"
+        "./recorder": "./src/wakewords/recorder.js",
+        "./training-worker": "./bin/train.mjs"
     },
     "bin": {
         "thinksuit-voice": "bin/ctl.mjs",

@@ -9,6 +9,7 @@ import {
     readdirSync,
     readFileSync,
     writeFileSync,
+    appendFileSync,
     copyFileSync,
     rmSync
 } from 'node:fs';
@@ -248,4 +249,48 @@ export function setEnabled(name, enabled) {
     }
     manifest.enabled = enabled;
     return writeManifest(name, manifest);
+}
+
+// ── Run logs ────────────────────────────────────────────────────────────────
+// A training run writes a JSONL log under the trigger's runs/ dir, one event per
+// line. The detached worker appends; the console reads to drive progress + result.
+
+export function runLogPath(name, runId) {
+    return join(resolveTriggerPaths(name).runs, `${runId}.jsonl`);
+}
+
+// Run IDs are the log filenames without extension, sorted ascending so the last
+// is the most recent (IDs are timestamp-prefixed).
+export function listRunIds(name) {
+    const dir = resolveTriggerPaths(name).runs;
+    if (!existsSync(dir)) return [];
+    return readdirSync(dir)
+        .filter((f) => f.endsWith('.jsonl'))
+        .map((f) => f.slice(0, -'.jsonl'.length))
+        .sort();
+}
+
+export function appendRunLog(name, runId, entry) {
+    const path = runLogPath(name, runId);
+    ensureDir(resolveTriggerPaths(name).runs);
+    appendFileSync(path, JSON.stringify(entry) + '\n');
+}
+
+// Parse a run-log into an array of events. Tolerates a partial trailing line (a
+// run still being written, or one cut off by a crash): unparseable lines are
+// skipped rather than throwing.
+export function readRunLog(name, runId) {
+    const path = runLogPath(name, runId);
+    if (!existsSync(path)) return [];
+    const out = [];
+    for (const line of readFileSync(path, 'utf8').split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+            out.push(JSON.parse(trimmed));
+        } catch {
+            // partial trailing line — ignore
+        }
+    }
+    return out;
 }

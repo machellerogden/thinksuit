@@ -1,5 +1,5 @@
 <script>
-    import { onMount } from 'svelte';
+    import { onMount, onDestroy } from 'svelte';
     import { Card, Button, EmptyState } from '$lib/components/ui/index.js';
     import TriggerEnroll from '$lib/components/TriggerEnroll.svelte';
 
@@ -18,6 +18,98 @@
     let newPhrase = $state('');
 
     let enabledNames = $derived(triggers.filter((t) => t.enabled).map((t) => t.name));
+
+    // Training is a long (~50-min) detached job. We start it, then poll its
+    // run-log status every 2s; `training[name]` holds the live snapshot, and a
+    // 1s ticker drives the elapsed clock while any run is in flight.
+    let training = $state({}); // name -> { running, runId, phase, startedAt, result }
+    const pollers = {}; // name -> intervalId (non-reactive)
+    let ticker = null;
+    let now = $state(Date.now());
+
+    function ensureTicker() {
+        if (!ticker) ticker = setInterval(() => (now = Date.now()), 1000);
+    }
+    function maybeStopTicker() {
+        const anyRunning = Object.values(training).some((s) => s.running);
+        if (!anyRunning && ticker) {
+            clearInterval(ticker);
+            ticker = null;
+        }
+    }
+    function stopPoll(name) {
+        if (pollers[name]) {
+            clearInterval(pollers[name]);
+            delete pollers[name];
+        }
+    }
+    function startPoll(name) {
+        stopPoll(name);
+        ensureTicker();
+        pollers[name] = setInterval(() => pollTrain(name), 2000);
+        pollTrain(name);
+    }
+
+    async function pollTrain(name) {
+        try {
+            const res = await fetch(`/api/voice/triggers/${encodeURIComponent(name)}/train`);
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'status check failed');
+            const prev = training[name] || {};
+            const startedAt =
+                prev.startedAt ?? (data.events?.[0]?.ts ? Date.parse(data.events[0].ts) : Date.now());
+            training = {
+                ...training,
+                [name]: { running: data.running, runId: data.runId, phase: data.phase, startedAt, result: data.result }
+            };
+            if (!data.running) {
+                stopPoll(name);
+                maybeStopTicker();
+                await load(); // model now registered/promoted — refresh the card
+            }
+        } catch (e) {
+            error = e.message; // transient; keep polling
+        }
+    }
+
+    async function startTrain(name) {
+        busy = name;
+        try {
+            const res = await fetch(`/api/voice/triggers/${encodeURIComponent(name)}/train`, { method: 'POST' });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || 'Failed to start training');
+            training = {
+                ...training,
+                [name]: { running: true, runId: data.runId, phase: 'starting', startedAt: Date.now(), result: null }
+            };
+            startPoll(name);
+        } catch (e) {
+            error = e.message;
+        } finally {
+            busy = null;
+        }
+    }
+
+    // After a (re)load, rejoin any run still in flight so a console reload doesn't
+    // lose the progress view.
+    async function reattach() {
+        for (const t of triggers) {
+            if (pollers[t.name]) continue;
+            try {
+                const res = await fetch(`/api/voice/triggers/${encodeURIComponent(t.name)}/train`);
+                const data = await res.json();
+                if (res.ok && data.running) startPoll(t.name);
+            } catch {
+            // ignore — nothing to reattach to
+            }
+        }
+    }
+
+    const elapsed = (startedAt) => {
+        const s = Math.max(0, Math.floor((now - startedAt) / 1000));
+        return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    };
+    const canPromoteLatest = (t) => t.versionCount > 0 && t.current !== `v${t.versionCount}`;
 
     async function load() {
         try {
@@ -100,7 +192,15 @@
     const pct = (x) => (x == null ? '—' : `${(x * 100).toFixed(1)}%`);
     const num = (x, d = 2) => (x == null ? '—' : Number(x).toFixed(d));
 
-    onMount(load);
+    onMount(async () => {
+        await load();
+        await reattach();
+    });
+
+    onDestroy(() => {
+        for (const name of Object.keys(pollers)) stopPoll(name);
+        if (ticker) clearInterval(ticker);
+    });
 </script>
 
 {#if mode === 'enroll' && enrollCtx}
@@ -162,7 +262,7 @@
             {:else if triggers.length === 0}
                 <EmptyState
                     title="No triggers yet"
-                    message="Click New Trigger to name one and enroll your voice. Training (a one-time ~50-min step) is run from the CLI for now."
+                    message="Click New Trigger to name one, enroll your voice, then Train (a one-time ~50-min step) — all here in the Studio."
                 />
             {:else}
                 {#each triggers as t (t.name)}
@@ -185,8 +285,11 @@
                                 </div>
                                 {#if !t.current}
                                     <div class="mt-1 text-xs text-amber-600">
-                                        needs training — run <span class="font-mono">thinksuit-voice trigger train {t.name}</span>
-                                        then promote (in-UI training is coming next)
+                                        {#if t.samples.positive === 0}
+                                            enroll a few samples, then Train
+                                        {:else}
+                                            not trained yet — click Train (a one-time ~50-min step)
+                                        {/if}
                                     </div>
                                 {/if}
                             </div>
@@ -236,7 +339,15 @@
                                 <Button variant="subtle" size="sm" disabled={busy !== null} onclick={() => enterEnroll(t)}>
                                     Add samples
                                 </Button>
-                                {#if t.versionCount > 1}
+                                <Button
+                                    variant="primary"
+                                    size="sm"
+                                    disabled={busy !== null || training[t.name]?.running || t.samples.positive === 0}
+                                    onclick={() => startTrain(t.name)}
+                                >
+                                    {training[t.name]?.running ? 'Training…' : t.current ? 'Re-train' : 'Train'}
+                                </Button>
+                                {#if canPromoteLatest(t)}
                                     <Button variant="default" size="sm" disabled={busy !== null} onclick={() => promote(t.name)}>
                                         Promote latest
                                     </Button>
@@ -246,6 +357,23 @@
                                 </Button>
                             </div>
                         </div>
+
+                        {#if training[t.name]}
+                            {@const trn = training[t.name]}
+                            <div class="mt-3 text-xs">
+                                {#if trn.running}
+                                    <span class="text-indigo-600">
+                                        Training… <span class="font-mono">{trn.phase}</span> · {elapsed(trn.startedAt)}
+                                    </span>
+                                {:else if trn.result?.event === 'complete'}
+                                    <span class="text-green-700">
+                                        Trained {trn.result.version}{trn.result.promoted ? ' (promoted)' : ' — Promote latest to use it'}
+                                    </span>
+                                {:else if trn.result?.event === 'error'}
+                                    <span class="text-red-700">Training failed: {trn.result.message}</span>
+                                {/if}
+                            </div>
+                        {/if}
                     </Card>
                 {/each}
             {/if}
