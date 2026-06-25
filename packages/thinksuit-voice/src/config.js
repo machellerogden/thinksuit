@@ -3,8 +3,8 @@
 
 const DEFAULTS = {
     wake: {
-        phrase: 'hey_thinksuit',
-        threshold: 0.7,
+        trigger: null, // which trigger to load; null = whichever is enabled in the library
+        threshold: 0.7, // fallback only; the trigger's own threshold takes precedence
         deviceId: -1
     },
     capture: {

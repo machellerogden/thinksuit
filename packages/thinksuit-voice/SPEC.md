@@ -26,6 +26,20 @@ spoken back.
 - **Wake word is a capability inside the daemon, not its own service.** The
   package is `thinksuit-voice`; "wakeword" names a feature, not a boundary.
 
+## Terminology
+
+- **Trigger** — a trained spoken phrase plus its detection model. The managed unit
+  in the **trigger library**. Action-neutral (replaces the overloaded "wakeword"
+  as the user-facing noun; `wake/` remains the internal name of the detection
+  subsystem).
+- **Action** — what the daemon does when a trigger fires: `converse` (capture an
+  utterance → continue the current session), `new` (start a fresh session), or
+  `interrupt`. (`switch` is deliberately omitted — no good voice target-selection
+  model yet.)
+- **Binding** — the map from a trigger → an action. Any trigger can bind to any
+  action. In iteration 1 the binding is reserved (always `converse`); authoring
+  bindings + routing the non-`converse` actions is a later iteration.
+
 ## End-state shape (the eventual loop)
 
 ```
@@ -169,32 +183,41 @@ switches sessions.
 **Iteration 4 — Response + TTS. [done]** `session.response` (via `tail`) →
 macOS `say`. Full hands-free loop closed, keyless.
 
-**Iteration 5 — Voice command layer (commands-as-wakewords).** Refactor
-`wake/pipeline.js` to load multiple classifier heads on the shared frontend and
-return `{name: score}`; `wake/detector.js` fires `onWake({name, confidence})`
-for the winning word; daemon routes on the name. First commands: start/clear and
-switch session. Per-word thresholds.
+**Iteration 5 — Trigger library (CLI). [done]** Formalize the manual training
+flow into a CLI that manages a *collection* of triggers: define / train / test /
+augment (record positive+negative samples and retrain) / promote / enable.
+Architecture is layered with one-way deps — `src/wakewords/{store,recorder,
+trainer,cli}.js` over the existing audio modules, with `training/train.py` as the
+JSON-in / JSONL-out contract to `livekit-wakeword` (the only seam that knows the
+engine). Each trigger is a self-contained bundle under
+`~/.thinksuit/voice/triggers/<name>/` (manifest + samples + model versions);
+"install" is a manifest write (promote + enable). The daemon loads the **enabled**
+trigger's current model + threshold from the store. Single active head; binding
+fixed to `converse`. Exposed as `thinksuit-voice trigger <verb>`.
 
-**Iteration 6 — Provider abstraction + config + cloud TTS.** STT/TTS provider
-interface, console-editable backend selection in thinksuit config (the `voice`
-namespace already loads; this iteration adds the console UX), and a cloud TTS
-provider (backend undecided)
-+ its key path. Adds the optional **transcription post-processing** stage and its
-config (enable flag, provider/model selection from any configured, custom
-instructions). Eventually: the LaunchAgent service scaffolding (bin/ + etc/plist)
-once the runtime is settled.
+**Iteration 6 — Multi-head runtime + binding execution.** Load multiple enabled
+heads on the shared frontend (`wake/pipeline.js` → `{name: score}`;
+`wake/detector.js` fires `onWake({name, confidence})`); daemon routes on the fired
+name. Add the `trigger binding` verb and execute the non-`converse` actions
+(`new`, `interrupt`). Only here does `enable` go multi-active.
 
-**Iteration 7 — Wake-word studio in console.** A guided record → train → test →
-install UI hosted by thinksuit-console but **served by thinksuit-voice**: console
-stays thin (records mic audio in-browser, calls a thinksuit-voice training API,
-streams progress/metrics, live-tests the model); thinksuit-voice owns the
-training orchestration, voice-sample ingestion, and the model install (it must
-not leak into console's SDK/no-filesystem boundary). The studio **manages
-multiple wake words** — list/add/remove/select — not a single phrase; install is
-the file-write step that places a trained classifier into the runtime home, and
-is user-facing here, not a manual chore. Subsumes Iteration 6's console-editable
-backend selection. Built only **after** the manual real-voice loop (PoC-2) is
-proven, so the UI automates a workflow we know works.
+**Iteration 7 — Presets (STT + TTS).** Per-modality, switchable presets managed
+the same way as triggers (dir-per-preset under `~/.thinksuit/voice/{stt,tts}/`).
+An **STT preset** = a transcription stage (provider/model) + an optional **cleanup**
+stage (provider/model + an `instructions.md`; shipped default at
+`presets/default-cleanup.md`, no templating). A **TTS preset** = a synthesis
+backend (`say` now; ElevenLabs/OpenAI added here) + voice/model. `stt`/`tts` CLI
+groups, the cleanup executor + `stt test`, daemon live application of the
+post-processing stage, and the broker-vs-direct decision for the cleanup LLM call.
+The composing "voice preset" bundle stays deferred. Also: LaunchAgent service
+scaffolding once the runtime is settled.
+
+**Iteration 8 — Console studio.** Mirror the trigger (and preset) CLI surfaces in
+thinksuit-console: console stays thin (records mic audio in-browser, calls a
+thinksuit-voice HTTP API, streams progress/metrics, live-tests), and
+thinksuit-voice owns the same `store`/`recorder`/`trainer`/preset library
+server-side (it must not leak into console's SDK/no-filesystem boundary). Same
+core, second face — built on the workflow the CLI already proves.
 
 ## Definition of done — Iteration 1
 

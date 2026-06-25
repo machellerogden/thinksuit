@@ -31,7 +31,21 @@ export function resolveEmbeddingModelPath() {
     return join(MODELS_DIR, 'embedding_model.onnx');
 }
 
-// Trained wake-word classifier for a given phrase slug (e.g. "hey_thinksuit").
-export function resolveClassifierPath(phraseSlug) {
-    return join(resolveVoiceHome(), 'models', `${phraseSlug}.onnx`);
+// The trigger library lives under the voice home. Each trigger is a
+// self-contained bundle (manifest + samples + model versions + run logs).
+export function resolveTriggersDir() {
+    return join(resolveVoiceHome(), 'triggers');
+}
+
+export function resolveTriggerPaths(name) {
+    const dir = join(resolveTriggersDir(), name);
+    return {
+        dir,
+        manifest: join(dir, 'manifest.json'),
+        samples: join(dir, 'samples'),
+        positiveSamples: join(dir, 'samples', 'positive'),
+        negativeSamples: join(dir, 'samples', 'negative'),
+        models: join(dir, 'models'),
+        runs: join(dir, 'runs')
+    };
 }

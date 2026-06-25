@@ -117,9 +117,13 @@
           "type": "object",
           "description": "Wake-word detection settings",
           "properties": {
+            "trigger": {
+              "type": "string",
+              "description": "Name of the trigger to use from the trigger library; defaults to whichever trigger is enabled"
+            },
             "phrase": {
               "type": "string",
-              "description": "Wake-word phrase slug (selects the classifier head)"
+              "description": "Legacy wake-word phrase slug; superseded by the trigger library"
             },
             "threshold": {
               "type": "number",

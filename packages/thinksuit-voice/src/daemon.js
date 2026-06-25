@@ -18,11 +18,9 @@ import { createSTT } from './stt/index.js';
 import { createTTS } from './tts/index.js';
 import { loadVoiceConfig } from './config.js';
 import { startControlServer } from './control/server.js';
-import {
-    resolveMelModelPath,
-    resolveEmbeddingModelPath,
-    resolveClassifierPath
-} from './paths.js';
+import { resolveMelModelPath, resolveEmbeddingModelPath } from './paths.js';
+import { resolveActiveTriggers } from './wakewords/store.js';
+import { sessionForAction } from './session.js';
 
 // Resolve the configured input device. Prefer deviceName (stable across CoreAudio
 // index shuffles): match it case-insensitively against the live input devices and
@@ -53,11 +51,24 @@ export async function createVoiceDaemon(overrides = {}) {
             `cues ${config.cues.enabled ? 'on' : 'off'}`
     );
 
+    // Select the active triggers from the library: an explicit config name pins
+    // one, else every enabled trigger. Each trigger owns its model + threshold,
+    // and the daemon listens for all of them at once.
+    const triggers = resolveActiveTriggers(config.wake);
+    console.log(
+        `wake triggers: ${triggers
+            .map((t) => `${t.name}→${t.binding} (threshold ${t.threshold})`)
+            .join(', ')}`
+    );
+
     const pipeline = await createPipeline({
         melPath: resolveMelModelPath(),
         embeddingPath: resolveEmbeddingModelPath(),
-        classifierPath: config.wake.classifierPath || resolveClassifierPath(config.wake.phrase)
+        heads: triggers.map((t) => ({ name: t.name, classifierPath: t.classifierPath }))
     });
+    const thresholds = Object.fromEntries(triggers.map((t) => [t.name, t.threshold]));
+    // name → session action; what each fired trigger does (converse/new/prior).
+    const bindings = Object.fromEntries(triggers.map((t) => [t.name, t.binding]));
 
     const stt = createSTT(config.stt);
     const tts = createTTS(config.tts);
@@ -83,7 +94,8 @@ export async function createVoiceDaemon(overrides = {}) {
         micOn: false,
         mode: 'listening',
         turnActive: false, // a broker turn is in flight (for re-wake interrupt)
-        lastSessionId: null,
+        lastSessionId: null, // the current session pointer
+        pendingAction: 'converse', // action of the trigger that woke us, applied at turn time
         device: null,
         lastWake: null, // { confidence, at }
         lastError: null, // { message, at }
@@ -152,6 +164,15 @@ export async function createVoiceDaemon(overrides = {}) {
                 return;
             }
             console.log(`heard: ${input}`);
+
+            // Apply the woken trigger's action at the turn boundary (not at wake),
+            // so an aborted/silent capture doesn't consume a `new`. This repoints
+            // the session the turn targets; runTurn reads lastSessionId.
+            const action = state.pendingAction || 'converse';
+            state.pendingAction = 'converse';
+            state.lastSessionId = sessionForAction(action, state.lastSessionId);
+            if (action !== 'converse') console.log(`session action: ${action}`);
+
             await runTurn(input);
         } catch (err) {
             cues.stopLoop();
@@ -178,13 +199,16 @@ export async function createVoiceDaemon(overrides = {}) {
         return { interrupted: true };
     }
 
-    async function onWake({ confidence }) {
+    async function onWake({ name, confidence }) {
         if (state.mode !== 'listening') return;
         // Flip to 'capturing' synchronously so capture is continuous from this
         // instant (no deaf window) and no re-entrant wake fires.
         state.mode = 'capturing';
-        state.lastWake = { confidence, at: Date.now() };
-        console.log(`wake (confidence=${confidence.toFixed(3)})`);
+        // Stash which action this trigger fires; it's applied at the turn boundary.
+        const action = bindings[name] || 'converse';
+        state.pendingAction = action;
+        state.lastWake = { name, action, confidence, at: Date.now() };
+        console.log(`wake: ${name}→${action} (confidence=${confidence.toFixed(3)})`);
 
         // Begin recording now; the start cue plays concurrently and is removed by
         // the endpointer's cue floor (cue duration + margin), not by gating frames.
@@ -198,7 +222,7 @@ export async function createVoiceDaemon(overrides = {}) {
 
     const detector = createDetector({
         pipeline,
-        threshold: config.wake.threshold,
+        thresholds,
         onWake
     });
 

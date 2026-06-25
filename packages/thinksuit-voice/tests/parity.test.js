@@ -25,10 +25,29 @@ describe('wake pipeline parity with Python', () => {
             const pipeline = await createPipeline({
                 melPath: resolveMelModelPath(),
                 embeddingPath: resolveEmbeddingModelPath(),
-                classifierPath: CLASSIFIER
+                heads: [{ name: 'hey_thinksuit', classifierPath: CLASSIFIER }]
             });
-            const score = await pipeline.score(window);
-            expect(Math.abs(score - EXPECTED)).toBeLessThan(TOLERANCE);
+            const scores = await pipeline.score(window);
+            expect(Math.abs(scores.hey_thinksuit - EXPECTED)).toBeLessThan(TOLERANCE);
+        }
+    );
+
+    it.skipIf(!existsSync(CLASSIFIER))(
+        'scores multiple heads on the shared frontend (same model under two names)',
+        async () => {
+            const buf = readFileSync(INPUT);
+            const window = new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength / 4);
+            const pipeline = await createPipeline({
+                melPath: resolveMelModelPath(),
+                embeddingPath: resolveEmbeddingModelPath(),
+                heads: [
+                    { name: 'one', classifierPath: CLASSIFIER },
+                    { name: 'two', classifierPath: CLASSIFIER }
+                ]
+            });
+            const scores = await pipeline.score(window);
+            expect(Math.abs(scores.one - EXPECTED)).toBeLessThan(TOLERANCE);
+            expect(Math.abs(scores.two - EXPECTED)).toBeLessThan(TOLERANCE);
         }
     );
 });

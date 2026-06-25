@@ -6,14 +6,18 @@
 
 import process from 'node:process';
 import { status, micOn, micOff, interrupt } from '../src/control/client.js';
+import { runTriggerCli, TRIGGER_USAGE } from '../src/wakewords/cli.js';
 
 const USAGE = `Usage: thinksuit-voice <command>
 
-Commands:
+Control (running daemon):
   status      Print the daemon's current status
   mic-on      Re-acquire the mic and resume listening
   mic-off     Release the mic (indicator dark); daemon stays warm
-  interrupt   Cancel the in-flight turn and stop any spoken response`;
+  interrupt   Cancel the in-flight turn and stop any spoken response
+
+Trigger library:
+  trigger <subcommand>   Manage wake triggers (run with no subcommand for help)`;
 
 const verb = process.argv[2];
 
@@ -35,6 +39,12 @@ async function main() {
             console.log(interrupted ? 'interrupted' : 'nothing in flight');
             break;
         }
+        case 'trigger':
+            await runTriggerCli(process.argv.slice(3));
+            break;
+        case 'trigger-help':
+            console.log(TRIGGER_USAGE);
+            break;
         default:
             console.error(USAGE);
             process.exit(1);

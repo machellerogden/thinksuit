@@ -7,7 +7,7 @@
 // Defaults the classifier to the locally-trained training/output model so you can
 // test before a model is enrolled into ~/.thinksuit/voice.
 
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPipeline } from '../src/wake/pipeline.js';
 import { createDetector } from '../src/wake/detector.js';
@@ -26,21 +26,24 @@ const classifierPath = resolve(
     __dirname,
     arg('--classifier', '../training/output/hey_thinksuit/hey_thinksuit.onnx')
 );
+const name = basename(classifierPath, '.onnx');
 
 const pipeline = await createPipeline({
     melPath: resolveMelModelPath(),
     embeddingPath: resolveEmbeddingModelPath(),
-    classifierPath
+    heads: [{ name, classifierPath }]
 });
 
 const detector = createDetector({
     pipeline,
-    threshold,
-    onScore: (s) => {
+    thresholds: { [name]: threshold },
+    onScore: (scores) => {
+        const s = scores[name] ?? 0;
         const bar = '#'.repeat(Math.round(s * 30));
         process.stdout.write(`\rscore=${s.toFixed(3)} |${bar.padEnd(30)}|`);
     },
-    onWake: ({ confidence }) => process.stdout.write(`\nWAKE  confidence=${confidence.toFixed(3)}\n`)
+    onWake: ({ name: fired, confidence }) =>
+        process.stdout.write(`\nWAKE  ${fired}  confidence=${confidence.toFixed(3)}\n`)
 });
 
 const capture = createCapture({

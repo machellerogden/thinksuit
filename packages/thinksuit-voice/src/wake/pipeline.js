@@ -1,8 +1,12 @@
 // Wake-word inference: mel spectrogram -> speech embedding -> classifier, all
 // ONNX via onnxruntime-node. The mel/FFT math is frozen inside
 // melspectrogram.onnx, so the JS glue is only the x/10+2 post-proc, a
-// 76-wide/stride-8 sliding window, and the last 16 embeddings. Matches
-// livekit-wakeword's predict() (see tests/parity.test.js).
+// 76-wide/stride-8 sliding window, and the last 16 embeddings.
+//
+// Multi-head: the mel + embedding frontend is computed once per window and
+// shared; each trigger is a small classifier head scored on that one embedding
+// sequence. score() returns { [name]: score } — matching livekit-wakeword's
+// predict() (see tests/parity.test.js).
 
 import * as ort from 'onnxruntime-node';
 
@@ -15,18 +19,26 @@ const MIN_EMBEDDINGS = 16; // classifier input length
 const createSession = (path) =>
     ort.InferenceSession.create(path, { executionProviders: ['cpu'] });
 
-// Build a stateless scorer over a fixed frozen frontend + one classifier.
-export async function createPipeline({ melPath, embeddingPath, classifierPath }) {
+// Build a stateless scorer over a fixed frozen frontend + one or more heads.
+// heads: [{ name, classifierPath }].
+export async function createPipeline({ melPath, embeddingPath, heads }) {
     const mel = await createSession(melPath);
     const emb = await createSession(embeddingPath);
-    const clf = await createSession(classifierPath);
 
     const melIn = mel.inputNames[0];
     const melOut = mel.outputNames[0];
     const embIn = emb.inputNames[0];
     const embOut = emb.outputNames[0];
-    const clfIn = clf.inputNames[0];
-    const clfOut = clf.outputNames[0];
+
+    const classifiers = await Promise.all(
+        heads.map(async ({ name, classifierPath }) => {
+            const session = await createSession(classifierPath);
+            return { name, session, input: session.inputNames[0], output: session.outputNames[0] };
+        })
+    );
+
+    const names = classifiers.map((c) => c.name);
+    const zeros = () => Object.fromEntries(names.map((n) => [n, 0]));
 
     // window: Float32Array of WINDOW_SAMPLES at 16 kHz, range [-1, 1].
     async function score(window) {
@@ -37,7 +49,7 @@ export async function createPipeline({ melPath, embeddingPath, classifierPath })
         const dims = mt.dims; // [1, 1, time, 32]
         const mels = dims[dims.length - 1];
         const time = dims[dims.length - 2];
-        if (time < EMBEDDING_WINDOW) return 0;
+        if (time < EMBEDDING_WINDOW) return zeros();
 
         // openWakeWord melspec_transform: x/10 + 2.
         const norm = new Float32Array(mt.data.length);
@@ -52,16 +64,22 @@ export async function createPipeline({ melPath, embeddingPath, classifierPath })
             });
             embeddings.push(Float32Array.from(r[embOut].data));
         }
-        if (embeddings.length < MIN_EMBEDDINGS) return 0;
+        if (embeddings.length < MIN_EMBEDDINGS) return zeros();
 
+        // Shared embedding sequence: the last 16 embeddings, scored by every head.
         const last = embeddings.slice(-MIN_EMBEDDINGS);
         const seq = new Float32Array(MIN_EMBEDDINGS * 96);
         last.forEach((e, i) => seq.set(e, i * 96));
-        const c = await clf.run({
-            [clfIn]: new ort.Tensor('float32', seq, [1, MIN_EMBEDDINGS, 96])
-        });
-        return c[clfOut].data[0];
+
+        const scores = {};
+        for (const { name, session, input, output } of classifiers) {
+            const c = await session.run({
+                [input]: new ort.Tensor('float32', seq, [1, MIN_EMBEDDINGS, 96])
+            });
+            scores[name] = c[output].data[0];
+        }
+        return scores;
     }
 
-    return { score };
+    return { score, names };
 }
