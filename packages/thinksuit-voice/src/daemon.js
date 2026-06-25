@@ -7,7 +7,7 @@
 // steer a running daemon (mic on/off, interrupt) and read its status.
 
 import { run as brokerRun, tail as brokerTail, interrupt as brokerInterrupt } from 'thinksuit-broker';
-import { buildConfig } from 'thinksuit';
+import { buildConfig, readUserConfig, patchUserConfig } from 'thinksuit';
 import { createPipeline } from './wake/pipeline.js';
 import { createDetector } from './wake/detector.js';
 import { createCapture, listInputDevices } from './audio/capture.js';
@@ -90,11 +90,16 @@ export async function createVoiceDaemon(overrides = {}) {
     // 'listening' = wake detection; 'capturing' = recording an utterance. Capture
     // is continuous from wake (no deaf window); the beep is removed by the
     // endpointer's cue floor, not by dropping frames.
+    // The suit's durable home thread: resume it across restarts so "hey thinksuit"
+    // always returns to the same seat. Bootstrapped on first use (below); a
+    // transient `new` thread never overwrites it.
+    let mainSessionId = readUserConfig().mainSessionId || null;
+
     const state = {
         micOn: false,
         mode: 'listening',
         turnActive: false, // a broker turn is in flight (for re-wake interrupt)
-        lastSessionId: null, // the current session pointer
+        lastSessionId: mainSessionId, // current pointer; seeded to the home thread
         pendingAction: 'converse', // action of the trigger that woke us, applied at turn time
         device: null,
         lastWake: null, // { confidence, at }
@@ -129,6 +134,19 @@ export async function createVoiceDaemon(overrides = {}) {
             throw err;
         }
         state.lastSessionId = sessionId;
+
+        // First session ever becomes the durable home thread, pinned in config so
+        // future restarts resume it. Once set, it's stable — `new` never reassigns it.
+        if (!mainSessionId) {
+            mainSessionId = sessionId;
+            try {
+                patchUserConfig((c) => {
+                    c.mainSessionId = sessionId;
+                });
+            } catch (err) {
+                console.error('could not persist main session id:', err.message);
+            }
+        }
 
         let closed = false;
         const stream = brokerTail(

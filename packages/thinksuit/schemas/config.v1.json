@@ -4,6 +4,10 @@
   "description": "Schema for .thinksuit.json user configuration files",
   "type": "object",
   "properties": {
+    "mainSessionId": {
+      "type": "string",
+      "description": "The suit's durable home session — the seat resumed across restarts. Bootstrapped on first use; transient threads never overwrite it."
+    },
     "module": {
       "type": "string",
       "description": "Module to load (e.g., 'thinksuit/mu')"
