@@ -161,37 +161,44 @@
                     ></div>
                 </div>
 
-                {#if pending}
-                    <div class="text-sm {pending.quiet ? 'text-amber-600' : 'text-gray-600'}">
+                <!-- review readout occupies a fixed line so the button below never shifts -->
+                <div class="h-5 text-sm {pending?.quiet ? 'text-amber-600' : 'text-gray-600'}">
+                    {#if pending}
                         {pending.durationMs}ms · peak {pending.peak.toFixed(2)}
                         {#if pending.quiet}— quiet, better to re-record{/if}
-                    </div>
-                    <div class="flex items-center justify-center gap-2">
-                        <Button variant="secondary" disabled={busy} onclick={playback}>
+                    {/if}
+                </div>
+
+                <!-- primary action: one fixed slot, morphs Record → Keep → Record -->
+                <Button
+                    variant={recording ? 'danger' : 'success'}
+                    disabled={!ready || recording || busy}
+                    onclick={pending ? keep : recordOne}
+                >
+                    {#if !ready}
+                        Waiting for mic…
+                    {:else if recording}
+                        Recording… (2s)
+                    {:else if busy}
+                        Saving…
+                    {:else if pending}
+                        Keep
+                    {:else}
+                        Record {kind === 'positive' ? 'phrase' : 'negative'}
+                    {/if}
+                </Button>
+
+                <!-- secondary actions only while reviewing; never displace the primary -->
+                <div class="h-8 flex items-center justify-center gap-2">
+                    {#if pending}
+                        <Button variant="secondary" size="sm" disabled={busy} onclick={playback}>
                             {playing ? 'Playing…' : 'Play'}
                         </Button>
-                        <Button variant="success" disabled={busy} onclick={keep}>
-                            {busy ? 'Saving…' : 'Keep'}
-                        </Button>
-                        <Button variant="default" disabled={busy} onclick={discard}>
+                        <Button variant="default" size="sm" disabled={busy} onclick={discard}>
                             Discard &amp; re-record
                         </Button>
-                    </div>
-                {:else}
-                    <Button
-                        variant={recording ? 'danger' : 'success'}
-                        disabled={!ready}
-                        onclick={recordOne}
-                    >
-                        {#if !ready}
-                            Waiting for mic…
-                        {:else if recording}
-                            Recording… (2s)
-                        {:else}
-                            Record {kind === 'positive' ? 'phrase' : 'negative'}
-                        {/if}
-                    </Button>
-                {/if}
+                    {/if}
+                </div>
             </div>
         </Card>
 

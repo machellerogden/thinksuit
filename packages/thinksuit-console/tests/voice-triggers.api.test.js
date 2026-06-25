@@ -235,14 +235,8 @@ describe('voice triggers API', () => {
         expect((await trainPOST({ params: { name: 'ghost' } })).status).toBe(404);
     });
 
-    it('POST train returns 400 when the trigger has no positive samples', async () => {
-        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
-        expect((await trainPOST({ params: { name: 'demo' } })).status).toBe(400);
-    });
-
     it('POST train returns 409 when a run is already in progress', async () => {
         store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
-        writeFileSync(store.sampleClipPath('demo', 'positive', 0), 'x'); // satisfy the sample guard
         store.appendRunLog('demo', 'run-1', { event: 'started' });
         store.appendRunLog('demo', 'run-1', { event: 'phase', phase: 'train', status: 'start' });
         expect((await trainPOST({ params: { name: 'demo' } })).status).toBe(409);

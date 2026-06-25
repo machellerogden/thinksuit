@@ -300,10 +300,9 @@
                                 </div>
                                 {#if !t.current}
                                     <div class="mt-1 text-xs text-amber-600">
+                                        not trained yet — click Train (a one-time ~50-min step).
                                         {#if t.samples.positive === 0}
-                                            enroll a few samples, then Train
-                                        {:else}
-                                            not trained yet — click Train (a one-time ~50-min step)
+                                            Trains on a synthetic voice; add your samples and re-train to adapt it to you.
                                         {/if}
                                     </div>
                                 {/if}
@@ -360,7 +359,7 @@
                                 <Button
                                     variant="primary"
                                     size="sm"
-                                    disabled={busy !== null || training[t.name]?.running || t.samples.positive === 0}
+                                    disabled={busy !== null || training[t.name]?.running}
                                     onclick={() => startTrain(t.name)}
                                 >
                                     {training[t.name]?.running ? 'Training…' : t.current ? 'Re-train' : 'Train'}

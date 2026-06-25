@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { triggerExists, countSamples, listRunIds, readRunLog } from 'thinksuit-voice/triggers';
+import { triggerExists, listRunIds, readRunLog } from 'thinksuit-voice/triggers';
 
 // Start and observe a training run. Training is ~50 minutes — far longer than the
 // dev server's stability window — so we don't run it inline. POST spawns a
@@ -41,9 +41,8 @@ function summarize(name, runId) {
 export async function POST({ params }) {
     const { name } = params;
     if (!triggerExists(name)) return json({ error: `no such trigger: ${name}` }, { status: 404 });
-    if (countSamples(name, 'positive') === 0) {
-        return json({ error: 'enroll at least one positive sample before training' }, { status: 400 });
-    }
+    // Samples are optional: synthetic-only is a valid first pass; your recordings
+    // are mixed in as augmentation when present (see train.py mix_real_voice).
 
     const runs = listRunIds(name);
     const latest = runs[runs.length - 1];
