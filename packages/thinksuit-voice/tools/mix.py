@@ -104,20 +104,28 @@ def mix_group(label, samples_dir, train_dir, test_dir, train_base, test_base,
         if not d.exists():
             raise SystemExit(f"missing {d} — run generate first")
     paths, kept, dropped = load_clips(samples_dir, min_peak, target_peak)
-    if len(kept) <= holdout:
-        raise SystemExit(f"{label}: only {len(kept)} usable clips; need > holdout ({holdout})")
-    test_src, train_src = kept[:holdout], kept[holdout:]
     rt = clear_injected(train_dir, train_base)
     re = clear_injected(test_dir, test_base)
+    if not kept:
+        print(f"[{label}] {len(paths)} found, {dropped} dropped (<{min_peak}), "
+              f"0 usable — skipping real-voice mix")
+        return
+    # Real clips are augmentation: use whatever we have. Reserve up to `holdout`
+    # uniques for an honest eval split when we can spare them, but scale the
+    # reservation down — to zero for tiny sets — so a small enrollment set still
+    # trains rather than failing. A handful of real clips should help, not block.
+    eval_holdout = holdout if len(kept) > holdout else len(kept) // 5
+    test_src, train_src = kept[:eval_holdout], kept[eval_holdout:]
     inject(train_dir, train_base, train_src, train_copies)
-    inject(test_dir, test_base, test_src, test_copies)
+    if test_src:
+        inject(test_dir, test_base, test_src, test_copies)
     synth = count_below(train_dir, train_base)
     frac = train_copies / (synth + train_copies) if (synth + train_copies) else 0.0
     print(f"[{label}] {len(paths)} found, {dropped} dropped (<{min_peak}), {len(kept)} kept; "
           f"cleared train={rt} test={re}")
     print(f"  train: {synth} synthetic + {train_copies} real ({len(train_src)} uniques) "
           f"= {synth + train_copies}  (real {frac:.0%})")
-    print(f"  test:  +{test_copies} real ({len(test_src)} uniques)")
+    print(f"  test:  +{test_copies if test_src else 0} real ({len(test_src)} uniques)")
 
 
 def main() -> None:
