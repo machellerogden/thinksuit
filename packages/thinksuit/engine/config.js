@@ -36,6 +36,7 @@ function parseCLI(argv) {
       --session-id       Session ID to resume or create
       --preset           Preset name to use
       --frame            Frame name to use
+      --modality         Modality name (e.g. 'voice'); module renders it into the prelude
       --cwd              Working directory for tools (default: current directory)
       --allow-tool       Tool to allow (can be specified multiple times)
       --allow-tools      Comma-separated list of tools to allow
@@ -109,6 +110,10 @@ function parseCLI(argv) {
                 frame: {
                     type: 'string'
                     // No default - optional frame context
+                },
+                modality: {
+                    type: 'string'
+                    // No default - optional modality name (e.g. 'voice'); module renders it
                 },
                 cwd: {
                     type: 'string'
@@ -382,6 +387,7 @@ function buildConfig(options = {}) {
                 : defaults.approvalTimeout,
         input: cli.input[0] || '',
         frame: cli.flags.frame || fileConfig.frame,
+        modality: cli.flags.modality || fileConfig.modality,
         help: cli.flags.help,
         version: cli.flags.version,
         // Expose CLI object for help/version display

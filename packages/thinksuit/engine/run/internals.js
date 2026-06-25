@@ -80,6 +80,7 @@ export function normalizeConfig(config) {
         sessionId: config.sessionId,
         selectedPlan: config.selectedPlan, // Manual plan override
         frame: config.frame || null, // Frame context { text: string } | null
+        modality: config.modality || null, // Modality name (e.g. 'voice'); module renders it
         cwd: config.cwd,
         allowedDirectories,
         mcpServers: config.mcpServers,
@@ -346,6 +347,7 @@ export async function executeOnce({ finalConfig, logger, module, machineDefiniti
             currentTurnIndex, // Pass current turn index to runCycle
             selectedPlan: finalConfig.selectedPlan, // Pass selected plan to runCycle
             frame: finalConfig.frame, // Pass frame to runCycle
+            modality: finalConfig.modality, // Pass modality to runCycle
             compositionType: 'default' // Default composition from run.js
         });
     } catch (error) {

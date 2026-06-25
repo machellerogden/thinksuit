@@ -23,6 +23,8 @@ import { createInterruptController } from './errors/InterruptError.js';
  * @param {boolean} [config.trace=false] - Enable tracing
  * @param {Object} [config.logger] - Optional pre-configured logger instance
  * @param {Object|null} [config.frame] - Optional frame context { text: string }
+ * @param {string|null} [config.modality] - Optional modality name (e.g. 'voice'); the
+ *   module renders it into the prelude alongside the frame. Spread through to run().
  * @returns {Promise<{sessionId: string, scheduled: boolean, isNew: boolean, isForked: boolean, execution: Promise, interrupt: Function, reason?: string}>}
  */
 export async function schedule(config) {

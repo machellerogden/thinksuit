@@ -24,7 +24,9 @@ function log(entry) {
 }
 
 async function main() {
-    log({ event: 'started', name });
+    // Record the pid so the console can detect a worker that died without writing
+    // a terminal event (otherwise the run-log would read "running" forever).
+    log({ event: 'started', name, pid: process.pid });
     try {
         // train.py's JSONL events (start / phase / done) are logged verbatim so the
         // console can key progress off the `phase` events; the worker owns the

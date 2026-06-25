@@ -162,6 +162,52 @@ describe('composeInstructions', () => {
         });
     });
 
+    describe('modality + frame prelude', () => {
+        const preludeContent = (result) =>
+            result.indices.frameSet >= 0 ? result.thread[result.indices.frameSet].content : null;
+
+        it('renders the module modality text into the prelude, after the frame', async () => {
+            const result = await composeInstructions(
+                { plan: { role: 'chat' }, factMap: {}, frame: { text: 'SITUATION-XYZ' }, modality: 'voice' },
+                mu
+            );
+            const content = preludeContent(result);
+            expect(content).toContain('SITUATION-XYZ');
+            expect(content).toContain(mu.modalities.voice);
+            // frame first, modality after
+            expect(content.indexOf('SITUATION-XYZ')).toBeLessThan(content.indexOf(mu.modalities.voice));
+        });
+
+        it('yields a prelude from modality alone (no frame)', async () => {
+            const result = await composeInstructions(
+                { plan: { role: 'chat' }, factMap: {}, frame: null, modality: 'voice' },
+                mu
+            );
+            expect(preludeContent(result)).toBe(mu.modalities.voice);
+        });
+
+        it('is a no-op for an unknown modality with no frame', async () => {
+            const result = await composeInstructions(
+                { plan: { role: 'chat' }, factMap: {}, frame: null, modality: 'bogus' },
+                mu
+            );
+            expect(result.indices.frameSet).toBe(-1);
+        });
+
+        it('leaves frame-only behavior unchanged', async () => {
+            const result = await composeInstructions(
+                { plan: { role: 'chat' }, factMap: {}, frame: { text: 'JUST-FRAME' }, modality: null },
+                mu
+            );
+            expect(preludeContent(result)).toBe('JUST-FRAME');
+        });
+
+        it('injects no prelude when neither frame nor modality is present', async () => {
+            const result = await composeInstructions({ plan: { role: 'chat' }, factMap: {} }, mu);
+            expect(result.indices.frameSet).toBe(-1);
+        });
+    });
+
     describe('all 6 roles', () => {
         const roles = ['capture', 'readback', 'analyze', 'investigate', 'synthesize', 'execute'];
 

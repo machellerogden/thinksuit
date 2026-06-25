@@ -14,6 +14,7 @@
         cwd = $bindable(''),
         selectedPlan = $bindable(''),
         frame = $bindable({ text: '' }),
+        modality = $bindable('text'),
         isSubmitting = $bindable(false),
         isCancelling = $bindable(false),
         onSubmit,
@@ -67,6 +68,8 @@
     let isGeneratingPlan = $state(false);
     let generationError = $state(null);
     let moduleMetadata = $state(null);
+    // Modality options come from the module (a runtime turn param, sibling to frame).
+    const modalityOptions = $derived(moduleMetadata?.modalities || []);
     let showHelp = $state(false);
 
     // Plan view mode
@@ -853,6 +856,22 @@
             >
                 {selectedFrameId ? 'Edit Frame' : 'Create Frame'}
             </button>
+
+            <!-- Modality: a runtime turn param, sibling to frame; composed into the prelude -->
+            <div class="mt-2">
+                <label for="run-modality" class="block text-[11px] font-medium text-gray-500 mb-1">Modality</label>
+                <select
+                    id="run-modality"
+                    bind:value={modality}
+                    class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-white"
+                    disabled={isSubmitting}
+                >
+                    <option value="">none</option>
+                    {#each modalityOptions as m (m)}
+                        <option value={m}>{m}</option>
+                    {/each}
+                </select>
+            </div>
         </div>
 
         <!-- CENTER COLUMN ROW 1: Input & Send -->

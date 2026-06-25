@@ -23,6 +23,16 @@ Frame is user-defined context that shapes how the system operates. It persists w
 }
 ```
 
+> **Update — modality is a *sibling* axis, not a frame field.** The first piece of
+> the above "future" was deliberately built *outside* frame: **modality** (the channel
+> you're communicating through — `voice`, `text`) is its own first-class input,
+> threaded alongside `frame` (`runCycle`/`composeInstructions` carry both), resolved to
+> instruction text by the module's `modalities` map, and composed into the same
+> synthetic prelude *after* the frame text. The reason is composition: a modality must
+> overlay *any* situational frame, so it can't be a field trapped inside one frame.
+> Frame stays freeform situational context; modality (and later register, etc.) are
+> discrete sibling axes composed with it.
+
 ### Why Frame?
 
 Frame addresses the gap between:

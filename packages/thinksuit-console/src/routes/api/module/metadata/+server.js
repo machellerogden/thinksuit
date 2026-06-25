@@ -51,7 +51,9 @@ export async function GET({ url }) {
             // Include presets if available
             presets: module.presets || {},
             // Include frames if available
-            frames: module.frames || []
+            frames: module.frames || [],
+            // Modality names the module declares (for the voice modality selector)
+            modalities: Object.keys(module.modalities || {})
         };
 
         return json(metadata);

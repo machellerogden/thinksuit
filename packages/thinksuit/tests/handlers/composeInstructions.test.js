@@ -48,9 +48,22 @@ describe('composeInstructions handler (engine contract)', () => {
 
             expect(mockModule.composeInstructions).toHaveBeenCalledOnce();
             expect(mockModule.composeInstructions).toHaveBeenCalledWith(
-                { plan: input.plan, factMap: input.factMap, thread: [], input: '', frame: null, compositionType: 'default', cwd: null },
+                { plan: input.plan, factMap: input.factMap, thread: [], input: '', frame: null, modality: null, compositionType: 'default', cwd: null },
                 mockModule
             );
+        });
+
+        it('forwards a modality from context to module.composeInstructions', async () => {
+            const input = {
+                plan: { strategy: 'direct', role: 'assistant' },
+                factMap: {},
+                context: { traceId: 'test-trace', sessionId: 'test-session', modality: 'voice' }
+            };
+
+            await composeInstructions(input, { execLogger: logger, module: mockModule });
+
+            const [[firstArg]] = mockModule.composeInstructions.mock.calls;
+            expect(firstArg.modality).toBe('voice');
         });
 
         it('should pass module as second argument to composeInstructions', async () => {
@@ -65,7 +78,7 @@ describe('composeInstructions handler (engine contract)', () => {
                 module: mockModule
             });
 
-            const [[firstArg, secondArg]] = mockModule.composeInstructions.mock.calls;
+            const [[, secondArg]] = mockModule.composeInstructions.mock.calls;
             expect(secondArg).toBe(mockModule);
         });
     });

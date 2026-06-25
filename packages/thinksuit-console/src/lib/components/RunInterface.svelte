@@ -26,6 +26,7 @@
     let cwd = $state('');  // Working directory for tools
     let selectedPlan = $state('');  // Manual plan override (JSON string)
     let frame = $state({ text: '' });  // Session context frame
+    let modality = $state('text');  // Runtime modality (sibling to frame); console is a text caller
     let isSubmitting = $state(false);
     let searchFilter = $state('');
     let isCancelling = $state(false);
@@ -144,6 +145,7 @@
                     cwd: cwd.trim() || undefined,  // Include working directory if provided
                     selectedPlan: parsedPlan || undefined,  // Include plan override if provided
                     frame: frame.text?.trim() ? frame : undefined,  // Include frame if provided
+                    modality: modality || undefined,  // Runtime modality (sibling to frame)
                     sessionId: targetSessionId || undefined
                 })
             });
@@ -430,6 +432,7 @@
                     bind:cwd
                     bind:selectedPlan
                     bind:frame
+                    bind:modality
                     bind:isSubmitting
                     bind:isCancelling
                     onSubmit={handleSubmit}

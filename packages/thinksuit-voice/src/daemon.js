@@ -121,7 +121,8 @@ export async function createVoiceDaemon(overrides = {}) {
             policy: base.policy,
             autoApproveTools: true,
             input,
-            sessionId: state.lastSessionId || undefined
+            sessionId: state.lastSessionId || undefined,
+            modality: 'voice' // the voice interface is intrinsically the voice modality
         };
         state.turnActive = true;
         cues.startLoop('working'); // gentle "agent is working" loop until response

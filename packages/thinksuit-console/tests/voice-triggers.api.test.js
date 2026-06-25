@@ -258,6 +258,24 @@ describe('voice triggers API', () => {
         expect(data.phase).toBe('augment:start');
     });
 
+    it('GET train treats a dead worker (no terminal event) as crashed, not running', async () => {
+        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        // A pid that can't exist → liveness check fails → reported as crashed.
+        store.appendRunLog('demo', 'run-1', { event: 'started', pid: 2147483647 });
+        store.appendRunLog('demo', 'run-1', { event: 'phase', phase: 'train', status: 'start' });
+        const data = await (await trainGET({ params: { name: 'demo' } })).json();
+        expect(data.running).toBe(false);
+        expect(data.result.event).toBe('error');
+    });
+
+    it('GET train keeps a run with a live worker pid as running', async () => {
+        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        store.appendRunLog('demo', 'run-1', { event: 'started', pid: process.pid });
+        store.appendRunLog('demo', 'run-1', { event: 'phase', phase: 'augment', status: 'start' });
+        const data = await (await trainGET({ params: { name: 'demo' } })).json();
+        expect(data.running).toBe(true);
+    });
+
     it('GET train surfaces a completed run with its result', async () => {
         store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
         store.appendRunLog('demo', 'run-1', { event: 'started' });

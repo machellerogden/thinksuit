@@ -19,10 +19,36 @@ function newRunId() {
     return new Date().toISOString().replace(/[:.]/g, '-');
 }
 
+// A detached worker pid is alive if we can signal it. ESRCH = gone; EPERM = exists
+// but not ours (still alive). A run-log without a pid is legacy → assume alive.
+function workerAlive(pid) {
+    if (!pid) return true;
+    try {
+        process.kill(pid, 0);
+        return true;
+    } catch (err) {
+        return err.code === 'EPERM';
+    }
+}
+
 // Collapse a run-log into a status snapshot for the UI.
 function summarize(name, runId) {
     const events = readRunLog(name, runId);
-    const terminal = events.find((e) => TERMINAL.has(e.event)) || null;
+    let terminal = events.find((e) => TERMINAL.has(e.event)) || null;
+
+    // No terminal event, but the worker process is gone → it crashed or was killed
+    // without recording a result. Surface that instead of a perpetual "running"
+    // (which would also wedge POST behind its in-progress 409 guard forever).
+    if (!terminal) {
+        const started = events.find((e) => e.event === 'started');
+        if (started && !workerAlive(started.pid)) {
+            terminal = {
+                event: 'error',
+                message: 'training worker is no longer running (crashed or was killed)'
+            };
+        }
+    }
+
     const lastPhase = [...events].reverse().find((e) => e.event === 'phase');
     const phase = terminal
         ? terminal.event

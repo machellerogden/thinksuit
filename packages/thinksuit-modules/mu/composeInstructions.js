@@ -40,7 +40,11 @@ function addPromptToThread(resolved, thread) {
  * @param {Object} module - The mu module
  * @returns {Object} - { thread, indices, adaptations, lengthGuidance, toolInstructions, maxTokens, metadata }
  */
-export async function composeInstructions({ plan = {}, factMap = {}, thread = [], input = '', frame = null, compositionType = 'default', cwd = null }, module) {
+export async function composeInstructions({ plan = {}, factMap = {}, thread = [], input = '', frame = null, modality = null, compositionType = 'default', cwd = null }, module) {
+    // Resolve the modality instruction text the module declares for the active
+    // modality name (e.g. 'voice'). A discrete sibling to frame, composed into the
+    // same synthetic prelude. Unknown/absent modality → nothing.
+    const modalityText = (modality && module.modalities?.[modality]) || null;
     // Find the role configuration
     const roleConfig = module.roles.find(r => r.name === plan.role) || module.roles.find(r => r.isDefault) || module.roles[0];
     const role = roleConfig.name;
@@ -112,11 +116,14 @@ export async function composeInstructions({ plan = {}, factMap = {}, thread = []
     if (compositionType === 'default') {
         // Default composition: frame (if any) + system + primary + input
 
-        // Add frame exchange first if provided
-        if (frame?.text) {
+        // Add the synthetic prelude first if present: the situational frame, then the
+        // modality as its own section after it. Both are established as an enacted,
+        // acknowledged exchange (not system directives).
+        const preludeText = [frame?.text, modalityText].filter(Boolean).join('\n\n');
+        if (preludeText) {
             indices.frameSet = completeThread.length;
             completeThread.push(
-                { role: 'user', content: frame.text, semantic: 'frame_set' }
+                { role: 'user', content: preludeText, semantic: 'frame_set' }
             );
             indices.frameAck = completeThread.length;
             completeThread.push(

@@ -92,6 +92,19 @@ const mu = {
     presets,
     frames: [],  // Forward-looking: will contain named frame definitions
 
+    // Modality instruction text, keyed by modality name. A caller (e.g. the voice
+    // daemon) asserts a modality; the engine composes the matching text into the
+    // prelude. A discrete sibling to frame — the channel you're communicating through.
+    modalities: {
+        voice: [
+            'This is a spoken conversation. Your reply is read aloud by a text-to-speech voice; the person is listening, not reading.',
+            'Speak, do not format: no emojis, markdown, headings, bullet lists, tables, or code blocks — none of it survives speech. Write the way you would say it.',
+            'Be brief — usually a sentence or two; offer more only if it would genuinely help, and let them ask.',
+            'Say things for the ear: read or omit symbols, URLs, and file paths rather than spelling out punctuation; avoid anything that only makes sense visually. If an answer is inherently long or visual, give a short spoken summary and offer to put the detail in the console.'
+        ].join('\n'),
+        text: 'This is a written conversation. Markdown formatting — headings, lists, code blocks, tables — is welcome where it aids clarity.'
+    },
+
     orchestration: {
         formatResponse: (results) => {
             if (!Array.isArray(results)) {

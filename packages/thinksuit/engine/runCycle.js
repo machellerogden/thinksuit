@@ -53,6 +53,7 @@ export async function runCycle({
     previousOutput = null,
     abortSignal = null,  // AbortSignal for interruption
     frame = null,  // Frame context { text: string } | null
+    modality = null,  // Modality name (e.g. 'voice'); the module renders it into the prelude
     compositionType = 'default',  // Composition type: 'default', 'continuation', 'accumulation'
 
     // System dependencies
@@ -121,6 +122,7 @@ export async function runCycle({
             historicalSignals: historicalSignals || [], // Pass historical signals through context
             currentTurnIndex: currentTurnIndex || 1, // Pass current turn index through context
             frame: frame || null, // Pass frame through context
+            modality: modality || null, // Pass modality through context (module renders it)
             cwd: config.cwd || null // Pass working directory for prompt context if configured
         },
         policy: config.policy || {},

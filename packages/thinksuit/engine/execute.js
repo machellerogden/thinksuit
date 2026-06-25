@@ -102,7 +102,7 @@ async function main() {
         const preset = await getPreset(config.preset, moduleName, currentModule);
         if (!preset) {
             console.error(`Error: Preset "${config.preset}" not found`);
-            console.error(`Run with --help to see available options`);
+            console.error('Run with --help to see available options');
             process.exit(1);
         }
 
@@ -119,7 +119,7 @@ async function main() {
         frame = await getFrame(config.frame, moduleName, currentModule);
         if (!frame) {
             console.error(`Error: Frame "${config.frame}" not found`);
-            console.error(`Run with --help to see available options`);
+            console.error('Run with --help to see available options');
             process.exit(1);
         }
     }
@@ -147,6 +147,7 @@ async function main() {
         sessionId: config.sessionId,
         selectedPlan, // Pass resolved selectedPlan
         frame, // Pass resolved frame
+        modality: config.modality, // Pass modality name through (module renders it)
         logger // Pass the pre-configured logger
     };
 
