@@ -285,4 +285,19 @@ describe('voice wakewords API', () => {
         expect(data.phase).toBe('complete');
         expect(data.result).toMatchObject({ event: 'complete', version: 'v1', promoted: true });
     });
+
+    // Right after POST the new worker hasn't written its run-log yet. Pinning the
+    // GET to that runId must read as still-starting, not fall back to the prior
+    // run's stale result (the "instant failure" bug).
+    it('GET train pinned to a not-yet-written runId reports starting, not the prior run', async () => {
+        store.createWakeword({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        store.appendRunLog('demo', 'run-1', { event: 'started' });
+        store.appendRunLog('demo', 'run-1', { event: 'error', message: 'training exited with code 1 and no result' });
+        const url = new URL('http://localhost/api/voice/wakewords/demo/train?runId=run-2');
+        const data = await (await trainGET({ params: { name: 'demo' }, url })).json();
+        expect(data.runId).toBe('run-2');
+        expect(data.running).toBe(true);
+        expect(data.phase).toBe('starting');
+        expect(data.result).toBeNull();
+    });
 });

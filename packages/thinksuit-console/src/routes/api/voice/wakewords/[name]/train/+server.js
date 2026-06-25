@@ -90,9 +90,15 @@ export async function POST({ params }) {
     return json({ runId }, { status: 202 });
 }
 
-export async function GET({ params }) {
+export async function GET({ params, url }) {
     const { name } = params;
     if (!wakewordExists(name)) return json({ error: `no such wakeword: ${name}` }, { status: 404 });
+    // Pin to a specific run when asked: right after POST the new worker hasn't
+    // written its run-log yet, and "latest by listing" would race back to the
+    // prior run (surfacing its stale result). An empty log for a known runId
+    // reads as still-starting, not as the previous run.
+    const runId = url?.searchParams.get('runId');
+    if (runId) return json(summarize(name, runId));
     const runs = listRunIds(name);
     const latest = runs[runs.length - 1];
     if (!latest) {

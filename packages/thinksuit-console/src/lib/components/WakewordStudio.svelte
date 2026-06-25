@@ -45,16 +45,17 @@
             delete pollers[name];
         }
     }
-    function startPoll(name) {
+    function startPoll(name, runId) {
         stopPoll(name);
         ensureTicker();
-        pollers[name] = setInterval(() => pollTrain(name), 2000);
-        pollTrain(name);
+        pollers[name] = setInterval(() => pollTrain(name, runId), 2000);
+        pollTrain(name, runId);
     }
 
-    async function pollTrain(name) {
+    async function pollTrain(name, runId) {
         try {
-            const res = await fetch(`/api/voice/wakewords/${encodeURIComponent(name)}/train`);
+            const qs = runId ? `?runId=${encodeURIComponent(runId)}` : '';
+            const res = await fetch(`/api/voice/wakewords/${encodeURIComponent(name)}/train${qs}`);
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'status check failed');
             const prev = training[name] || {};
@@ -84,7 +85,7 @@
                 ...training,
                 [name]: { running: true, runId: data.runId, phase: 'starting', startedAt: Date.now(), result: null }
             };
-            startPoll(name);
+            startPoll(name, data.runId);
         } catch (e) {
             error = e.message;
         } finally {
@@ -100,7 +101,7 @@
             try {
                 const res = await fetch(`/api/voice/wakewords/${encodeURIComponent(t.name)}/train`);
                 const data = await res.json();
-                if (res.ok && data.running) startPoll(t.name);
+                if (res.ok && data.running) startPoll(t.name, data.runId);
             } catch {
             // ignore — nothing to reattach to
             }
