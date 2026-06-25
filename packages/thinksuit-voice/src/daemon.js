@@ -24,20 +24,22 @@ import { sessionForAction } from './session.js';
 
 // Resolve the configured input device. Prefer deviceName (stable across CoreAudio
 // index shuffles): match it case-insensitively against the live input devices and
-// use whatever id it currently has. Fail loudly if absent rather than silently
-// binding the wrong mic.
+// use whatever id it currently has. If the named mic is absent (unplugged,
+// renamed), fall back to the system default (-1) with a warning rather than
+// refusing to start — a missing mic shouldn't brick voice. We never silently bind
+// a *different named* device.
 function resolveInputDevice(input) {
-    if (!input.deviceName) return { id: input.deviceId, name: null };
+    if (!input.deviceName) return { id: input.deviceId ?? -1, name: null };
     const needle = input.deviceName.toLowerCase();
     const devices = listInputDevices();
     const match = devices.find((d) => d.name.toLowerCase().includes(needle));
-    if (!match) {
-        const list = devices.map((d) => `  - ${d.name} (id ${d.id})`).join('\n');
-        throw new Error(
-            `no input device matching name "${input.deviceName}". Available input devices:\n${list}`
-        );
-    }
-    return match;
+    if (match) return match;
+    const list = devices.map((d) => `  - ${d.name} (id ${d.id})`).join('\n');
+    console.warn(
+        `input device "${input.deviceName}" not found — falling back to system default. ` +
+            `Available input devices:\n${list}`
+    );
+    return { id: -1, name: '(system default)' };
 }
 
 export async function createVoiceDaemon(overrides = {}) {
