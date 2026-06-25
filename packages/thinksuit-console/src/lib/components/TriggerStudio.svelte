@@ -2,6 +2,7 @@
     import { onMount, onDestroy } from 'svelte';
     import { Card, Button, EmptyState } from '$lib/components/ui/index.js';
     import TriggerEnroll from '$lib/components/TriggerEnroll.svelte';
+    import TriggerSamples from '$lib/components/TriggerSamples.svelte';
 
     let triggers = $state([]);
     let actions = $state(['converse', 'new']);
@@ -10,8 +11,9 @@
     let error = $state(null);
     let busy = $state(null); // name of the trigger with an action in flight
 
-    let mode = $state('list'); // 'list' | 'enroll'
+    let mode = $state('list'); // 'list' | 'enroll' | 'samples'
     let enrollCtx = $state(null); // { name, phrase, samples }
+    let samplesName = $state(null); // trigger whose clips are being managed
 
     let showNew = $state(false);
     let newName = $state('');
@@ -189,6 +191,17 @@
         load();
     }
 
+    function enterSamples(t) {
+        samplesName = t.name;
+        mode = 'samples';
+    }
+
+    function onSamplesDone() {
+        mode = 'list';
+        samplesName = null;
+        load();
+    }
+
     const pct = (x) => (x == null ? '—' : `${(x * 100).toFixed(1)}%`);
     const num = (x, d = 2) => (x == null ? '—' : Number(x).toFixed(d));
 
@@ -211,6 +224,8 @@
         {negPrompts}
         onDone={onEnrollDone}
     />
+{:else if mode === 'samples' && samplesName}
+    <TriggerSamples name={samplesName} onDone={onSamplesDone} />
 {:else}
     <div class="h-full overflow-y-auto">
         <div class="p-6 space-y-4 max-w-4xl mx-auto">
@@ -338,6 +353,9 @@
                             <div class="ml-auto flex items-center gap-2">
                                 <Button variant="subtle" size="sm" disabled={busy !== null} onclick={() => enterEnroll(t)}>
                                     Add samples
+                                </Button>
+                                <Button variant="subtle" size="sm" disabled={busy !== null} onclick={() => enterSamples(t)}>
+                                    Manage samples
                                 </Button>
                                 <Button
                                     variant="primary"

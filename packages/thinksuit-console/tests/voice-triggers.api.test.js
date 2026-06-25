@@ -7,7 +7,8 @@ import * as store from 'thinksuit-voice/triggers';
 import { GET as listGET, POST as createPOST } from '../src/routes/api/voice/triggers/+server.js';
 import { GET as oneGET, PATCH, DELETE } from '../src/routes/api/voice/triggers/[name]/+server.js';
 import { POST as promotePOST } from '../src/routes/api/voice/triggers/[name]/promote/+server.js';
-import { POST as samplesPOST } from '../src/routes/api/voice/triggers/[name]/samples/+server.js';
+import { GET as samplesGET, POST as samplesPOST } from '../src/routes/api/voice/triggers/[name]/samples/+server.js';
+import { GET as clipGET, DELETE as clipDELETE } from '../src/routes/api/voice/triggers/[name]/samples/[file]/+server.js';
 import { POST as trainPOST, GET as trainGET } from '../src/routes/api/voice/triggers/[name]/train/+server.js';
 
 // Exercise the Studio endpoints against the real store pointed at a temp voice
@@ -181,6 +182,50 @@ describe('voice triggers API', () => {
         expect(
             (await samplesPOST({ params: { name: 'ghost' }, request: pcmReq(loud(16000)), url: samplesUrl('ghost', 'positive') })).status
         ).toBe(404);
+    });
+
+    // ── manage samples (list / serve / delete) ─────────────────────────────
+    const clipUrl = (name, file, kind) =>
+        new URL(`http://localhost/api/voice/triggers/${name}/samples/${file}?kind=${kind}`);
+
+    async function seedClip(name, kind) {
+        await samplesPOST({ params: { name }, request: pcmReq(loud(16000)), url: samplesUrl(name, kind) });
+    }
+
+    it('GET samples lists clips per kind', async () => {
+        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        await seedClip('demo', 'positive');
+        await seedClip('demo', 'negative');
+        const data = await (await samplesGET({ params: { name: 'demo' } })).json();
+        expect(data.positive).toEqual(['clip_000000.wav']);
+        expect(data.negative).toEqual(['clip_000000.wav']);
+    });
+
+    it('GET a clip streams audio/wav bytes', async () => {
+        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        await seedClip('demo', 'positive');
+        const res = await clipGET({ params: { name: 'demo', file: 'clip_000000.wav' }, url: clipUrl('demo', 'clip_000000.wav', 'positive') });
+        expect(res.status).toBe(200);
+        expect(res.headers.get('Content-Type')).toBe('audio/wav');
+        expect((await res.arrayBuffer()).byteLength).toBeGreaterThan(44); // WAV header + data
+    });
+
+    it('DELETE a clip removes it and drops the count', async () => {
+        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        await seedClip('demo', 'positive');
+        const res = await clipDELETE({ params: { name: 'demo', file: 'clip_000000.wav' }, url: clipUrl('demo', 'clip_000000.wav', 'positive') });
+        expect(res.status).toBe(200);
+        expect(store.countSamples('demo', 'positive')).toBe(0);
+    });
+
+    it('clip GET/DELETE 404 a missing trigger; DELETE 400s a bad filename', async () => {
+        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        expect(
+            (await clipGET({ params: { name: 'ghost', file: 'clip_000000.wav' }, url: clipUrl('ghost', 'clip_000000.wav', 'positive') })).status
+        ).toBe(404);
+        expect(
+            (await clipDELETE({ params: { name: 'demo', file: 'evil.txt' }, url: clipUrl('demo', 'evil.txt', 'positive') })).status
+        ).toBe(400);
     });
 
     // ── training (Slice 3) ─────────────────────────────────────────────────

@@ -6,6 +6,8 @@
 
     const TARGETS = { positive: 40, negative: 20 };
     const CLIP_MS = 2000;
+    const SAMPLE_RATE = 16000;
+    const QUIET_PEAK = 0.05;
 
     let recorder = null;
     let ready = $state(false);
@@ -15,7 +17,17 @@
     let busy = $state(false);
     let error = $state(null);
     let counts = $state({ positive: 0, negative: 0 });
-    let lastClip = $state(null); // { peak, durationMs, quiet }
+    // A take awaiting review — held in memory, not saved until Keep.
+    let pending = $state(null); // { pcm, peak, durationMs, quiet }
+
+    function peakOf(pcm) {
+        let peak = 0;
+        for (let i = 0; i < pcm.length; i++) {
+            const v = Math.abs(pcm[i]);
+            if (v > peak) peak = v;
+        }
+        return peak / 32768;
+    }
 
     function currentPrompt(k, negCount) {
         if (k === 'positive') return phrase;
@@ -50,32 +62,58 @@
     });
 
     async function recordOne() {
-        if (!recorder || recording || busy) return;
+        if (!recorder || recording || busy || pending) return;
         error = null;
         recording = true;
         recorder.start();
         await new Promise((r) => setTimeout(r, CLIP_MS));
         const pcm = recorder.stop();
         recording = false;
-        await upload(pcm);
+        const peak = peakOf(pcm);
+        pending = {
+            pcm,
+            peak,
+            durationMs: Math.round((pcm.length / SAMPLE_RATE) * 1000),
+            quiet: peak < QUIET_PEAK
+        };
     }
 
-    async function upload(pcm) {
+    // Keep the pending take: only now does it hit disk.
+    async function keep() {
+        if (!pending || busy) return;
         busy = true;
         try {
             const res = await fetch(
                 `/api/voice/triggers/${encodeURIComponent(name)}/samples?kind=${kind}`,
-                { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: pcm.buffer }
+                { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: pending.pcm.buffer }
             );
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to save clip');
             counts = data.samples;
-            lastClip = { peak: data.peak, durationMs: data.durationMs, quiet: data.peak < 0.05 };
+            playSource?.stop();
+            pending = null;
         } catch (e) {
             error = e.message;
         } finally {
             busy = false;
         }
+    }
+
+    // Throw the pending take away — nothing was saved.
+    function discard() {
+        playSource?.stop();
+        pending = null;
+    }
+
+    let playing = $state(false);
+    let playSource = null;
+
+    function playback() {
+        if (!recorder || !pending) return;
+        playSource?.stop();
+        playSource = recorder.play(pending.pcm);
+        playing = true;
+        playSource.onended = () => (playing = false);
     }
 
     function finish() {
@@ -94,10 +132,10 @@
 
         <div class="flex items-center gap-2 text-sm">
             <span class="text-gray-600">Recording</span>
-            <Button variant={kind === 'positive' ? 'primary' : 'default'} size="sm" disabled={recording || busy} onclick={() => (kind = 'positive')}>
+            <Button variant={kind === 'positive' ? 'primary' : 'default'} size="sm" disabled={recording || busy || !!pending} onclick={() => (kind = 'positive')}>
                 Positives ({counts.positive}/{TARGETS.positive})
             </Button>
-            <Button variant={kind === 'negative' ? 'primary' : 'default'} size="sm" disabled={recording || busy} onclick={() => (kind = 'negative')}>
+            <Button variant={kind === 'negative' ? 'primary' : 'default'} size="sm" disabled={recording || busy || !!pending} onclick={() => (kind = 'negative')}>
                 Negatives ({counts.negative}/{TARGETS.negative})
             </Button>
         </div>
@@ -123,27 +161,36 @@
                     ></div>
                 </div>
 
-                <Button
-                    variant={recording ? 'danger' : 'success'}
-                    disabled={!ready || busy}
-                    onclick={recordOne}
-                >
-                    {#if !ready}
-                        Waiting for mic…
-                    {:else if recording}
-                        Recording… (2s)
-                    {:else if busy}
-                        Saving…
-                    {:else}
-                        Record {kind === 'positive' ? 'phrase' : 'negative'}
-                    {/if}
-                </Button>
-
-                {#if lastClip}
-                    <div class="text-xs {lastClip.quiet ? 'text-amber-600' : 'text-gray-500'}">
-                        last clip: {lastClip.durationMs}ms · peak {lastClip.peak.toFixed(2)}
-                        {lastClip.quiet ? '— quiet, consider re-recording' : ''}
+                {#if pending}
+                    <div class="text-sm {pending.quiet ? 'text-amber-600' : 'text-gray-600'}">
+                        {pending.durationMs}ms · peak {pending.peak.toFixed(2)}
+                        {#if pending.quiet}— quiet, better to re-record{/if}
                     </div>
+                    <div class="flex items-center justify-center gap-2">
+                        <Button variant="secondary" disabled={busy} onclick={playback}>
+                            {playing ? 'Playing…' : 'Play'}
+                        </Button>
+                        <Button variant="success" disabled={busy} onclick={keep}>
+                            {busy ? 'Saving…' : 'Keep'}
+                        </Button>
+                        <Button variant="default" disabled={busy} onclick={discard}>
+                            Discard &amp; re-record
+                        </Button>
+                    </div>
+                {:else}
+                    <Button
+                        variant={recording ? 'danger' : 'success'}
+                        disabled={!ready}
+                        onclick={recordOne}
+                    >
+                        {#if !ready}
+                            Waiting for mic…
+                        {:else if recording}
+                            Recording… (2s)
+                        {:else}
+                            Record {kind === 'positive' ? 'phrase' : 'negative'}
+                        {/if}
+                    </Button>
                 {/if}
             </div>
         </Card>

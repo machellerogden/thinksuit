@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { sampleClipPath, nextSampleIndex, countSamples, triggerExists } from 'thinksuit-voice/triggers';
+import { sampleClipPath, nextSampleIndex, countSamples, listSamples, triggerExists } from 'thinksuit-voice/triggers';
 import { trim, peakOf, writeWavFile } from 'thinksuit-voice/recorder';
 
 // Persist one enrollment clip recorded in the browser. Body is raw 16 kHz mono
@@ -9,6 +9,16 @@ import { trim, peakOf, writeWavFile } from 'thinksuit-voice/recorder';
 
 const SAMPLE_RATE = 16000;
 const MIN_SAMPLES = SAMPLE_RATE * 0.2; // reject clips shorter than ~0.2s of speech
+
+// List the saved clips per kind so the manage-samples view can render them.
+export async function GET({ params }) {
+    const { name } = params;
+    if (!triggerExists(name)) return json({ error: `no such trigger: ${name}` }, { status: 404 });
+    return json({
+        positive: listSamples(name, 'positive'),
+        negative: listSamples(name, 'negative')
+    });
+}
 
 export async function POST({ params, request, url }) {
     const { name } = params;

@@ -64,6 +64,19 @@ export async function createEnrollRecorder({ onLevel } = {}) {
             const at16k = resampleLinear(float, ctx.sampleRate, TARGET_RATE);
             return floatToInt16(at16k);
         },
+        // Play back a captured Int16 clip through the same context. Web Audio
+        // resamples the 16 kHz buffer to the context rate on playback. Returns the
+        // source node so the caller can react to `onended`.
+        play(int16) {
+            const buffer = ctx.createBuffer(1, int16.length, TARGET_RATE);
+            const ch = buffer.getChannelData(0);
+            for (let i = 0; i < int16.length; i++) ch[i] = int16[i] / 32768;
+            const src = ctx.createBufferSource();
+            src.buffer = buffer;
+            src.connect(ctx.destination);
+            src.start();
+            return src;
+        },
         close() {
             recording = false;
             stream.getTracks().forEach((t) => t.stop());

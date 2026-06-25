@@ -183,6 +183,24 @@ export function sampleClipPath(name, kind, index) {
     return join(sampleDir(name, kind), `clip_${String(index).padStart(6, '0')}.wav`);
 }
 
+// Validate a caller-supplied clip filename (guards against path traversal).
+function assertClipFile(file) {
+    if (!/^clip_\d+\.wav$/.test(file)) throw new Error(`invalid sample file: ${file}`);
+    return file;
+}
+
+export function readSampleClip(name, kind, file) {
+    const path = join(kindDir(name, kind), assertClipFile(file));
+    if (!existsSync(path)) throw new Error(`no such sample: ${file}`);
+    return readFileSync(path);
+}
+
+export function deleteSample(name, kind, file) {
+    const path = join(kindDir(name, kind), assertClipFile(file));
+    if (!existsSync(path)) throw new Error(`no such sample: ${file}`);
+    rmSync(path);
+}
+
 // Copy an existing directory of clip_*.wav recordings into a trigger's sample set,
 // renumbered to continue the existing sequence. Used to migrate prior recordings
 // into the library.
