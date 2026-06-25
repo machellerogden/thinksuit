@@ -6,12 +6,28 @@
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { writeFileSync, rmSync, mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { tmpdir, homedir } from 'node:os';
+import { join, dirname, delimiter } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as store from './store.js';
 
 const TRAINING_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'training');
+
+// `uv` is spawned to drive the Python pipeline. A GUI- or service-launched
+// console can have a minimal PATH that omits uv's install dir, so prepend the
+// usual user bin locations (uv installs to ~/.local/bin by default) — otherwise
+// the worker fails with ENOENT even though `uv` works in an interactive shell.
+function spawnEnv() {
+    const extra = [
+        join(homedir(), '.local', 'bin'),
+        join(homedir(), '.cargo', 'bin'),
+        '/opt/homebrew/bin',
+        '/usr/local/bin'
+    ];
+    const current = (process.env.PATH || '').split(delimiter);
+    const PATH = [...extra.filter((p) => !current.includes(p)), ...current].join(delimiter);
+    return { ...process.env, PATH };
+}
 
 // Run train.py for a trigger. `onProgress({event, phase, status, ...})` is called
 // for each JSONL line; library logs stream through to stderr. Resolves with
@@ -35,7 +51,8 @@ export function trainTrigger(name, { mode, onProgress } = {}) {
     return new Promise((resolve, reject) => {
         const child = spawn('uv', ['run', 'python', 'train.py', jobPath], {
             cwd: TRAINING_DIR,
-            stdio: ['ignore', 'pipe', 'inherit']
+            stdio: ['ignore', 'pipe', 'inherit'],
+            env: spawnEnv()
         });
 
         let done = null;
