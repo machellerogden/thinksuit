@@ -4,9 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as store from 'thinksuit-voice/triggers';
 
-import { GET as listGET } from '../src/routes/api/voice/triggers/+server.js';
+import { GET as listGET, POST as createPOST } from '../src/routes/api/voice/triggers/+server.js';
 import { GET as oneGET, PATCH, DELETE } from '../src/routes/api/voice/triggers/[name]/+server.js';
 import { POST as promotePOST } from '../src/routes/api/voice/triggers/[name]/promote/+server.js';
+import { POST as samplesPOST } from '../src/routes/api/voice/triggers/[name]/samples/+server.js';
 
 // Exercise the Studio endpoints against the real store pointed at a temp voice
 // home — no mocking. Mirrors tests/wakewords.store.test.js in thinksuit-voice.
@@ -110,5 +111,73 @@ describe('voice triggers API', () => {
         const res = await DELETE({ params: { name: 'demo' } });
         expect(res.status).toBe(200);
         expect(store.listTriggers()).toEqual([]);
+    });
+
+    // ── enrollment (Slice 2) ──────────────────────────────────────────────
+    const loud = (n) => {
+        const a = new Int16Array(n);
+        a.fill(8000);
+        return a;
+    };
+    const pcmReq = (int16) =>
+        new Request('http://localhost', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/octet-stream' },
+            body: int16.buffer
+        });
+    const samplesUrl = (name, kind) =>
+        new URL(`http://localhost/api/voice/triggers/${name}/samples?kind=${kind}`);
+
+    it('POST create makes a trigger from name + phrase', async () => {
+        const res = await createPOST({ request: jsonRequest('POST', { name: 'fresh', phrase: 'Hey ThinkSuit' }) });
+        expect(res.status).toBe(201);
+        expect(store.triggerExists('fresh')).toBe(true);
+    });
+
+    it('POST create rejects bad name / missing phrase / duplicate with 400', async () => {
+        expect((await createPOST({ request: jsonRequest('POST', { name: 'bad name', phrase: 'x' }) })).status).toBe(400);
+        expect((await createPOST({ request: jsonRequest('POST', { name: 'ok', phrase: '' }) })).status).toBe(400);
+        store.createTrigger({ name: 'dup', phrase: 'Hey ThinkSuit' });
+        expect((await createPOST({ request: jsonRequest('POST', { name: 'dup', phrase: 'x' }) })).status).toBe(400);
+    });
+
+    it('GET exposes the negative-prompt list for the enrollment UI', async () => {
+        const data = await (await listGET()).json();
+        expect(Array.isArray(data.negPrompts)).toBe(true);
+        expect(data.negPrompts.length).toBeGreaterThan(0);
+    });
+
+    it('POST samples writes a clip and increments the count', async () => {
+        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        const res = await samplesPOST({
+            params: { name: 'demo' },
+            request: pcmReq(loud(16000)),
+            url: samplesUrl('demo', 'positive')
+        });
+        const data = await res.json();
+        expect(res.status).toBe(200);
+        expect(data.samples.positive).toBe(1);
+        expect(data.peak).toBeGreaterThan(0.05);
+        expect(store.countSamples('demo', 'positive')).toBe(1);
+    });
+
+    it('POST samples rejects a too-short clip with 400', async () => {
+        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        const res = await samplesPOST({
+            params: { name: 'demo' },
+            request: pcmReq(loud(200)),
+            url: samplesUrl('demo', 'positive')
+        });
+        expect(res.status).toBe(400);
+    });
+
+    it('POST samples rejects unknown kind (400) and missing trigger (404)', async () => {
+        store.createTrigger({ name: 'demo', phrase: 'Hey ThinkSuit' });
+        expect(
+            (await samplesPOST({ params: { name: 'demo' }, request: pcmReq(loud(16000)), url: samplesUrl('demo', 'bogus') })).status
+        ).toBe(400);
+        expect(
+            (await samplesPOST({ params: { name: 'ghost' }, request: pcmReq(loud(16000)), url: samplesUrl('ghost', 'positive') })).status
+        ).toBe(404);
     });
 });
