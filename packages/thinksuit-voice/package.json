@@ -17,7 +17,9 @@
     "exports": {
         ".": "./src/index.js",
         "./devices": "./src/audio/devices.js",
-        "./control": "./src/control/client.js"
+        "./control": "./src/control/client.js",
+        "./triggers": "./src/wakewords/store.js",
+        "./session": "./src/session.js"
     },
     "bin": {
         "thinksuit-voice": "bin/ctl.mjs",
