@@ -4,12 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-**ThinkSuit** - A modular AI orchestration system containing:
-- **`packages/thinksuit/`** - Core orchestration engine that executes modules
-- **`packages/thinksuit-modules/`** - Behavioral modules including the mu module
-- **`packages/thinksuit-cli/`** - Interactive REPL with commands and session management
-- **`packages/thinksuit-console/`** - Web-based debugging and development UI
-- **`packages/thinksuit-mcp-tools/`** - MCP tool integrations
+**ThinkSuit** - A modular AI orchestration system, and the kernel of a longer-term
+personal operating system (vision: `docs/vision.md`; what-goes-where:
+`docs/architecture-overview.md`). Packages:
+- **`packages/thinksuit/`** - Core orchestration engine (the kernel): cognition pipeline, `schedule()` API, config registry, secrets keyring, session routing
+- **`packages/thinksuit-modules/`** - Behavioral modules including the mu module (roles, classifiers, rules, prompts; owns `modalities`/`frames`)
+- **`packages/thinksuit-broker/`** - Resident execution broker: forks a worker per turn, control channel, queue, per-session workspaces
+- **`packages/thinksuit-cli/`** - Interactive REPL + one-shot runner
+- **`packages/thinksuit-console/`** - Web-based debugging/development UI (session inspection, wakeword studio, services control)
+- **`packages/thinksuit-voice/`** - Hands-free voice front door: wake → speech → turn → spoken response
+- **`packages/thinksuit-tty/`** - Terminal component + TTY WebSocket server
+- **`packages/thinksuit-mcp-server/`** - Exposes ThinkSuit *outward* as MCP tools to external clients
+- **`packages/thinksuit-mcp-tools/`** - Custom MCP tools consumed *inward* by ThinkSuit
 
 ## For Development Details
 

@@ -23,6 +23,8 @@
 
 ThinkSuit is a modular AI orchestration system that processes conversation context through a deterministic state machine pipeline. The system combines an orchestration engine with pluggable cognitive modules to enable adaptive AI responses based on detected conversation signals.
 
+That engine is the kernel of a longer-term goal: ThinkSuit as a **personal operating system**. See [`docs/vision.md`](docs/vision.md) for the north star, [`docs/architecture-overview.md`](docs/architecture-overview.md) for what exists and what-goes-where, and [`docs/roadmap.md`](docs/roadmap.md) for the path between.
+
 ## Packages
 
 This monorepo contains:
@@ -40,6 +42,11 @@ This monorepo contains:
   - Provides classifiers, rules, and prompts
   - Extensible module system
 
+- **[`packages/thinksuit-broker`](packages/thinksuit-broker/)** - Resident execution broker
+  - Hosts sessions across processes; forks a worker per turn
+  - Control channel: interrupt / approve / status / tail
+  - Queue for HITL discovery; per-session workspace provisioning
+
 - **[`packages/thinksuit-console`](packages/thinksuit-console/)** - Web-based debugging UI
   - Session inspection and timeline visualization
   - Trace data exploration
@@ -52,6 +59,14 @@ This monorepo contains:
   - Interactive tool approval workflow
   - Context-aware interrupt handling
   - Preserves terminal scrollback
+
+- **[`packages/thinksuit-voice`](packages/thinksuit-voice/)** - Hands-free voice front door
+  - Wake word → capture → speech-to-text → turn → spoken response
+  - Multi-head wake detection + in-console wakeword studio (enroll/train)
+  - Wakeword→action bindings; audio cues; turn interrupt
+
+- **[`packages/thinksuit-tty`](packages/thinksuit-tty/)** - Terminal component + TTY server
+  - Svelte `Terminal` component and a TTY WebSocket server
 
 - **[`packages/thinksuit-mcp-tools`](packages/thinksuit-mcp-tools/)** - MCP tool integrations
   - Custom tools consumed BY ThinkSuit

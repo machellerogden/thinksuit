@@ -2,7 +2,9 @@
 
 ## System Purpose
 
-ThinkSuit is an AI orchestration engine that converts conversation context into execution plans via a deterministic state machine, then executes those plans through LLM orchestration using pluggable behavioral modules.
+ThinkSuit's core is an AI orchestration engine that converts conversation context into execution plans via a deterministic state machine, then executes those plans through LLM orchestration using pluggable behavioral modules.
+
+That engine is the **kernel** of a larger goal — ThinkSuit as a personal operating system (see [vision.md](./vision.md)). This document covers what exists today: the package constellation and its interfaces (below), then the engine internals (execution flow, state machine, facts/plans). The aspirational layer is tracked in [roadmap.md](./roadmap.md).
 
 ## Core Architectural Principles
 
@@ -10,6 +12,73 @@ ThinkSuit is an AI orchestration engine that converts conversation context into 
 2. **Two-Plane Architecture**: Pure decision plane, effectful execution plane
 3. **Module-First Design**: Cognitive behavior defined by pluggable modules
 4. **Policy Enforcement**: User constraints flow through system to bound module behavior
+
+## Package Constellation & Interfaces
+
+The repo is a monorepo of focused packages. The engine is the kernel; everything
+else is a shell over it, a host around it, a behavior installed into it, or a
+device it talks to. (OS metaphor is a lens — see [vision.md](./vision.md).)
+
+```
+                       shells / interfaces
+        ┌─────────┬───────────┬──────────┬─────────┐
+        │   cli   │  console  │  voice   │   tty   │
+        └────┬────┴─────┬─────┴────┬─────┴────┬────┘
+             └──────────┴────┬─────┴──────────┘
+                             ▼
+                     thinksuit-broker            process host / scheduler
+                 worker-per-turn + control       (interrupt/approve/status/tail)
+                             │ forks a worker per turn
+                             ▼
+                  thinksuit  (engine = kernel)   ──reads──►  ~/.thinksuit.json   (registry)
+            signals → rules → plans → compose → execute      engine/secrets       (keyring)
+                             │
+              ┌──────────────┴───────────────┐
+              ▼                               ▼
+     thinksuit-modules                 thinksuit-mcp-tools
+     (installed behaviors: mu)         (tools consumed INWARD by the agent)
+
+     thinksuit-mcp-server ── exposes engine / sessions / signals OUTWARD ──► external MCP clients
+```
+
+| Package | Role (OS lens) | Responsibility | Key interface |
+|---|---|---|---|
+| `thinksuit` | kernel | Cognition pipeline + orchestration; config registry; secrets keyring; session routing | `schedule()`; `buildConfig`/`readUserConfig`/`patchUserConfig`; `resolveSecret`; `loadModules`; `subscribeToSession`/`getSessionStatus`/`getTrace`; `callLLM`. bin: `thinksuit-exec` |
+| `thinksuit-modules` | installed behaviors | Cognitive roles, classifiers, rules, prompts; the `mu` module owns its `modalities`/`frames` | default export (the module map) |
+| `thinksuit-broker` | process host / scheduler | Resident daemon; forks a worker per turn (`src/worker.js`); control channel; queue; per-session workspace provisioning | client export: `run`/`tail`/`interrupt`/`approve`/`status`/`log`/`awaitTurn`; `./broker` daemon; `*-service-*` bins |
+| `thinksuit-cli` | shell | Terminal REPL + one-shot runner | bin: `thinksuit` |
+| `thinksuit-console` | shell (web) | SvelteKit UI: session inspection, run interface, wakeword studio, services control | `*-service-*` bins (no library export) |
+| `thinksuit-voice` | shell (voice front door) | Wake → capture → STT → turn → TTS; wakeword studio backend | exports `./devices` `./control` `./wakewords` `./session` `./recorder` `./training-worker`; bins `thinksuit-voice` + `*-service-*` |
+| `thinksuit-tty` | shell component | Terminal Svelte component + TTY WebSocket server | exports `./Terminal.svelte` `./server`; `*-service-*` bins |
+| `thinksuit-mcp-server` | devices (outward) | Exposes ThinkSuit to external MCP clients (Claude Desktop/IDEs) via tools `thinksuit`/`inspect`/`session`/`signals` | bin: `thinksuit-mcp-server` (stdio MCP) |
+| `thinksuit-mcp-tools` | devices (inward) | Custom MCP tools consumed BY ThinkSuit (e.g. `roll_dice`) | bin: `thinksuit-mcp-tools` (stdio MCP) |
+
+> Note the two MCP packages point opposite directions: **mcp-server** exposes
+> ThinkSuit *outward* as tools other agents can call; **mcp-tools** provides tools
+> ThinkSuit calls *inward* during a turn.
+
+### Key interfaces
+
+- **Engine API — `schedule(config)`** (`thinksuit`): the primary entry point;
+  returns `{ sessionId, scheduled, isNew, execution, ... }`. `run()` is internal —
+  callers use `schedule()`.
+- **Broker client** (`thinksuit-broker` default export): `run(config)` forks a
+  worker for the turn and returns `{ sessionId, isNew, status }`;
+  `tail(sessionId, onEntry)` streams the session log; `interrupt`/`approve`/
+  `status`/`log`/`awaitTurn` are the control surface. Config is spread to the
+  worker, so turn params (e.g. `modality`, `frame`) flow through unchanged.
+- **Config contract**: all settings live in `~/.thinksuit.json`, validated by
+  `packages/thinksuit/schemas/config.v1.json`. `readUserConfig`/`patchUserConfig`
+  are sync, deep-merge helpers honoring a `THINKSUIT_CONFIG` override; `buildConfig`
+  produces the layered (global ← project) run config.
+- **Modality** (composition axis, sibling to frame): a turn param threaded
+  `run/internals.js → runCycle.js → handlers/composeInstructions.js`; the module
+  renders per-modality instruction text; `config.modality` is the default, `--modality`
+  overrides, and the voice daemon asserts `'voice'`.
+- **Service model**: every long-running package ships a `bin/service.mjs` plus a
+  uniform bin lifecycle (`*-service`, `-init`, `-load`, `-unload`, `-start`,
+  `-stop`, `-kill`, `-logs`, `-info`) run under launchd. See
+  [SERVICE_MANAGEMENT.md](./SERVICE_MANAGEMENT.md).
 
 ## High-Level Execution Flow
 
