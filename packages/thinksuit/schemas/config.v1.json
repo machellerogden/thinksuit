@@ -4,10 +4,6 @@
   "description": "Schema for .thinksuit.json user configuration files",
   "type": "object",
   "properties": {
-    "mainSessionId": {
-      "type": "string",
-      "description": "The suit's durable home session — the seat resumed across restarts. Bootstrapped on first use; transient threads never overwrite it."
-    },
     "module": {
       "type": "string",
       "description": "Module to load (e.g., 'thinksuit/mu')"
@@ -117,6 +113,10 @@
       "type": "object",
       "description": "thinksuit-voice daemon configuration (backend selection + device; never secrets)",
       "properties": {
+        "designation": {
+          "type": "string",
+          "description": "Which kernel designation the daemon follows: 'converse' resumes it, 'new' repoints it. Default 'voice'."
+        },
         "input": {
           "type": "object",
           "description": "Shared audio input (microphone) for the whole voice harness — wake and capture use the same stream",

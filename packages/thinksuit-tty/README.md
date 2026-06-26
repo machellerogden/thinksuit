@@ -82,7 +82,7 @@ thinksuit-tty/
 │   ├── service.mjs        # Service entry point
 │   └── service.*.sh       # Service control scripts
 └── etc/
-    └── thinksuit-tty.service.plist  # LaunchAgent example
+    └── thinksuit-tty.service.plist.template  # macOS LaunchAgent template (rendered by scripts/install-macos.mjs)
 ```
 
 ## Exports

@@ -132,11 +132,37 @@ thinksuit-exec --provider hugging-face --model moonshotai/Kimi-K2-Thinking:novit
 thinksuit-exec --provider hugging-face --model meta-llama/Llama-3.3-70B-Instruct "What is 6+7?"
 ```
 
-### Running the Console as a Background Service
+### Running as Background Services (macOS)
 
-On macOS, the web console can run as a persistent LaunchAgent service. The console requires both the console and TTY services to be running.
+ThinkSuit's core (engine, broker, modules) is platform-agnostic — the processes can be
+supervised however your OS prefers. On macOS, you can run them as LaunchAgents: **broker**
+(turn execution), **voice** (hands-free wake → speech), **console** (web UI), and **tty**
+(terminal WebSocket). Set all four up with:
 
-See the **[Service Management Guide](docs/SERVICE_MANAGEMENT.md)** for complete installation and operation instructions.
+```bash
+npm run install:macos
+```
+
+It detects machine-specific paths, renders the LaunchAgent plists, builds the voice
+`.app` bundle (the macOS microphone-permission shim), provisions the default
+`hey_thinksuit` wakeword, seeds the required keys in `~/.thinksuit.json` (without
+overwriting your existing values), and loads all four services. Re-runnable and
+idempotent; pass `--yes` for non-interactive, `--no-load` to set up without starting.
+
+**Two manual steps remain afterward:**
+
+1. **Secrets** — create `~/.thinksuit/secrets.env` with your provider keys, then
+   restart the broker:
+   ```bash
+   printf 'ANTHROPIC_API_KEY=sk-ant-...\nOPENAI_API_KEY=sk-...\n' > ~/.thinksuit/secrets.env
+   chmod 600 ~/.thinksuit/secrets.env
+   launchctl kickstart -k gui/$UID/thinksuit-broker.service
+   ```
+2. **Microphone** — on first voice run macOS prompts for mic access; if not, grant
+   "ThinkSuit Voice" under System Settings → Privacy & Security → Microphone.
+
+See the **[Service Management Guide](docs/SERVICE_MANAGEMENT.md)** for per-service
+operation, troubleshooting, and the manual (non-installer) setup path.
 
 ## Development
 

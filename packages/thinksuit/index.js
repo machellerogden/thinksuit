@@ -13,6 +13,7 @@ export {
     provisionWorkspace,
     getSessionWorkspace
 } from './engine/sessions/index.js';
+export { getDesignation, setDesignation, listDesignations } from './engine/designations/index.js';
 export { generateId } from './engine/utils/id.js';
 export { getSessionStatus, flushAllSessionStreams } from './engine/transports/session-router.js';
 export { createSessionSubscriber, subscribeToSession } from './engine/subscribe.js';

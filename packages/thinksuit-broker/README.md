@@ -70,9 +70,11 @@ thinksuit-broker-service-logs    # tail logs
 thinksuit-broker-service-info    # launchctl print
 ```
 
-Copy `etc/thinksuit-broker.service.plist` to
-`~/Library/LaunchAgents/thinksuit-broker.service.plist` (edit paths as needed)
-before `…-service-init`.
+On macOS, run `npm run install:macos` from the monorepo root to render
+`etc/thinksuit-broker.service.plist.template` (filling in machine-specific paths)
+into `~/Library/LaunchAgents/` and load it. To do it by hand, substitute the
+`{{…}}` placeholders in the template yourself and copy it there before
+`…-service-init`.
 
 ## Configuration & secrets
 

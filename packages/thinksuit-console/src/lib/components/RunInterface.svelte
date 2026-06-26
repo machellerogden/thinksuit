@@ -1,5 +1,6 @@
 <script>
-    import { Button } from '$lib/components/ui/index.js';
+    import { Button, Dropdown } from '$lib/components/ui/index.js';
+    import DesignateControl from '$lib/components/DesignateControl.svelte';
     import SessionThread from '$lib/components/SessionThread.svelte';
     import SessionInspector from '$lib/components/SessionInspector.svelte';
     import SessionWorkbench from '$lib/components/workbench/SessionWorkbench.svelte';
@@ -13,6 +14,8 @@
     import { onDestroy, onMount } from 'svelte';
 
     const session = getSession();
+
+    let designateOpen = $state(false);
 
     let { params = {} } = $props();
 
@@ -385,6 +388,17 @@
                         >
                             Inspect
                         </Button>
+                        <Dropdown align="right" class="ml-auto" bind:open={designateOpen}>
+                            {#snippet trigger()}
+                                <Button variant="subtle" size="xs">Designate</Button>
+                            {/snippet}
+                            {#snippet children()}
+                                <DesignateControl
+                                    sessionId={routeSessionId}
+                                    onDone={() => designateOpen = false}
+                                />
+                            {/snippet}
+                        </Dropdown>
                     </div>
                 </div>
             {/if}

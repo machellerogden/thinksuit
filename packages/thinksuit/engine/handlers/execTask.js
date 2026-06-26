@@ -237,6 +237,14 @@ export async function execTaskCore(input, machineContext) {
                             assistantMessage.content = response.output;
                         }
 
+                        // Carry the tool calls so providers (e.g. Anthropic) can emit the
+                        // matching tool_use blocks that pair with the tool_result pushed
+                        // below. Without this the tool_result is orphaned and the provider
+                        // rejects the next request.
+                        if (response.toolCalls?.length) {
+                            assistantMessage.tool_calls = response.toolCalls;
+                        }
+
                         taskThread = [
                             ...taskThread,
                             assistantMessage

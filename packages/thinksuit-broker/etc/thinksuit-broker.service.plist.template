@@ -1,4 +1,4 @@
-<!-- Edit below as needed and save to ~/Library/LaunchAgents/thinksuit-broker.service.plist -->
+<!-- Template. Rendered by scripts/install.mjs to ~/Library/LaunchAgents/thinksuit-broker.service.plist. Do not edit the rendered copy; edit this template. -->
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -8,21 +8,21 @@
     <key>RunAtLoad</key>
     <true/>
     <key>StandardErrorPath</key>
-    <string>/Users/mac/Library/Logs/thinksuit-broker.service.stderr.log</string>
+    <string>{{HOME}}/Library/Logs/thinksuit-broker.service.stderr.log</string>
     <key>StandardOutPath</key>
-    <string>/Users/mac/Library/Logs/thinksuit-broker.service.stdout.log</string>
+    <string>{{HOME}}/Library/Logs/thinksuit-broker.service.stdout.log</string>
     <key>EnvironmentVariables</key>
     <dict>
       <key>FORCE_COLOR</key>
       <string>true</string>
       <key>PATH</key>
-      <string><![CDATA[/Users/mac/.local/share/mise/installs/node/22/bin:/opt/homebrew/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin]]></string>
+      <string><![CDATA[{{NODE_DIR}}:/opt/homebrew/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin]]></string>
     </dict>
     <key>WorkingDirectory</key>
-    <string>/Users/mac/repos/github.com/machellerogden/thinksuit/packages/thinksuit-broker</string>
+    <string>{{REPO}}/packages/thinksuit-broker</string>
     <key>ProgramArguments</key>
     <array>
-      <string>/Users/mac/.local/share/mise/installs/node/22/bin/node</string>
+      <string>{{NODE_BIN}}</string>
       <string>bin/service.mjs</string>
     </array>
   </dict>

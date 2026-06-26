@@ -220,7 +220,7 @@ describe('execTask handler', () => {
                         response: {
                             output: 'Reading file...',
                             finishReason: 'tool_use',
-                            toolCalls: [{ function: { name: 'read_text_file', arguments: 'test.txt' } }]
+                            toolCalls: [{ id: 'toolu_read', function: { name: 'read_text_file', arguments: 'test.txt' } }]
                         }
                     }
                 }
@@ -249,14 +249,19 @@ describe('execTask handler', () => {
             // Check that second cycle was called with updated thread
             const secondCallArgs = runCycle.mock.calls[1][0];
             expect(secondCallArgs.thread).toHaveLength(3); // user, assistant, tool result
+            // Regression: the assistant message must carry the tool calls so providers
+            // (e.g. Anthropic) can emit tool_use blocks that pair with the tool_result.
             expect(secondCallArgs.thread[1]).toEqual({
                 role: 'assistant',
-                content: 'Reading file...'
+                content: 'Reading file...',
+                tool_calls: [
+                    { id: 'toolu_read', function: { name: 'read_text_file', arguments: 'test.txt' } }
+                ]
             });
-            // Tool result is added as third item
+            // Tool result references the same id, so tool_use <-> tool_result can pair.
             expect(secondCallArgs.thread[2]).toEqual({
                 role: 'tool',
-                tool_call_id: undefined,
+                tool_call_id: 'toolu_read',
                 content: 'file contents'
             });
         });

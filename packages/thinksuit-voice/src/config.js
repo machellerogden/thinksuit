@@ -2,6 +2,7 @@
 // defaults < thinksuit config (`voice` namespace) < explicit overrides.
 
 const DEFAULTS = {
+    designation: 'voice', // which kernel designation the daemon follows (resume/repoint)
     input: {
         deviceName: undefined, // case-insensitive substring; resolved to an id at startup
         deviceId: -1 // -1 = system default
@@ -31,6 +32,7 @@ function mergeSection(name, ...sources) {
 
 export function loadVoiceConfig(fileVoice = {}, overrides = {}) {
     return {
+        designation: overrides.designation ?? fileVoice.designation ?? DEFAULTS.designation,
         input: mergeSection('input', fileVoice, overrides),
         capture: mergeSection('capture', fileVoice, overrides),
         cues: mergeSection('cues', fileVoice, overrides),

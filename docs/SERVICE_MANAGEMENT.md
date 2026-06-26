@@ -1,505 +1,188 @@
-# Service Management Guide
+# Service Management Guide (macOS)
 
-This guide covers the LaunchAgent-based service management system used by ThinkSuit Console and ThinkSuit TTY packages.
+ThinkSuit's core — the engine, broker, and modules — is platform-agnostic. The long-lived
+processes can be supervised by whatever your operating system provides. This guide covers
+one such path: running them as **macOS LaunchAgents**, which start at login, survive
+reboots, and log to a predictable location. Everything here is local-only; nothing listens
+beyond your machine.
 
-## Overview
+## The services
 
-Both `thinksuit-console` and `thinksuit-tty` provide macOS LaunchAgent services for persistent background operation. These services:
-- Run automatically on system startup
-- Survive reboots
-- Provide consistent logging
-- Support standard service management operations
+ThinkSuit runs as four cooperating processes:
 
-These are **local-only tools** that run as background services on your development machine. The service management interface is identical across both packages, differing only in service names and configuration.
+| Service | Role | Endpoint | Depends on |
+|---|---|---|---|
+| `thinksuit-broker` | Executes turns out-of-process (one worker per turn) over a unix socket. The hub every client talks to. | `~/.thinksuit/broker.sock` | — |
+| `thinksuit-voice` | Hands-free loop: wake word → speech → turn → spoken response. Owns the microphone. | (none; client of broker) | broker |
+| `thinksuit-tty` | Terminal WebSocket server. | `localhost:60662` | — |
+| `thinksuit-console` | Web debugging/development UI. | `localhost:60660` | tty, broker |
 
-## Service Command Reference
+The console embeds a terminal, so it needs the tty service; both share a
+`THINKSUIT_TTY_AUTH_TOKEN`. The voice service and the CLI/console all reach execution
+through the broker.
 
-Each package exposes 9 commands through npm bin links. After running `npm link` on a package, these commands become globally available.
+## Installation
 
-### Core Service Commands
-
-#### `thinksuit-{name}-service`
-The actual service executable - the Node process that runs the server.
-
-**Usage:**
-```bash
-thinksuit-console-service
-thinksuit-tty-service
-```
-
-This is typically invoked by launchd, not run directly.
-
-#### `thinksuit-{name}-service-init`
-**Complete reset, bootstrap, start, and tail logs.**
-
-**What it does:**
-1. Kills any existing service process (SIGKILL)
-2. Unloads service from launchd (bootout)
-3. Deletes existing log files
-4. Creates fresh log files
-5. Bootstraps service from plist
-6. Prints service info
-7. Starts service (kickstart)
-8. Tails logs in follow mode
-
-**Important:** This command tails logs indefinitely. Press **Ctrl+C** after verifying the service started successfully. The service continues running after you exit the tail.
-
-**Usage:**
-```bash
-thinksuit-console-service-init
-thinksuit-tty-service-init
-```
-
-**Use when:**
-- First-time setup
-- Need to reset logs
-- Troubleshooting startup issues
-- Want to verify service starts correctly
-
-#### `thinksuit-{name}-service-load`
-**Register service with launchd.**
-
-Bootstraps the service from the plist without starting it or showing logs.
-
-**Usage:**
-```bash
-thinksuit-console-service-load
-thinksuit-tty-service-load
-```
-
-**Use when:**
-- Want to register service without starting it
-- Reloading after plist modifications
-
-#### `thinksuit-{name}-service-unload`
-**Unregister service from launchd.**
-
-Removes the service from launchd's control. The service will not restart automatically.
-
-**Usage:**
-```bash
-thinksuit-console-service-unload
-thinksuit-tty-service-unload
-```
-
-**Use when:**
-- Removing the service
-- Before editing plist files
-- Troubleshooting service issues
-
-### Runtime Control
-
-#### `thinksuit-{name}-service-start`
-**Start or restart the service.**
-
-Uses `launchctl kickstart` to start/restart the service process.
-
-**Usage:**
-```bash
-thinksuit-console-service-start
-thinksuit-tty-service-start
-```
-
-**Use when:**
-- Starting service after stop
-- Restarting after code changes
-- Forcing service restart
-
-#### `thinksuit-{name}-service-stop`
-**Gracefully stop the service.**
-
-Sends SIGTERM to allow clean shutdown.
-
-**Usage:**
-```bash
-thinksuit-console-service-stop
-thinksuit-tty-service-stop
-```
-
-**Use when:**
-- Temporarily stopping service
-- Before system maintenance
-- Testing service restart behavior
-
-#### `thinksuit-{name}-service-kill`
-**Force kill the service.**
-
-Sends SIGKILL for immediate termination. Use only when graceful stop fails.
-
-**Usage:**
-```bash
-thinksuit-console-service-kill
-thinksuit-tty-service-kill
-```
-
-**Use when:**
-- Service is unresponsive
-- Graceful stop failed
-- Emergency shutdown needed
-
-### Inspection Commands
-
-#### `thinksuit-{name}-service-logs`
-**Tail service logs.**
-
-Follows both stdout and stderr log files.
-
-**Usage:**
-```bash
-thinksuit-console-service-logs
-thinksuit-tty-service-logs
-```
-
-**Use when:**
-- Monitoring service activity
-- Debugging issues
-- Watching startup sequence
-
-Press **Ctrl+C** to stop tailing.
-
-#### `thinksuit-{name}-service-info`
-**Show service status and information.**
-
-Displays output from `launchctl print` showing service state, PID, and configuration.
-
-**Usage:**
-```bash
-thinksuit-console-service-info
-thinksuit-tty-service-info
-```
-
-**Use when:**
-- Checking if service is running
-- Verifying service configuration
-- Getting process ID
-
-### Log Files
-
-Service logs are written to:
-- **stdout**: `~/Library/Logs/thinksuit-{name}.service.stdout.log`
-- **stderr**: `~/Library/Logs/thinksuit-{name}.service.stderr.log`
-
-Where `{name}` is `console` or `tty`.
-
-## Installation Guide
-
-### Prerequisites
-
-- macOS with launchd
-- Node.js installed
-- ThinkSuit monorepo cloned and dependencies installed (`npm install`)
-
-**Note:** These services are designed for local use. An automated installer is planned for a future release to simplify this manual setup process.
-
-### Step 1: Review Plist Files
-
-Plist files are located in each package's `etc/` directory:
-- `packages/thinksuit-console/etc/thinksuit-console.service.plist`
-- `packages/thinksuit-tty/etc/thinksuit-tty.service.plist`
-
-### Step 2: Customize Configuration
-
-Edit the plist files to match your environment. Key fields to customize:
-
-#### Paths
-Update paths to match your system:
-```xml
-<key>StandardErrorPath</key>
-<string>/Users/YOUR_USERNAME/Library/Logs/thinksuit-console.service.stderr.log</string>
-
-<key>StandardOutPath</key>
-<string>/Users/YOUR_USERNAME/Library/Logs/thinksuit-console.service.stdout.log</string>
-
-<key>WorkingDirectory</key>
-<string>/path/to/your/thinksuit/packages/thinksuit-console</string>
-
-<key>ProgramArguments</key>
-<array>
-  <string>/path/to/your/node</string>
-  <string>bin/service.mjs</string>
-</array>
-```
-
-#### Environment Variables
-
-**For thinksuit-console:**
-```xml
-<key>EnvironmentVariables</key>
-<dict>
-  <key>PATH</key>
-  <string><![CDATA[/your/node/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin]]></string>
-  <key>THINKSUIT_CONSOLE_PORT</key>
-  <string>60660</string>
-  <key>THINKSUIT_CONSOLE_HOST</key>
-  <string>localhost</string>
-</dict>
-```
-
-**For thinksuit-tty:**
-```xml
-<key>EnvironmentVariables</key>
-<dict>
-  <key>PATH</key>
-  <string><![CDATA[/your/node/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin]]></string>
-  <key>TTW_PORT</key>
-  <string>60662</string>
-</dict>
-```
-
-### Step 3: Copy Plists to LaunchAgents
-
-Copy the edited plist files to your LaunchAgents directory:
+Run the macOS setup from the monorepo root:
 
 ```bash
-cp packages/thinksuit-console/etc/thinksuit-console.service.plist ~/Library/LaunchAgents/
-cp packages/thinksuit-tty/etc/thinksuit-tty.service.plist ~/Library/LaunchAgents/
+npm run install:macos
 ```
 
-### Step 4: Create Global Bin Links
+It is idempotent and re-runnable. For each service it:
 
-Make the service management commands globally available:
+- detects machine-specific values (home, repo path, node binary) and renders the
+  `etc/*.service.plist.template` files into `~/Library/LaunchAgents/`;
+- builds the voice `.app` bundle — the microphone-permission shim (see
+  [Microphone permission](#microphone-permission));
+- provisions the default `hey_thinksuit` wakeword if none is present;
+- seeds the keys ThinkSuit needs in `~/.thinksuit.json` (the local custom-tools MCP server,
+  and — on first setup — `provider`/`model`/`allowedDirectories`) without overwriting
+  values you already have;
+- loads and starts all four LaunchAgents.
 
-```bash
-# From monorepo root
-npm -w thinksuit-console -w thinksuit-tty link
-```
+Flags: `--yes` runs non-interactively (keeps existing config, fills defaults only where
+absent); `--no-load` does everything except start the services.
 
-This creates symlinks in your global npm bin directory, making the `thinksuit-*-service-*` commands available from anywhere.
+**Prerequisites:** macOS, Node ≥ 22, and the monorepo cloned with `npm install` already
+run (the [root README](../README.md#installation) covers cloning and global command
+links).
 
-### Step 5: Initialize Services
+Two things the installer deliberately does **not** do — complete them afterward:
+[Secrets](#secrets) and [Microphone permission](#microphone-permission).
 
-**Important:** Start TTY service first, as the console depends on it.
+### Manual setup (without the installer)
 
-```bash
-# Initialize TTY service
-thinksuit-tty-service-init
-```
+The installer is the supported path; this is the equivalent by hand, useful for
+understanding or adapting it. Per service `<name>` ∈ {`broker`, `voice`, `console`, `tty`}:
 
-Watch the logs until you see successful startup messages, then press **Ctrl+C**. The service continues running.
-
-```bash
-# Initialize console service
-thinksuit-console-service-init
-```
-
-Again, watch for successful startup, then press **Ctrl+C**.
-
-### Step 6: Verify Services
-
-Check that both services are running:
-
-```bash
-thinksuit-tty-service-info
-thinksuit-console-service-info
-```
-
-You should see active service information with PIDs.
-
-### Step 7: Access Console
-
-Open your browser to the configured console address (default: http://localhost:60660).
-
-## Operations Guide
-
-### Daily Operations
-
-#### Starting Services
-
-If services are stopped:
-```bash
-thinksuit-tty-service-start
-thinksuit-console-service-start
-```
-
-#### Stopping Services
-
-For graceful shutdown:
-```bash
-thinksuit-console-service-stop
-thinksuit-tty-service-stop
-```
-
-#### Viewing Logs
-
-To monitor service activity:
-```bash
-# Separate terminals for each
-thinksuit-console-service-logs
-thinksuit-tty-service-logs
-
-# Or view log files directly
-tail -f ~/Library/Logs/thinksuit-console.service.stdout.log
-tail -f ~/Library/Logs/thinksuit-tty.service.stdout.log
-```
-
-#### Checking Status
-
-```bash
-thinksuit-console-service-info
-thinksuit-tty-service-info
-```
-
-### Configuration Changes
-
-When modifying plist files:
-
-1. **Unload service:**
+1. Render `packages/thinksuit-<name>/etc/thinksuit-<name>.service.plist.template`,
+   substituting the `{{HOME}}`, `{{REPO}}`, `{{NODE_BIN}}`, `{{NODE_DIR}}` placeholders
+   (and, for console/tty, `{{CONSOLE_PORT}}`/`{{TTY_PORT}}`/`{{TTY_AUTH_TOKEN}}` — use the
+   same token for both; for voice, `{{VOICE_APP_EXE}}`). Write the result to
+   `~/Library/LaunchAgents/thinksuit-<name>.service.plist` and validate with
+   `plutil -lint`.
+2. Load and start it:
    ```bash
-   thinksuit-console-service-unload
+   launchctl bootstrap gui/$UID ~/Library/LaunchAgents/thinksuit-<name>.service.plist
+   launchctl kickstart -k gui/$UID/thinksuit-<name>.service
    ```
 
-2. **Edit plist:**
-   ```bash
-   vim ~/Library/LaunchAgents/thinksuit-console.service.plist
-   ```
+Voice has two extra requirements the installer handles for you: the `.app` bundle
+(`packages/thinksuit-voice/bin/service.appbundle.sh`) and at least one enabled wakeword
+(`node packages/thinksuit-voice/bin/ctl.mjs wakeword import hey_thinksuit --phrase "Hey ThinkSuit" --model packages/thinksuit-voice/defaults/hey_thinksuit/model.onnx`).
 
-3. **Reload and start:**
-   ```bash
-   thinksuit-console-service-load
-   thinksuit-console-service-start
-   ```
+## Secrets
 
-### Troubleshooting
+Secrets are **never** stored in `~/.thinksuit.json`, and the installer does not provision
+them — this step is always manual. ThinkSuit resolves each secret *by name* at startup:
+from the **environment** first, then from a vendor-neutral **`~/.thinksuit/secrets.env`**
+(`KEY=value` per line; override the path with `THINKSUIT_SECRETS_FILE`). Resolution is
+per-name, so each service loads only the keys it uses — the voice and tty agents never see
+`OPENAI_API_KEY`.
 
-#### Service Won't Start
-
-1. Check logs:
-   ```bash
-   thinksuit-console-service-logs
-   ```
-
-2. Look for errors in:
-   ```bash
-   cat ~/Library/Logs/thinksuit-console.service.stderr.log
-   ```
-
-3. Verify plist paths are correct:
-   ```bash
-   cat ~/Library/LaunchAgents/thinksuit-console.service.plist
-   ```
-
-4. Check if port is already in use:
-   ```bash
-   lsof -i :60660  # console
-   lsof -i :60662  # tty
-   ```
-
-#### Service Keeps Crashing
-
-1. Run service directly to see errors:
-   ```bash
-   cd packages/thinksuit-console
-   node bin/service.mjs
-   ```
-
-2. Check dependencies are installed:
-   ```bash
-   npm install
-   ```
-
-3. Verify Node version in plist matches installed version:
-   ```bash
-   which node
-   ```
-
-#### Console Can't Connect to TTY
-
-1. Verify TTY service is running:
-   ```bash
-   thinksuit-tty-service-info
-   ```
-
-2. Check TTY port configuration matches what console expects
-
-3. Restart both services:
-   ```bash
-   thinksuit-tty-service-start
-   thinksuit-console-service-start
-   ```
-
-#### Commands Not Found
-
-If `thinksuit-*-service-*` commands aren't found:
-
-1. Re-run npm link:
-   ```bash
-   npm -w thinksuit-console link
-   npm -w thinksuit-tty link
-   ```
-
-2. Verify global bin is in PATH:
-   ```bash
-   npm config get prefix
-   echo $PATH
-   ```
-
-### Common Tasks
-
-#### Resetting Everything
-
-Complete reset of both services:
 ```bash
-thinksuit-console-service-init
-thinksuit-tty-service-init
+printf 'ANTHROPIC_API_KEY=sk-ant-...\nOPENAI_API_KEY=sk-...\n' > ~/.thinksuit/secrets.env
+chmod 600 ~/.thinksuit/secrets.env
+launchctl kickstart -k gui/$UID/thinksuit-broker.service   # reload so the worker sees them
 ```
 
-#### Checking Service Dependencies
+How you populate the file is your concern — e.g. a 1Password `op inject` template. If the
+selected provider has no credential anywhere, the broker worker fails fast with an
+actionable error rather than starting a half-session.
 
-Console requires TTY service. Always ensure TTY is running first:
+## Microphone permission
+
+macOS grants microphone access per code-signed bundle. A bare LaunchAgent pointed at
+`node` has no bundle identity and is silently denied the mic (CoreAudio hands it
+all-zero buffers and wake detection never fires). The voice service therefore runs through
+a small ad-hoc-signed `.app` bundle built by `service.appbundle.sh` (a private copy of
+`node` plus an `Info.plist` carrying the mic-usage string).
+
+On the first voice run macOS should prompt for access; if it doesn't, enable
+**"ThinkSuit Voice"** under **System Settings → Privacy & Security → Microphone**. The
+grant is keyed to the bundle's cdhash, so it is per-machine and must be granted again on
+each machine. The bundle is never committed — it's a ~112MB architecture-specific copy of
+`node` and is always built locally.
+
+## Managing a service
+
+Each package exposes the same set of management commands, globally available after
+`npm link -ws` (run from the root as part of the [main install](../README.md#installation)).
+Substitute `<name>` ∈ {`broker`, `voice`, `console`, `tty`}:
+
+| Command | Action |
+|---|---|
+| `thinksuit-<name>-service-init` | Reset logs, bootstrap, start, then tail logs (Ctrl-C to stop tailing; the service keeps running). Use for first run or troubleshooting. |
+| `thinksuit-<name>-service-load` | Register with launchd (bootstrap) without starting. |
+| `thinksuit-<name>-service-unload` | Unregister from launchd (bootout). |
+| `thinksuit-<name>-service-start` | Start or restart (kickstart). |
+| `thinksuit-<name>-service-stop` | Graceful stop (SIGTERM). |
+| `thinksuit-<name>-service-kill` | Force kill (SIGKILL); use only when stop fails. |
+| `thinksuit-<name>-service-logs` | Tail stdout + stderr (Ctrl-C to stop). |
+| `thinksuit-<name>-service-info` | `launchctl print` — state, PID, configuration. |
+
+If you didn't link the commands globally, the same operations are plain `launchctl`:
+
 ```bash
-# Check TTY
-thinksuit-tty-service-info
-
-# If not running
-thinksuit-tty-service-start
-
-# Then check console
-thinksuit-console-service-info
+launchctl bootstrap gui/$UID ~/Library/LaunchAgents/thinksuit-<name>.service.plist  # load
+launchctl kickstart -k gui/$UID/thinksuit-<name>.service                            # (re)start
+launchctl bootout   gui/$UID/thinksuit-<name>.service                               # unload
+launchctl print     gui/$UID/thinksuit-<name>.service                               # status
 ```
 
-#### Updating Code
+Logs are always at `~/Library/Logs/thinksuit-<name>.service.{stdout,stderr}.log`.
 
-After pulling new code:
-```bash
-# Rebuild if needed
-npm install
-npm run build
+## Operations
 
-# Restart services
-thinksuit-console-service-start
-thinksuit-tty-service-start
+**Editing a plist.** Re-running `npm run install:macos` re-renders every plist (reusing the
+existing auth token) and reloads the services. To edit by hand, change the template, render
+it into `~/Library/LaunchAgents/`, then `…-service-unload` and `…-service-load` so launchd
+picks up the change — editing the loaded file alone has no effect.
+
+**After pulling new code.** `npm install`, then restart the affected services
+(`thinksuit-<name>-service-start`). The broker forks a fresh worker per turn, so most
+engine changes take effect on the next turn without a restart.
+
+## Troubleshooting
+
+**Service won't start / `spawn scheduled` with no PID.** launchd can't exec the program.
+Check `~/Library/Logs/thinksuit-<name>.service.stderr.log`, and confirm the plist's
+`ProgramArguments` path exists — a node version that isn't installed, or (for voice) a
+missing `.app` bundle, are the usual causes.
+
+**Service keeps crashing.** Run it in the foreground to see the error directly:
+`cd packages/thinksuit-<name> && node bin/service.mjs`. Confirm dependencies
+(`npm install`) and that the plist's node path matches an installed version (`which node`).
+
+**Voice: "no enabled wakewords".** Import the default:
+`node packages/thinksuit-voice/bin/ctl.mjs wakeword import hey_thinksuit --phrase "Hey ThinkSuit" --model packages/thinksuit-voice/defaults/hey_thinksuit/model.onnx`,
+then restart voice. Confirm with `… wakeword ls` (a `*` marks enabled).
+
+**Voice: silent / never wakes.** Almost always the microphone grant — see
+[Microphone permission](#microphone-permission).
+
+**"Module requires tools not provided by MCP servers" (e.g. `roll_dice`).** The
+`customTools` MCP server is missing from `~/.thinksuit.json`. Re-run `npm run install:macos`
+(it seeds it), then restart the broker.
+
+**Console can't reach the terminal.** Verify the tty service is running
+(`thinksuit-tty-service-info`) and that console and tty share the same
+`THINKSUIT_TTY_AUTH_TOKEN`. A clean re-render via the installer keeps them in sync.
+
+**Port already in use.** `lsof -i :60660` (console) / `lsof -i :60662` (tty).
+
+## Service lifecycle
+
 ```
-
-## Reference
-
-### Service Lifecycle
-
+plist in ~/Library/LaunchAgents/
+        ↓  bootstrap (load)
+        ↓  kickstart (start)
+   service running
+        ↓  SIGTERM (stop) / SIGKILL (kill)
+        ↓  bootout (unload)
+   unregistered
 ```
-[plist in ~/Library/LaunchAgents/]
-         ↓
-   service-load (bootstrap)
-         ↓
-   service-start (kickstart)
-         ↓
-   [service running]
-         ↓
-   service-stop (SIGTERM) or service-kill (SIGKILL)
-         ↓
-   service-unload (bootout)
-```
-
-### Quick Command Matrix
-
-| Task | Console Command | TTY Command |
-|------|----------------|-------------|
-| Complete setup | `thinksuit-console-service-init` | `thinksuit-tty-service-init` |
-| Register | `thinksuit-console-service-load` | `thinksuit-tty-service-load` |
-| Unregister | `thinksuit-console-service-unload` | `thinksuit-tty-service-unload` |
-| Start/restart | `thinksuit-console-service-start` | `thinksuit-tty-service-start` |
-| Stop (graceful) | `thinksuit-console-service-stop` | `thinksuit-tty-service-stop` |
-| Kill (force) | `thinksuit-console-service-kill` | `thinksuit-tty-service-kill` |
-| View logs | `thinksuit-console-service-logs` | `thinksuit-tty-service-logs` |
-| Check status | `thinksuit-console-service-info` | `thinksuit-tty-service-info` |
 
 ## License
 

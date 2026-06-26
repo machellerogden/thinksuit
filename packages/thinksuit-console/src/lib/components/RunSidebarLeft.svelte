@@ -1,6 +1,7 @@
 <script>
     import { Sidebar, Button } from '$lib/components/ui/index.js';
     import SessionList from './SessionList.svelte';
+    import DesignationsPanel from './DesignationsPanel.svelte';
     import { ui } from '$lib/stores/ui.svelte.js';
     import { onMount } from 'svelte';
 
@@ -67,6 +68,15 @@
             </button>
         </div>
     </div>
+
+    <!-- Pinned designations (named pointers to sessions) -->
+    {#if !ui.leftSidebarCollapsed}
+        <DesignationsPanel
+            {selectedSessionId}
+            baseRoute="run/sessions"
+            defaultView="workbench"
+        />
+    {/if}
 
     <!-- Session List -->
     <SessionList

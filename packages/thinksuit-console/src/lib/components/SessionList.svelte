@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import { SvelteSet } from 'svelte/reactivity';
     import { EmptyState, Dropdown, Button } from '$lib/components/ui/index.js';
+    import DesignateControl from './DesignateControl.svelte';
     import { formatDateTime } from '$lib/utils/time.js';
 
     let {
@@ -17,16 +18,27 @@
     let loading = $state(false);
     let error = $state(null);
     let confirmDeleteSessionId = $state(null);
+    let designatingSessionId = $state(null);
     let deleting = $state(false);
     let selectedSessions = new SvelteSet();
     let confirmBulkDelete = $state(false);
 
-    let filteredSessions = $derived(sessions.filter(session => {
-        if (!searchFilter) return true;
-        const search = searchFilter.toLowerCase();
-        return session.id.toLowerCase().includes(search) ||
-            (session.firstInput && session.firstInput.toLowerCase().includes(search));
-    }));
+    let filteredSessions = $derived(
+        sessions
+            .filter(session => {
+                if (!searchFilter) return true;
+                const search = searchFilter.toLowerCase();
+                return session.id.toLowerCase().includes(search) ||
+                    (session.firstInput && session.firstInput.toLowerCase().includes(search));
+            })
+            // Order by recency of activity (last update), not creation time, so an
+            // ongoing thread that keeps getting appended to floats to the top.
+            .toSorted((a, b) => {
+                const av = a.lastUpdate || a.time || '';
+                const bv = b.lastUpdate || b.time || '';
+                return bv.localeCompare(av);
+            })
+    );
 
     let allSelected = $derived(
         filteredSessions.length > 0 &&
@@ -234,7 +246,13 @@
                                 </button>
                             {/snippet}
                             {#snippet children()}
-                                {#if confirmDeleteSessionId === session.id}
+                                {#if designatingSessionId === session.id}
+                                    <!-- Designate state -->
+                                    <DesignateControl
+                                        sessionId={session.id}
+                                        onDone={() => designatingSessionId = null}
+                                    />
+                                {:else if confirmDeleteSessionId === session.id}
                                     <!-- Confirmation state -->
                                     <div class="px-3 py-2">
                                         <div class="text-xs text-gray-700 mb-2">Delete session?</div>
@@ -263,6 +281,16 @@
                                     </div>
                                 {:else}
                                     <!-- Normal state -->
+                                    <button
+                                        onclick={(e) => {
+                                            e.stopPropagation();
+                                            designatingSessionId = session.id;
+                                        }}
+                                        class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50"
+                                        role="menuitem"
+                                    >
+                                        Designate as…
+                                    </button>
                                     <button
                                         onclick={(e) => {
                                             e.stopPropagation();

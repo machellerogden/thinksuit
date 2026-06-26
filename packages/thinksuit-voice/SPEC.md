@@ -118,10 +118,12 @@ switches sessions.
   session-switch wakeword that was previously TBD.
 - **Session routing (current behavior).** Each wakeword carries an action binding —
   `converse` continues the current session (context accumulates); `new` starts a
-  fresh one. A durable **home thread** is pinned in config (`mainSessionId`) and
-  resumed across restarts, so "hey thinksuit" returns to the same seat; a `new`
-  thread never overwrites it. The voice session is an ordinary broker session,
-  observable and attachable from the CLI (`ps`) and console.
+  fresh one. The daemon follows a kernel **designation** (a named pointer to a
+  session; default name `voice`, overridable via `voice.designation`): `converse`
+  resumes it, `new` mints a fresh session and repoints it. The pointer is written
+  after each turn, so the kernel's `state.json` is the single source of truth and
+  the thread resumes across restarts. The voice session is an ordinary broker
+  session, observable and attachable from the CLI (`ps`) and console.
 - **Voice config lives in the thinksuit config under a `voice` namespace**
   (`voice.input` / `voice.wakewords` / `voice.capture` / `voice.cues` / `voice.stt`
   / `voice.tts`), validated by `config.v1.json` and surfaced through
@@ -130,7 +132,7 @@ switches sessions.
   under `voice.wakewords.<name>` (the retired `voice.wake` section is gone). Device
   selection is by name — `voice.input.deviceName` (with `deviceId` fallback), and an
   absent device falls back to the system default; the old `THINKSUIT_VOICE_DEVICE`
-  env override is removed. The durable home thread is the top-level `mainSessionId`.
+  env override is removed. Which designation the daemon follows is `voice.designation` (default `voice`); the pointer itself lives in the kernel's `state.json`, not config.
 - **Transcription post-processing is an optional stage** between STT and the
   turn. The raw transcript may be passed through an LLM with custom instructions
   to clean/reformat it before it becomes the turn input (the author's habit:
