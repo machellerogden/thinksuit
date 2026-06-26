@@ -65,6 +65,14 @@ export function createDetector({
             const now = Date.now();
             if (win && now - lastWake > debounceMs) {
                 lastWake = now;
+                // Consume the triggering audio: the daemon stops feeding us during
+                // capture, which freezes this buffer holding the wake word. Captures
+                // outlast the debounce, so without clearing, the same audio re-fires
+                // a phantom wake when detection resumes. Reset so we rebuild from
+                // fresh frames after the turn.
+                ring.fill(0);
+                filled = 0;
+                sinceLastPredict = 0;
                 if (onWake) onWake({ name: win.name, confidence: win.score, timestamp: now });
             }
         } finally {

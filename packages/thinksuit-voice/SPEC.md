@@ -142,6 +142,19 @@ switches sessions.
   provider abstraction directly — decide when built. Modeled as a distinct stage,
   not baked into the STT provider, so it works regardless of STT backend.
 
+## Known limitations
+
+- **No acoustic echo cancellation (AEC) — limited voice barge-in.** The mic and
+  speakers share a room, so if a wake fires *while the agent is speaking*, the
+  capture window can pick up the tail of the agent's own TTS. The deployment-grade
+  fix is real AEC — e.g. macOS VoiceProcessingIO (AudioUnit/AVAudioEngine), which
+  subtracts the known playback signal — giving clean full-duplex barge-in. That's
+  a real audio-stack change (PortAudio/naudiodon2 → AVAudioEngine) and is deferred.
+  Until then, interrupting a *spoken* reply is best done via the control API /
+  `:interrupt` (or the console). Note: the earlier "agent answered itself" bug was
+  **not** this — it was a detector buffer that re-fired a phantom wake on its own
+  frozen audio (fixed by clearing the ring on wake in `wake/detector.js`).
+
 ## Open (deliberately deferred — decide at the relevant iteration)
 
 - **TTS beyond `say`** — which cloud provider, and its key path.
