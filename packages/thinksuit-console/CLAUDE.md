@@ -22,23 +22,26 @@ See **../../CONTRIBUTING.md** for:
 
 ## Package-Specific Notes
 
-### SDK Boundary with ThinkSuit
+### SDK Boundaries
 
-**Critical Design Principle**: ThinkSuit Console uses ThinkSuit as an SDK and NEVER accesses the filesystem directly.
+**Design principle**: the Console reaches ThinkSuit's *domain* data through package
+SDKs, not raw filesystem access — so it stays agnostic to storage layout and
+multiple UIs can share the same SDKs.
 
-All session data is accessed through ThinkSuit's exported functions:
-- `listSessions()` - Get available sessions with metadata
-- `getSession(id)` - Retrieve full session data
-- `getSessionMetadata(id)` - Get session preview (efficient)
-- `subscribeToSession(id, callback)` - Real-time event stream
+- **Session data** via `thinksuit`: `listSessions()`, `getSession(id)`,
+  `getSessionMetadata(id)`, `subscribeToSession(id, callback)`.
+- **Voice / wakeword data** via `thinksuit-voice` sub-exports (`./wakewords`,
+  `./recorder`, `./session`, `./devices`, `./control`) — the wakeword store owns
+  `~/.thinksuit/voice/` (manifests, samples, run-logs).
+- **Turn execution** via `thinksuit-broker` (run/tail/interrupt/...).
 
-This boundary ensures:
-- Console remains agnostic to storage implementation
-- ThinkSuit can change storage without breaking console
-- Clean testing boundaries
-- Multiple UIs could use the same SDK
+This keeps `~/.thinksuit/sessions/` and `~/.thinksuit/voice/` managed entirely by
+ThinkSuit/voice core, not the Console.
 
-**File paths like `~/.thinksuit/sessions/` are managed entirely by ThinkSuit core.**
+**Exceptions (direct file I/O, by design):** a few endpoints own plain config files
+rather than domain data — `api/config/user` reads/writes the user config
+(`~/.thinksuit.json`) and `api/console/settings` manages the Console's own settings.
+These touch the filesystem directly; domain data does not.
 
 ### Tech Stack
 - **SvelteKit** - Framework for building the UI

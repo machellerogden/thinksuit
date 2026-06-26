@@ -116,18 +116,21 @@ switches sessions.
   fired name — conversation word → capture→turn, command word → local control.
   This is the voice analog of the REPL's `:`-prefixed commands and resolves the
   session-switch wakeword that was previously TBD.
-- **Session routing (current behavior).** The daemon holds one in-memory
-  `lastSessionId`: the first wake creates a new broker session; later wakes
-  continue it (context accumulates). It is not persisted — a daemon restart
-  starts fresh. Starting/switching sessions is the job of the command layer
-  above. The voice session is an ordinary broker session, observable and
-  attachable from the CLI (`ps`) and console.
+- **Session routing (current behavior).** Each wakeword carries an action binding —
+  `converse` continues the current session (context accumulates); `new` starts a
+  fresh one. A durable **home thread** is pinned in config (`mainSessionId`) and
+  resumed across restarts, so "hey thinksuit" returns to the same seat; a `new`
+  thread never overwrites it. The voice session is an ordinary broker session,
+  observable and attachable from the CLI (`ps`) and console.
 - **Voice config lives in the thinksuit config under a `voice` namespace**
-  (`voice.wake` / `voice.stt` / `voice.tts`), validated by `config.v1.json` and
-  surfaced through `buildConfig().voice`. The daemon reads it via
-  `loadVoiceConfig(base.voice, overrides)` — layered defaults < file < overrides.
-  Device selection is `voice.wake.deviceId`; the old `THINKSUIT_VOICE_DEVICE` env
-  override is removed.
+  (`voice.input` / `voice.wakewords` / `voice.capture` / `voice.cues` / `voice.stt`
+  / `voice.tts`), validated by `config.v1.json` and surfaced through
+  `buildConfig().voice`. The daemon reads it via `loadVoiceConfig(base.voice,
+  overrides)` — layered defaults < file < overrides. Per-wakeword settings live
+  under `voice.wakewords.<name>` (the retired `voice.wake` section is gone). Device
+  selection is by name — `voice.input.deviceName` (with `deviceId` fallback), and an
+  absent device falls back to the system default; the old `THINKSUIT_VOICE_DEVICE`
+  env override is removed. The durable home thread is the top-level `mainSessionId`.
 - **Transcription post-processing is an optional stage** between STT and the
   turn. The raw transcript may be passed through an LLM with custom instructions
   to clean/reformat it before it becomes the turn input (the author's habit:
@@ -158,9 +161,11 @@ switches sessions.
 ## Open (deliberately deferred — decide at the relevant iteration)
 
 - **TTS beyond `say`** — which cloud provider, and its key path.
-- **Config surface details (remaining)** — the base shape (`voice.wake/stt/tts`)
-  now loads from the thinksuit config; still open: multi-wake-word selection
-  shape and the post-processing config block, settled at their iterations.
+- **Config surface details (remaining)** — the base shape (`voice.input`,
+  `voice.wakewords`, `voice.stt`, `voice.tts`) loads from the thinksuit config, and
+  multi-wakeword selection is settled (`voice.wakewords.<name>` with per-word
+  `enabled` / `binding` / `threshold` / `current`). Still open: the post-processing
+  config block.
 - **Command wake-word vocabulary + thresholds** — which control phrases, each
   trained as its own word, and per-word detection thresholds.
 

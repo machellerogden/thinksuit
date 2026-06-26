@@ -1,7 +1,10 @@
 # ThinkSuit Execution Broker — Natural Language Specification
 
-**Status:** Draft
-**Date:** 2026-06-18
+**Status:** Implemented — this design has shipped as the `thinksuit-broker` package.
+Retained as design rationale; for current behavior see
+[`packages/thinksuit-broker/README.md`](packages/thinksuit-broker/README.md) and
+[`docs/architecture-overview.md`](docs/architecture-overview.md).
+**Date:** 2026-06-18 (spec)
 **Scope:** The execution/process *backbone* of ThinkSuit. Not its control-flow
 orchestration (ASL/rules), not its module/cognition layer.
 
