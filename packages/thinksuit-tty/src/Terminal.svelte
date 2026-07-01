@@ -221,10 +221,10 @@ onDestroy(() => {
                 </p>
                 <pre class="text-left bg-gray-800 p-4 rounded-lg mt-2 text-sm overflow-x-auto">
 # Check service status
-thinksuit-tty-service-info
+thinkctl status tty
 
 # Start the service
-thinksuit-tty-service-start
+thinkctl start tty
 
 # Or start manually
 node packages/thinksuit-tty/bin/service.mjs</pre>

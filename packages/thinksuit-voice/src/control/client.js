@@ -5,7 +5,7 @@ import http from 'node:http';
 import { resolveControlSocketPath } from '../paths.js';
 
 const VOICE_DOWN_HINT =
-    'ThinkSuit voice daemon is not running. Start it with `thinksuit-voice-service-start` ' +
+    'ThinkSuit voice daemon is not running. Start it with `thinkctl start voice` ' +
     '(or `npm -w thinksuit-voice run dev` for a foreground instance).';
 
 function isVoiceDown(err) {

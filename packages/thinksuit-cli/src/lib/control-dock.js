@@ -13,7 +13,7 @@ export class ControlDock {
     #screen;
     #pasteFilter;
     #currentStatus = '';
-    #currentPreset = ''; // Persistent preset indicator
+    #currentPlan = ''; // Persistent plan indicator
     #currentFrame = '';  // Persistent frame indicator
     #cycleTarget = 'none'; // Which group Ctrl+N/P navigates
     #currentHint = '';
@@ -153,18 +153,18 @@ export class ControlDock {
     #render(inputValue = '') {
         const width = readlineWidth(this.#rl.output);
 
-        // Status line - combine status, preset, and frame (preset first)
+        // Status line - combine status, plan, and frame (plan first)
         // Highlight the active cycle target, show placeholders when nothing selected
         const statusParts = [];
         if (this.#currentStatus) statusParts.push(this.#currentStatus);
 
-        // Preset indicator - show placeholder if none selected
-        const presetText = this.#currentPreset
-            ? `[${this.#currentPreset}]`
-            : this.#cycleTarget === 'preset'
-                ? '◉ Ctrl+N/P to select a preset'
+        // Plan indicator - show placeholder if none selected
+        const planText = this.#currentPlan
+            ? `[${this.#currentPlan}]`
+            : this.#cycleTarget === 'plan'
+                ? '◉ Ctrl+N/P to select a plan'
                 : '○';
-        statusParts.push(this.#cycleTarget === 'preset' ? chalk.cyan(presetText) : chalk.dim.cyan(presetText));
+        statusParts.push(this.#cycleTarget === 'plan' ? chalk.cyan(planText) : chalk.dim.cyan(planText));
 
         // Frame indicator - show placeholder if none selected
         const frameText = this.#currentFrame
@@ -245,18 +245,18 @@ export class ControlDock {
     }
 
     /**
-     * Update preset indicator
+     * Update plan indicator
      */
-    updatePreset(presetName) {
-        this.#currentPreset = presetName;
+    updatePlan(planName) {
+        this.#currentPlan = planName;
         this.#render();
     }
 
     /**
-     * Clear preset indicator
+     * Clear plan indicator
      */
-    clearPreset() {
-        this.#currentPreset = '';
+    clearPlan() {
+        this.#currentPlan = '';
         this.#render();
     }
 

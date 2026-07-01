@@ -56,12 +56,12 @@ export async function* statusCommand(args, session) {
         yield fx('output', `  ${chalk.bold('Frame:')} ${chalk.dim('(none)')}`);
     }
 
-    // Show selected preset
-    if (session.presetCycling?.selectedPlan) {
-        const presetInfo = session.presetCycling.presetList[session.presetCycling.currentIndex];
-        yield fx('output', `  ${chalk.bold('Preset:')} ${presetInfo.name}${presetInfo.description ? ` - ${presetInfo.description}` : ''}`);
+    // Show selected plan
+    if (session.planCycling?.selectedPlan) {
+        const planInfo = session.planCycling.planList[session.planCycling.currentIndex];
+        yield fx('output', `  ${chalk.bold('Plan:')} ${planInfo.name}${planInfo.description ? ` - ${planInfo.description}` : ''}`);
     } else {
-        yield fx('output', `  ${chalk.bold('Preset:')} ${chalk.dim('(auto)')}`);
+        yield fx('output', `  ${chalk.bold('Plan:')} ${chalk.dim('(auto)')}`);
     }
 
     yield fx('output', '');
@@ -194,7 +194,7 @@ export async function* helpCommand(args, session) {
     yield fx('output', '  Regular text sends input to ThinkSuit');
     yield fx('output', '');
     yield fx('output', chalk.bold.cyan('Keyboard Shortcuts:'));
-    yield fx('output', chalk.bold('  Shift+Tab') + ' - Toggle between preset/frame cycling');
+    yield fx('output', chalk.bold('  Shift+Tab') + ' - Toggle between plan/frame cycling');
     yield fx('output', chalk.bold('  Ctrl+N') + ' / ' + chalk.bold('Ctrl+P') + ' - Next/previous in active group');
     yield fx('output', chalk.bold('  Ctrl+C') + ' - Exit (double-press)');
     yield fx('output', chalk.bold('  ESC') + ' - Interrupt execution (when busy) or clear input (double-press)');
@@ -225,10 +225,9 @@ export async function* executeCommand(args, session) {
 
         yield fx('status-show', chalk.dim('⋯ Initializing...'));
 
-        // Determine frame - prefer selected frame from cycling, then fallback to inline config
-        const frame = session.frameCycling?.selectedFrame
-            ? { text: session.frameCycling.selectedFrame.text }
-            : thinkSuit.frame;
+        // Frame rides the contract by NAME/id; the broker resolves it to its text.
+        // Prefer the cycled frame, else the session's initial frame.
+        const frameId = session.frameCycling?.selectedFrame?.id ?? thinkSuit.frame?.id ?? null;
 
         // Serializable run config. The worker loads modules itself from
         // modulesPackage (a string); we never send loaded code over the socket.
@@ -247,9 +246,9 @@ export async function* executeCommand(args, session) {
             policy: thinkSuit.config.policy,
             trace: thinkSuit.config.trace,
             sessionId: thinkSuit.sessionId || undefined,
-            frame: frame || null,
-            ...(session.presetCycling?.selectedPlan && {
-                selectedPlan: session.presetCycling.selectedPlan
+            ...(frameId && { frame: frameId }),
+            ...(session.planCycling?.selectedPlan && {
+                selectedPlan: session.planCycling.selectedPlan
             })
         };
 

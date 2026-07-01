@@ -1,0 +1,11 @@
+{
+  "name": "Chat",
+  "description": "Natural conversation and direct responses",
+  "plan": {
+    "name": "chat",
+    "rationale": "Single turn direct response for conversational interaction",
+    "strategy": "direct",
+    "role": "chat",
+    "lengthLevel": "brief"
+  }
+}

@@ -43,21 +43,18 @@ For complete installation instructions and service management reference, see the
 
 ### Quick Reference
 
-```bash
-# Initialize service (reset logs, bootstrap, start, and tail)
-thinksuit-tty-service-init
+All services are managed through `thinkctl`, the operations control plane:
 
-# Other commands
-thinksuit-tty-service-load      # Register with launchd
-thinksuit-tty-service-unload    # Unregister from launchd
-thinksuit-tty-service-start     # Start/restart service
-thinksuit-tty-service-stop      # Stop gracefully (SIGTERM)
-thinksuit-tty-service-kill      # Force kill (SIGKILL)
-thinksuit-tty-service-logs      # Tail logs
-thinksuit-tty-service-info      # Show service status
+```bash
+thinkctl up tty        # generate the plist + load (bring up)
+thinkctl start tty     # start / restart
+thinkctl stop tty      # stop gracefully (SIGTERM)
+thinkctl status tty    # launchd state + PID
+thinkctl logs tty      # tail logs
+thinkctl down tty      # unload + uninstall
 ```
 
-**Note:** Commands are available globally after running `npm -w thinksuit-tty link` from the monorepo root.
+The daemon also stays runnable directly for debugging: `node bin/service.mjs`.
 
 ## Architecture
 
@@ -78,12 +75,12 @@ thinksuit-tty/
 │   └── index.css          # Styles
 ├── server/
 │   └── index.mjs          # WebSocket server
-├── bin/
-│   ├── service.mjs        # Service entry point
-│   └── service.*.sh       # Service control scripts
-└── etc/
-    └── thinksuit-tty.service.plist.template  # macOS LaunchAgent template (rendered by scripts/install-macos.mjs)
+└── bin/
+    └── service.mjs        # Service entry point (managed by thinkctl; plist generated in code)
 ```
+
+The LaunchAgent plist is generated in code by `thinkctl` from `service.js`; see the
+[Service Management Guide](../../docs/SERVICE_MANAGEMENT.md).
 
 ## Exports
 

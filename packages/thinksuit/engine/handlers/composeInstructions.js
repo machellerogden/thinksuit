@@ -87,6 +87,7 @@ export async function composeInstructionsCore(input, machineContext) {
     const frame = input.context?.frame || null;
     const modality = input.context?.modality || null;
     const cwd = input.context?.cwd || null;
+    const workdir = input.context?.workdir || null;
     const logger = machineContext.execLogger;
     const module = machineContext?.module;
 
@@ -129,7 +130,7 @@ export async function composeInstructionsCore(input, machineContext) {
     }
 
     // Call module's composition logic
-    const moduleResult = await module.composeInstructions({ plan, factMap, thread, input: userInput, frame, modality, compositionType, cwd }, module);
+    const moduleResult = await module.composeInstructions({ plan, factMap, thread, input: userInput, frame, modality, compositionType, cwd, workdir }, module);
 
     // Validate the module returned the expected shape
     const validation = validateInstructionsResult(moduleResult);

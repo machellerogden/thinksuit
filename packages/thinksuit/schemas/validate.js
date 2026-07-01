@@ -1,11 +1,30 @@
 import factsSchema from './facts.v1.json' with { type: 'json' };
 import planSchema from './plan.v1.json' with { type: 'json' };
-import configSchema from './config.v1.json' with { type: 'json' };
+import userConfigSchema from './userConfig.v1.json' with { type: 'json' };
+import turnRequestSchema from './turnRequest.v1.json' with { type: 'json' };
+import turnResultSchema from './turnResult.v1.json' with { type: 'json' };
 
 import { Validator } from 'jsonschema';
 
 // Create validator instance
 const validator = new Validator();
+
+// Map a jsonschema result into our { valid, errors } shape.
+function toValidationResult(result) {
+    if (result.valid) {
+        return { valid: true };
+    }
+    return {
+        valid: false,
+        errors: result.errors.map((err) => ({
+            message: err.message,
+            property: err.property,
+            stack: err.stack,
+            schema: err.schema,
+            instance: err.instance
+        }))
+    };
+}
 
 /**
  * Validates a fact or array of facts against the facts.v1 schema
@@ -131,38 +150,67 @@ export function assertValidPlan(plan) {
 }
 
 /**
- * Validates a user config object against the config.v1 schema
+ * Validates a user config file object against the userConfig.v1 schema
  * @param {Object} config - User config object to validate
  * @returns {Object} Validation result with { valid: boolean, errors?: Array }
  */
-export function validateConfig(config) {
-    const result = validator.validate(config, configSchema);
-
-    if (result.valid) {
-        return { valid: true };
-    }
-
-    return {
-        valid: false,
-        errors: result.errors.map((err) => ({
-            message: err.message,
-            property: err.property,
-            stack: err.stack,
-            schema: err.schema,
-            instance: err.instance
-        }))
-    };
+export function validateUserConfig(config) {
+    return toValidationResult(validator.validate(config, userConfigSchema));
 }
 
 /**
  * Strict validation that throws on invalid data
- * @param {Object} config - Config to validate
+ * @param {Object} config - User config to validate
  * @throws {Error} If validation fails
  */
-export function assertValidConfig(config) {
-    const result = validateConfig(config);
+export function assertValidUserConfig(config) {
+    const result = validateUserConfig(config);
     if (!result.valid) {
-        throw new Error(`Invalid config: ${formatValidationErrors(result)}`);
+        throw new Error(`Invalid user config: ${formatValidationErrors(result)}`);
     }
     return config;
+}
+
+/**
+ * Validates a turn request (the IN contract) against the turnRequest.v1 schema
+ * @param {Object} request - Turn request to validate
+ * @returns {Object} Validation result with { valid: boolean, errors?: Array }
+ */
+export function validateTurnRequest(request) {
+    return toValidationResult(validator.validate(request, turnRequestSchema));
+}
+
+/**
+ * Strict validation that throws on an invalid turn request
+ * @param {Object} request - Turn request to validate
+ * @throws {Error} If validation fails
+ */
+export function assertValidTurnRequest(request) {
+    const result = validateTurnRequest(request);
+    if (!result.valid) {
+        throw new Error(`Invalid turn request: ${formatValidationErrors(result)}`);
+    }
+    return request;
+}
+
+/**
+ * Validates a turn result (the OUT contract) against the turnResult.v1 schema
+ * @param {Object} result - Turn result to validate
+ * @returns {Object} Validation result with { valid: boolean, errors?: Array }
+ */
+export function validateTurnResult(result) {
+    return toValidationResult(validator.validate(result, turnResultSchema));
+}
+
+/**
+ * Strict validation that throws on an invalid turn result
+ * @param {Object} result - Turn result to validate
+ * @throws {Error} If validation fails
+ */
+export function assertValidTurnResult(result) {
+    const validation = validateTurnResult(result);
+    if (!validation.valid) {
+        throw new Error(`Invalid turn result: ${formatValidationErrors(validation)}`);
+    }
+    return result;
 }

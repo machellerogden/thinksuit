@@ -1,0 +1,11 @@
+{
+  "name": "Synthesize",
+  "description": "Combine and integrate information into coherent output",
+  "plan": {
+    "name": "synthesize",
+    "rationale": "Direct synthesis integrates findings into unified framework. Comprehensive length for thorough presentation",
+    "strategy": "direct",
+    "role": "synthesize",
+    "lengthLevel": "comprehensive"
+  }
+}

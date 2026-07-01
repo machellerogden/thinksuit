@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { validateConfig } from 'thinksuit/schemas/validate';
+import { validateUserConfig } from 'thinksuit/schemas/validate';
 
 const CONFIG_FILE = '.thinksuit.json';
 const getUserConfigPath = () => process.env.THINKSUIT_CONFIG || join(homedir(), CONFIG_FILE);
@@ -26,7 +26,7 @@ export async function GET() {
         const config = JSON.parse(content);
 
         // Validate config against schema
-        const validation = validateConfig(config);
+        const validation = validateUserConfig(config);
 
         return json({
             exists: true,
@@ -75,7 +75,7 @@ export async function PUT({ request }) {
         }
 
         // Validate config against schema BEFORE saving
-        const validation = validateConfig(config);
+        const validation = validateUserConfig(config);
 
         if (!validation.valid) {
             return json({

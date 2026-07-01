@@ -123,7 +123,8 @@ export async function runCycle({
             currentTurnIndex: currentTurnIndex || 1, // Pass current turn index through context
             frame: frame || null, // Pass frame through context
             modality: modality || null, // Pass modality through context (module renders it)
-            cwd: config.cwd || null // Pass working directory for prompt context if configured
+            cwd: config.cwd || null, // Pass the turn's working directory for prompt context
+            workdir: config.workdir || null // Session home base; available to prompts (unused in mu today)
         },
         policy: config.policy || {},
         // Include selected plan if provided

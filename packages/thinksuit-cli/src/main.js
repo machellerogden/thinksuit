@@ -7,7 +7,7 @@ import os from 'node:os';
 import MuteStream from 'mute-stream';
 import chalk from 'chalk';
 import { buildConfig } from '../../thinksuit/engine/config.js';
-import { loadPresets } from '../../thinksuit/presets.js';
+import { loadPlans } from '../../thinksuit/plans.js';
 import { loadFrames, getFrame } from '../../thinksuit/frames.js';
 import pkg from '../package.json' with { type: 'json' };
 
@@ -39,15 +39,15 @@ async function main() {
         modules = defaultModules;
     }
 
-    // Load presets using centralized API (merges module + user presets)
+    // Load plans using centralized API (merges module + user plans)
     const moduleName = baseConfig.module || 'thinksuit/mu';
     const currentModule = modules[moduleName];
-    const presetList = await loadPresets(moduleName, currentModule);
+    const planList = await loadPlans(moduleName, currentModule);
 
-    // Build presets lookup map for preset cycling
-    const presets = {};
-    for (const preset of presetList) {
-        presets[preset.id] = preset;
+    // Build plans lookup map for plan cycling
+    const plans = {};
+    for (const plan of planList) {
+        plans[plan.id] = plan;
     }
 
     // Load frames (merges module frames with user frames)
@@ -153,11 +153,11 @@ async function main() {
                 trace: baseConfig.trace || false
             }
         },
-        presetCycling: {
-            presetList: presetList,
-            presets: presets,
-            currentIndex: -1,  // -1 = auto, 0..N = specific preset
-            selectedPlan: null  // The actual plan object extracted from preset when selected
+        planCycling: {
+            planList: planList,
+            plans: plans,
+            currentIndex: -1,  // -1 = auto, 0..N = specific plan
+            selectedPlan: null  // The execution plan object extracted from the plan when selected
         },
         frameCycling: {
             frameList: frameList,
@@ -165,7 +165,7 @@ async function main() {
             currentIndex: -1,  // -1 = none, 0..N = specific frame
             selectedFrame: null  // The frame object { id, name, text, ... }
         },
-        cycleTarget: 'none'  // 'none', 'preset' or 'frame' - which group Ctrl+N/P navigates
+        cycleTarget: 'none'  // 'none', 'plan' or 'frame' - which group Ctrl+N/P navigates
     };
 
     // Display welcome message
@@ -279,27 +279,27 @@ async function main() {
 
     // Listen for Ctrl+N/P from pasteFilter for cycling (filtered to prevent readline history)
     const handleCycleNavigation = (direction) => {
-        if (session.cycleTarget === 'preset') {
-            const { presetCycling } = session;
-            const totalPresets = presetCycling.presetList.length;
+        if (session.cycleTarget === 'plan') {
+            const { planCycling } = session;
+            const totalPlans = planCycling.planList.length;
 
-            if (totalPresets === 0) return;
+            if (totalPlans === 0) return;
 
-            presetCycling.currentIndex = presetCycling.currentIndex + direction;
-            if (presetCycling.currentIndex < -1) {
-                presetCycling.currentIndex = totalPresets - 1;
-            } else if (presetCycling.currentIndex >= totalPresets) {
-                presetCycling.currentIndex = -1;
+            planCycling.currentIndex = planCycling.currentIndex + direction;
+            if (planCycling.currentIndex < -1) {
+                planCycling.currentIndex = totalPlans - 1;
+            } else if (planCycling.currentIndex >= totalPlans) {
+                planCycling.currentIndex = -1;
             }
 
-            if (presetCycling.currentIndex === -1) {
-                presetCycling.selectedPlan = null;
-                controlDock.clearPreset();
+            if (planCycling.currentIndex === -1) {
+                planCycling.selectedPlan = null;
+                controlDock.clearPlan();
             } else {
-                const presetInfo = presetCycling.presetList[presetCycling.currentIndex];
-                const preset = presetCycling.presets[presetInfo.id];
-                presetCycling.selectedPlan = preset?.plan;
-                controlDock.updatePreset(presetInfo.name);
+                const planInfo = planCycling.planList[planCycling.currentIndex];
+                const plan = planCycling.plans[planInfo.id];
+                planCycling.selectedPlan = plan?.plan;
+                controlDock.updatePlan(planInfo.name);
             }
         } else {
             const { frameCycling } = session;
@@ -345,14 +345,14 @@ async function main() {
     // Handle keypress events - Shift+Tab toggles target, ESC for interrupt/clear
     // Note: Ctrl+N/P handled via pasteFilter events to prevent readline history interference
     pasteFilter.on('keypress', (char, key) => {
-        // Shift+Tab - cycle through preset, frame, none
+        // Shift+Tab - cycle through plan, frame, none
         if (key && key.name === 'tab' && key.shift) {
-            if (session.cycleTarget === 'preset') {
+            if (session.cycleTarget === 'plan') {
                 session.cycleTarget = 'frame';
             } else if (session.cycleTarget === 'frame') {
                 session.cycleTarget = 'none';
             } else {
-                session.cycleTarget = 'preset';
+                session.cycleTarget = 'plan';
             }
             controlDock.updateCycleTarget(session.cycleTarget);
             return;

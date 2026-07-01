@@ -2,7 +2,7 @@ import http from 'node:http';
 import { resolveSocketPath } from './paths.js';
 
 const BROKER_DOWN_HINT =
-    'ThinkSuit broker is not running. Start it with `thinksuit-broker-service-start` ' +
+    'ThinkSuit broker is not running. Start it with `thinkctl start broker` ' +
     '(or `npm -w thinksuit-broker run dev` for a foreground instance).';
 
 function isBrokerDown(err) {

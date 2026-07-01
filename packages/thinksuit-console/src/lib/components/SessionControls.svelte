@@ -11,7 +11,7 @@
     let {
         input = $bindable(''),
         trace = $bindable(false),
-        cwd = $bindable(''),
+        workdir = $bindable(''),
         selectedPlan = $bindable(''),
         frame = $bindable({ text: '' }),
         modality = $bindable('text'),
@@ -22,22 +22,22 @@
     } = $props();
 
     let textareaComponent = $state();
-    let selectedPresetId = $state(null);
+    let selectedPlanId = $state(null);
     let isDirty = $state(false);
     let showDirtyConfirmation = $state(false);
-    let pendingPresetId = $state(null);
+    let pendingPlanId = $state(null);
 
-    // Preset display state
-    let presetsExpanded = $state(false);
-    const MAX_VISIBLE_PRESETS = 5;
+    // Plan display state
+    let plansExpanded = $state(false);
+    const MAX_VISIBLE_PLANS = 5;
 
-    // Preset editor modal state
-    let showPresetEditor = $state(false);
-    let presetEditorStack = $state([]);
-    let presetEditorTab = $state('plan-builder'); // Currently only 'plan-builder', expandable
+    // Plan editor modal state
+    let showPlanEditor = $state(false);
+    let planEditorStack = $state([]);
+    let planEditorTab = $state('plan-builder'); // Currently only 'plan-builder', expandable
 
     // Drag and drop state
-    let draggedPresetId = $state(null);
+    let draggedPlanId = $state(null);
 
     // Frame state
     let allFrames = $state([]);
@@ -81,27 +81,40 @@
     let isLoadingPreview = $state(false);
     let previewError = $state(null);
 
-    // Preset loading state
-    let allPresets = $state([]);
-    let userPresets = $state([]);
-    let isLoadingPresets = $state(false);
+    // Plan loading state
+    let allPlans = $state([]);
+    let userPlans = $state([]);
+    let isLoadingPlans = $state(false);
 
     // Available tools for plan generation
     let availableTools = $state([]);
 
-    // Save preset state
+    // Save plan state
     let showSaveDialog = $state(false);
-    let newPresetName = $state('');
-    let newPresetDescription = $state('');
+    let newPlanName = $state('');
+    let newPlanDescription = $state('');
     let saveError = $state(null);
-    let isSavingPreset = $state(false);
+    let isSavingPlan = $state(false);
 
     const session = getSession();
 
-    // Sort presets by user-defined order
-    const sortedPresets = $derived.by(() => {
-        const order = ui.presetOrder || [];
-        return [...allPresets].sort((a, b) => {
+    // workdir is fixed for a session's lifetime: editable while the session is new
+    // (no turns yet), read-only once it exists.
+    const workdirLocked = $derived(session.entries.length > 0);
+
+    // Derive a human-meaningful filename address from a display name.
+    function slugify(name) {
+        return (name || '')
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+    }
+
+    // Sort plans by user-defined order
+    const sortedPlans = $derived.by(() => {
+        const order = ui.planOrder || [];
+        return [...allPlans].sort((a, b) => {
             const aIndex = order.indexOf(a.name);
             const bIndex = order.indexOf(b.name);
             if (aIndex === -1 && bIndex === -1) return 0;
@@ -111,11 +124,11 @@
         });
     });
 
-    const visiblePresets = $derived(
-        presetsExpanded ? sortedPresets : sortedPresets.slice(0, MAX_VISIBLE_PRESETS)
+    const visiblePlans = $derived(
+        plansExpanded ? sortedPlans : sortedPlans.slice(0, MAX_VISIBLE_PLANS)
     );
 
-    const hasMorePresets = $derived(sortedPresets.length > MAX_VISIBLE_PRESETS);
+    const hasMorePlans = $derived(sortedPlans.length > MAX_VISIBLE_PLANS);
 
     // Sort frames by user-defined order
     const sortedFrames = $derived.by(() => {
@@ -142,21 +155,21 @@
         return f ? f.name : null;
     });
 
-    // Fetch module metadata, presets, frames, and tools on mount
+    // Fetch module metadata, plans, frames, and tools on mount
     onMount(async () => {
-        isLoadingPresets = true;
+        isLoadingPlans = true;
         try {
             const metadataResponse = await fetch('/api/module/metadata');
             if (metadataResponse.ok) {
                 moduleMetadata = await metadataResponse.json();
                 const currentModule = `${moduleMetadata.namespace}/${moduleMetadata.name}`;
 
-                // Load presets
-                const presetsResponse = await fetch(`/api/presets?module=${encodeURIComponent(currentModule)}`);
-                if (presetsResponse.ok) {
-                    const { presets } = await presetsResponse.json();
-                    allPresets = presets;
-                    userPresets = presets.filter(p => p.source === 'user');
+                // Load plans
+                const plansResponse = await fetch(`/api/plans?module=${encodeURIComponent(currentModule)}`);
+                if (plansResponse.ok) {
+                    const { plans } = await plansResponse.json();
+                    allPlans = plans;
+                    userPlans = plans.filter(p => p.source === 'user');
                 }
 
                 // Load frames (merges module frames with user frames)
@@ -176,54 +189,54 @@
                 }));
             }
         } catch (error) {
-            console.error('Failed to load presets, frames, or tools:', error);
+            console.error('Failed to load plans, frames, or tools:', error);
         } finally {
-            isLoadingPresets = false;
+            isLoadingPlans = false;
         }
     });
 
     // Drag and drop handlers
-    function handleDragStart(e, presetId) {
-        draggedPresetId = presetId;
+    function handleDragStart(e, planId) {
+        draggedPlanId = planId;
         e.dataTransfer.effectAllowed = 'move';
     }
 
-    function handleDragOver(e, targetPresetId) {
+    function handleDragOver(e, targetPlanId) {
         e.preventDefault();
-        if (draggedPresetId === targetPresetId) return;
+        if (draggedPlanId === targetPlanId) return;
 
-        const order = ui.presetOrder?.length
-            ? [...ui.presetOrder]
-            : sortedPresets.map(p => p.name);
+        const order = ui.planOrder?.length
+            ? [...ui.planOrder]
+            : sortedPlans.map(p => p.name);
 
-        const draggedName = allPresets.find(p => p.id === draggedPresetId)?.name;
-        const targetName = allPresets.find(p => p.id === targetPresetId)?.name;
+        const draggedName = allPlans.find(p => p.id === draggedPlanId)?.name;
+        const targetName = allPlans.find(p => p.id === targetPlanId)?.name;
 
         if (!draggedName || !targetName) return;
 
         const fromIndex = order.indexOf(draggedName);
         const toIndex = order.indexOf(targetName);
 
-        // If preset not in order array yet, add all presets first
+        // If plan not in order array yet, add all plans first
         if (fromIndex === -1 || toIndex === -1) {
-            const fullOrder = sortedPresets.map(p => p.name);
+            const fullOrder = sortedPlans.map(p => p.name);
             const newFromIndex = fullOrder.indexOf(draggedName);
             const newToIndex = fullOrder.indexOf(targetName);
             if (newFromIndex !== -1 && newToIndex !== -1) {
                 fullOrder.splice(newFromIndex, 1);
                 fullOrder.splice(newToIndex, 0, draggedName);
-                ui.presetOrder = fullOrder;
+                ui.planOrder = fullOrder;
             }
             return;
         }
 
         order.splice(fromIndex, 1);
         order.splice(toIndex, 0, draggedName);
-        ui.presetOrder = order;
+        ui.planOrder = order;
     }
 
     function handleDragEnd() {
-        draggedPresetId = null;
+        draggedPlanId = null;
     }
 
     // Frame drag and drop handlers
@@ -346,7 +359,7 @@
         saveFrameError = null;
 
         try {
-            const frameId = `frame-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            const frameId = slugify(newFrameName) || `frame-${Date.now()}`;
 
             const newFrame = {
                 id: frameId,
@@ -444,10 +457,10 @@
         }
     });
 
-    // Preset editor modal
-    function openPresetEditor() {
-        presetEditorStack = [{ title: 'Preset Editor', type: 'main', data: null }];
-        showPresetEditor = true;
+    // Plan editor modal
+    function openPlanEditor() {
+        planEditorStack = [{ title: 'Plan Editor', type: 'main', data: null }];
+        showPlanEditor = true;
     }
 
     // Generate plan from LLM description
@@ -517,10 +530,10 @@
         }
     }
 
-    // Handle preset selection
-    function selectPreset(presetId) {
-        if (selectedPresetId === presetId) {
-            selectedPresetId = null;
+    // Handle plan selection
+    function selectPlan(planId) {
+        if (selectedPlanId === planId) {
+            selectedPlanId = null;
             selectedPlan = '';
             lastLoadedPlan = '';
             llmDescription = '';
@@ -529,34 +542,34 @@
         }
 
         if (isDirty) {
-            pendingPresetId = presetId;
+            pendingPlanId = planId;
             showDirtyConfirmation = true;
             return;
         }
 
-        loadPreset(presetId);
+        loadPlan(planId);
     }
 
-    function loadPreset(presetId) {
-        const preset = allPresets.find(p => p.id === presetId);
-        if (preset) {
-            selectedPresetId = presetId;
-            selectedPlan = JSON.stringify(preset.plan, null, 2);
+    function loadPlan(planId) {
+        const plan = allPlans.find(p => p.id === planId);
+        if (plan) {
+            selectedPlanId = planId;
+            selectedPlan = JSON.stringify(plan.plan, null, 2);
             lastLoadedPlan = selectedPlan;
             isDirty = false;
         }
     }
 
-    function confirmLoadPreset() {
-        if (pendingPresetId) {
-            loadPreset(pendingPresetId);
-            pendingPresetId = null;
+    function confirmLoadPlan() {
+        if (pendingPlanId) {
+            loadPlan(pendingPlanId);
+            pendingPlanId = null;
         }
         showDirtyConfirmation = false;
     }
 
-    function cancelLoadPreset() {
-        pendingPresetId = null;
+    function cancelLoadPlan() {
+        pendingPlanId = null;
         showDirtyConfirmation = false;
     }
 
@@ -565,15 +578,15 @@
             saveError = 'No plan to save';
             return;
         }
-        newPresetName = '';
-        newPresetDescription = '';
+        newPlanName = '';
+        newPlanDescription = '';
         saveError = null;
         showSaveDialog = true;
     }
 
-    async function savePreset() {
-        if (!newPresetName.trim()) {
-            saveError = 'Preset name is required';
+    async function savePlan() {
+        if (!newPlanName.trim()) {
+            saveError = 'Plan name is required';
             return;
         }
 
@@ -582,93 +595,93 @@
             return;
         }
 
-        isSavingPreset = true;
+        isSavingPlan = true;
         saveError = null;
 
         try {
             const plan = JSON.parse(selectedPlan);
-            const presetId = `preset-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            const planId = slugify(newPlanName) || `plan-${Date.now()}`;
 
-            const newPreset = {
-                id: presetId,
-                name: newPresetName.trim(),
-                description: newPresetDescription.trim(),
+            const newPlan = {
+                id: planId,
+                name: newPlanName.trim(),
+                description: newPlanDescription.trim(),
                 plan
             };
 
             const currentModule = `${moduleMetadata.namespace}/${moduleMetadata.name}`;
 
-            const response = await fetch('/api/presets', {
+            const response = await fetch('/api/plans', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     module: currentModule,
-                    preset: newPreset
+                    plan: newPlan
                 })
             });
 
             if (!response.ok) {
-                throw new Error('Failed to save preset');
+                throw new Error('Failed to save plan');
             }
 
-            const presetsResponse = await fetch(`/api/presets?module=${encodeURIComponent(currentModule)}`);
-            if (presetsResponse.ok) {
-                const { presets } = await presetsResponse.json();
-                allPresets = presets;
-                userPresets = presets.filter(p => p.source === 'user');
+            const plansResponse = await fetch(`/api/plans?module=${encodeURIComponent(currentModule)}`);
+            if (plansResponse.ok) {
+                const { plans } = await plansResponse.json();
+                allPlans = plans;
+                userPlans = plans.filter(p => p.source === 'user');
             }
 
             showSaveDialog = false;
-            newPresetName = '';
-            newPresetDescription = '';
+            newPlanName = '';
+            newPlanDescription = '';
         } catch (error) {
             saveError = error.message;
-            console.error('Error saving preset:', error);
+            console.error('Error saving plan:', error);
         } finally {
-            isSavingPreset = false;
+            isSavingPlan = false;
         }
     }
 
-    function cancelSavePreset() {
+    function cancelSavePlan() {
         showSaveDialog = false;
-        newPresetName = '';
-        newPresetDescription = '';
+        newPlanName = '';
+        newPlanDescription = '';
         saveError = null;
     }
 
-    async function deletePreset(presetId) {
-        if (!confirm('Delete this preset?')) {
+    async function deletePlan(planId) {
+        if (!confirm('Delete this plan?')) {
             return;
         }
 
         try {
             const currentModule = `${moduleMetadata.namespace}/${moduleMetadata.name}`;
 
-            const response = await fetch(`/api/presets?module=${encodeURIComponent(currentModule)}&id=${encodeURIComponent(presetId)}`, {
+            const response = await fetch(`/api/plans?module=${encodeURIComponent(currentModule)}&id=${encodeURIComponent(planId)}`, {
                 method: 'DELETE'
             });
 
             if (!response.ok) {
-                throw new Error('Failed to delete preset');
+                throw new Error('Failed to delete plan');
             }
 
-            const presetsResponse = await fetch(`/api/presets?module=${encodeURIComponent(currentModule)}`);
-            if (presetsResponse.ok) {
-                const { presets } = await presetsResponse.json();
-                allPresets = presets;
-                userPresets = presets.filter(p => p.source === 'user');
+            const plansResponse = await fetch(`/api/plans?module=${encodeURIComponent(currentModule)}`);
+            if (plansResponse.ok) {
+                const { plans } = await plansResponse.json();
+                allPlans = plans;
+                userPlans = plans.filter(p => p.source === 'user');
             }
 
-            if (selectedPresetId === presetId) {
-                selectedPresetId = null;
+            if (selectedPlanId === planId) {
+                selectedPlanId = null;
                 selectedPlan = '';
                 lastLoadedPlan = '';
                 llmDescription = '';
                 isDirty = false;
             }
         } catch (error) {
-            console.error('Error deleting preset:', error);
-            alert('Failed to delete preset: ' + error.message);
+            console.error('Error deleting plan:', error);
+            alert('Failed to delete plan: ' + error.message);
         }
     }
 
@@ -676,7 +689,7 @@
     let lastLoadedPlan = $state('');
 
     $effect(() => {
-        if (selectedPresetId && selectedPlan && selectedPlan !== lastLoadedPlan) {
+        if (selectedPlanId && selectedPlan && selectedPlan !== lastLoadedPlan) {
             lastLoadedPlan = selectedPlan;
             isDirty = false;
             return;
@@ -687,8 +700,8 @@
 
         if (hasDescription || planChanged) {
             isDirty = true;
-            if (planChanged && selectedPresetId) {
-                selectedPresetId = null;
+            if (planChanged && selectedPlanId) {
+                selectedPlanId = null;
             }
         } else {
             isDirty = false;
@@ -912,7 +925,7 @@
             </Button>
         </div>
 
-        <!-- RIGHT COLUMN: Presets (spans both rows) -->
+        <!-- RIGHT COLUMN: Plans (spans both rows) -->
         <div class="lg:col-span-4 lg:row-span-2 border rounded-lg border-indigo-800/16 bg-linear-to-r/decreasing from-indigo-500/3 to-violet-400/3 p-4 space-y-4">
             <!-- Plan Status -->
             <div class="text-xs text-gray-600 font-mono p-2 bg-white/50 rounded border border-gray-200/50">
@@ -923,14 +936,14 @@
                 {/if}
             </div>
 
-            <!-- Preset Selection -->
+            <!-- Plan Selection -->
             <div class="space-y-2">
                 <div class="flex items-center justify-between">
-                    <span class="text-xs font-medium text-gray-700">Presets</span>
-                    {#if presetsExpanded}
+                    <span class="text-xs font-medium text-gray-700">Plans</span>
+                    {#if plansExpanded}
                         <button
                             type="button"
-                            onclick={() => presetsExpanded = false}
+                            onclick={() => plansExpanded = false}
                             class="text-xs text-indigo-600 hover:text-indigo-800"
                         >
                             Collapse
@@ -938,42 +951,42 @@
                     {/if}
                 </div>
 
-                {#if isLoadingPresets}
+                {#if isLoadingPlans}
                     <div class="text-xs text-gray-500">Loading...</div>
                 {:else}
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {#each visiblePresets as preset (preset.id)}
+                        {#each visiblePlans as plan (plan.id)}
                             <div
-                                class="relative group {visiblePresets.length === 1 ? 'sm:col-span-2' : ''}"
+                                class="relative group {visiblePlans.length === 1 ? 'sm:col-span-2' : ''}"
                                 animate:flip={{ duration: 200 }}
                             >
                                 <button
                                     type="button"
-                                    draggable={presetsExpanded}
-                                    ondragstart={(e) => handleDragStart(e, preset.id)}
-                                    ondragover={(e) => handleDragOver(e, preset.id)}
+                                    draggable={plansExpanded}
+                                    ondragstart={(e) => handleDragStart(e, plan.id)}
+                                    ondragover={(e) => handleDragOver(e, plan.id)}
                                     ondragend={handleDragEnd}
-                                    onclick={() => selectPreset(preset.id)}
+                                    onclick={() => selectPlan(plan.id)}
                                     class="w-full text-left px-3 py-2 text-xs font-medium rounded border transition-colors
-                                        {selectedPresetId === preset.id
+                                        {selectedPlanId === plan.id
                                             ? 'bg-indigo-600 text-white border-indigo-600'
                                             : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'}
-                                        {presetsExpanded ? 'cursor-grab active:cursor-grabbing' : ''}"
+                                        {plansExpanded ? 'cursor-grab active:cursor-grabbing' : ''}"
                                     disabled={isSubmitting}
-                                    title={preset.description}
+                                    title={plan.description}
                                 >
-                                    {preset.name}
+                                    {plan.name}
                                 </button>
-                                {#if preset.source === 'user'}
+                                {#if plan.source === 'user'}
                                     <button
                                         type="button"
                                         onclick={(e) => {
                                             e.stopPropagation();
-                                            deletePreset(preset.id);
+                                            deletePlan(plan.id);
                                         }}
                                         class="absolute top-1 right-1 w-5 h-5 bg-gray-400 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-gray-600"
                                         disabled={isSubmitting}
-                                        title="Delete preset"
+                                        title="Delete plan"
                                     >
                                         &times;
                                     </button>
@@ -981,10 +994,10 @@
                             </div>
                         {/each}
 
-                        {#if hasMorePresets && !presetsExpanded}
+                        {#if hasMorePlans && !plansExpanded}
                             <button
                                 type="button"
-                                onclick={() => presetsExpanded = true}
+                                onclick={() => plansExpanded = true}
                                 class="w-full text-center px-3 py-2 text-xs text-gray-500 hover:text-indigo-600 border border-dashed border-gray-300 rounded hover:border-indigo-400 transition-colors"
                             >
                                 &hellip;
@@ -994,14 +1007,14 @@
                 {/if}
             </div>
 
-            <!-- Create/Edit Preset Button -->
+            <!-- Create/Edit Plan Button -->
             <button
                 type="button"
-                onclick={openPresetEditor}
+                onclick={openPlanEditor}
                 class="w-full px-3 py-2 text-xs font-medium rounded border border-indigo-300 text-indigo-600 hover:bg-indigo-50 transition-colors"
                 disabled={isSubmitting}
             >
-                {selectedPresetId ? 'Edit Preset' : 'Create Preset'}
+                {selectedPlanId ? 'Edit Plan' : 'Create Plan'}
             </button>
         </div>
 
@@ -1009,13 +1022,14 @@
         <div class="lg:col-span-5 lg:col-start-4 border rounded-lg border-indigo-800/16 bg-linear-to-r/decreasing from-indigo-500/3 to-violet-400/3 p-4">
             <div class="flex items-center gap-4">
                 <div class="flex items-center gap-3 flex-1">
-                    <label for="cwd" class="text-xs font-medium font-mono text-gray-700 whitespace-nowrap">CWD</label>
+                    <label for="workdir" class="text-xs font-medium font-mono text-gray-700 whitespace-nowrap">WORKDIR</label>
                     <Input
-                        id="cwd"
-                        bind:value={cwd}
+                        id="workdir"
+                        bind:value={workdir}
                         size="sm"
                         placeholder="/path/to/project"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || workdirLocked}
+                        title={workdirLocked ? 'Workdir is fixed for the life of this session' : 'Home-base directory for this session'}
                         class="flex-1"
                     />
                 </div>
@@ -1030,17 +1044,17 @@
     </div>
 </form>
 
-<!-- Preset Editor Drilldown Modal -->
-<DrilldownModal bind:open={showPresetEditor} bind:stack={presetEditorStack}>
-    {#if presetEditorStack[presetEditorStack.length - 1]?.type === 'main'}
+<!-- Plan Editor Drilldown Modal -->
+<DrilldownModal bind:open={showPlanEditor} bind:stack={planEditorStack}>
+    {#if planEditorStack[planEditorStack.length - 1]?.type === 'main'}
         <!-- Tab Bar -->
         <div class="border-b border-gray-200 mb-6">
             <nav class="flex gap-4">
                 <button
                     type="button"
-                    onclick={() => presetEditorTab = 'plan-builder'}
+                    onclick={() => planEditorTab = 'plan-builder'}
                     class="pb-2 text-sm font-medium border-b-2 transition-colors
-                        {presetEditorTab === 'plan-builder'
+                        {planEditorTab === 'plan-builder'
                             ? 'border-indigo-600 text-indigo-600'
                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
                 >
@@ -1050,7 +1064,7 @@
             </nav>
         </div>
 
-        {#if presetEditorTab === 'plan-builder'}
+        {#if planEditorTab === 'plan-builder'}
             <div class="space-y-6">
                 <!-- LLM Description -->
                 <div class="space-y-3">
@@ -1150,10 +1164,10 @@
                     {/if}
                 </div>
 
-                <!-- Save as Preset -->
+                <!-- Save as Plan -->
                 <div class="pt-4 border-t">
                     <Button variant="outline" size="sm" onclick={openSaveDialog}>
-                        Save as Preset
+                        Save as Plan
                     </Button>
                 </div>
             {/if}
@@ -1294,57 +1308,57 @@
     {#snippet children()}
         <div class="space-y-4">
             <p class="text-sm text-gray-700">
-                You have unsaved changes to your current plan. Loading a preset will discard these changes.
+                You have unsaved changes to your current plan. Loading a plan will discard these changes.
             </p>
             <div class="flex justify-end gap-2">
                 <Button
                     variant="outline"
                     size="sm"
-                    onclick={cancelLoadPreset}
+                    onclick={cancelLoadPlan}
                 >
                     Cancel
                 </Button>
                 <Button
                     variant="danger"
                     size="sm"
-                    onclick={confirmLoadPreset}
+                    onclick={confirmLoadPlan}
                 >
-                    Load Preset Anyway
+                    Load Plan Anyway
                 </Button>
             </div>
         </div>
     {/snippet}
 </Modal>
 
-<!-- Save Preset Modal -->
+<!-- Save Plan Modal -->
 <Modal
     bind:open={showSaveDialog}
-    title="Save Plan as Preset"
+    title="Save as Plan"
 >
     {#snippet children()}
         <div class="space-y-4">
             <div class="space-y-2">
-                <label for="preset-name" class="text-sm font-medium text-gray-700">
-                    Preset Name
+                <label for="plan-name" class="text-sm font-medium text-gray-700">
+                    Plan Name
                 </label>
                 <Input
-                    id="preset-name"
-                    bind:value={newPresetName}
+                    id="plan-name"
+                    bind:value={newPlanName}
                     placeholder="e.g., My Custom Workflow"
-                    disabled={isSavingPreset}
+                    disabled={isSavingPlan}
                 />
             </div>
 
             <div class="space-y-2">
-                <label for="preset-description" class="text-sm font-medium text-gray-700">
+                <label for="plan-description" class="text-sm font-medium text-gray-700">
                     Description (optional)
                 </label>
                 <Textarea
-                    id="preset-description"
-                    bind:value={newPresetDescription}
+                    id="plan-description"
+                    bind:value={newPlanDescription}
                     rows={3}
-                    placeholder="Describe what this preset does..."
-                    disabled={isSavingPreset}
+                    placeholder="Describe what this plan does..."
+                    disabled={isSavingPlan}
                 />
             </div>
 
@@ -1358,18 +1372,18 @@
                 <Button
                     variant="outline"
                     size="sm"
-                    onclick={cancelSavePreset}
-                    disabled={isSavingPreset}
+                    onclick={cancelSavePlan}
+                    disabled={isSavingPlan}
                 >
                     Cancel
                 </Button>
                 <Button
                     variant="primary"
                     size="sm"
-                    onclick={savePreset}
-                    disabled={isSavingPreset || !newPresetName.trim()}
+                    onclick={savePlan}
+                    disabled={isSavingPlan || !newPlanName.trim()}
                 >
-                    {isSavingPreset ? 'Saving...' : 'Save Preset'}
+                    {isSavingPlan ? 'Saving...' : 'Save Plan'}
                 </Button>
             </div>
         </div>

@@ -69,6 +69,14 @@ npm -w thinksuit-console install some-package
 - `engine/sessions.js` - Session query API (`listSessions`, `getSession`, etc.)
 - `engine/runCycle.js` - Pure function for executing cycles (internal)
 
+**Turn contract**: the turn boundary is schema-declared and validated at the entry
+doors — `schemas/turnRequest.v1.json` (what a caller sends, validated via
+`assertValidTurnRequest`) and `schemas/turnResult.v1.json` (what a caller gets).
+The durable user file is the separate `schemas/userConfig.v1.json`. `workdir` is
+session state fixed at session creation (default: the directory the command was run
+from); `cwd` is the per-turn working dir defaulting to `workdir`; `allowedDirectories`
+is the fence, defaulting to `[workdir]`.
+
 ### ThinkSuit Console (`packages/thinksuit-console/`)
 
 **Tech Stack**: SvelteKit, Svelte 5 (with runes), Tailwind CSS v4

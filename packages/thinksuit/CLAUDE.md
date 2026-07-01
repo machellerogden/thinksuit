@@ -81,6 +81,32 @@ console.log(result.response);
 
 **Note**: `run()` is an internal function, use `schedule()` as the primary API
 
+### Turn contract (in / out)
+
+The turn boundary is a declared, schema-validated contract — the source of truth is
+the schemas, not prose:
+
+- **`turnRequest`** (`schemas/turnRequest.v1.json`) — what a caller sends. Validated
+  at the two entry doors (`engine/execute.js` for in-process `thinksuit-exec`, and
+  `thinksuit-broker/src/worker.js` for everything that runs through the broker:
+  console, MCP, `thinksuit run`, REPL, voice) via `assertValidTurnRequest`. Only
+  surface fields — no secrets or runtime handles.
+- **`turnResult`** (`schemas/turnResult.v1.json`) — what a caller gets back
+  (`formatFinalResult`). Locked by a conformance test, not a per-turn runtime gate.
+- **`userConfig`** (`schemas/userConfig.v1.json`) — the durable `~/.thinksuit.json`
+  file. Distinct from the turn; validated on load.
+
+**Directories.** `workdir` is **session state, fixed at creation** — a session gets
+one home-base directory for its lifetime; to work somewhere else, start a new
+session (the `provisionWorkspace` reject-on-mismatch enforces "set once"). It rides
+in `turnRequest` only because sessions are created lazily on the first turn. Default:
+the directory the command was summoned in (same rule for `thinksuit-exec`,
+`thinksuit run`, REPL); a fresh workspace is provisioned only when there's no summon
+location. `cwd` is the per-turn, caller-owned working directory (input + output),
+defaulting to `workdir` and seeding the MCP spawn cwd + the prompt. `allowedDirectories`
+is the fence (filesystem roots), defaulting to `[workdir]`; `workdir` itself is owned
+space, not a fence.
+
 ### Session Query API
 
 See `engine/sessions.js` for:

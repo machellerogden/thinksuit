@@ -18,18 +18,8 @@
         ".": "./lib/index.js",
         "./Terminal.svelte": "./lib/Terminal.svelte",
         "./server": "./server/index.mjs",
+        "./service": "./service.js",
         "./style.css": "./lib/index.css"
-    },
-    "bin": {
-        "thinksuit-tty-service": "bin/service.mjs",
-        "thinksuit-tty-service-init": "bin/service.init.sh",
-        "thinksuit-tty-service-load": "bin/service.load.sh",
-        "thinksuit-tty-service-unload": "bin/service.unload.sh",
-        "thinksuit-tty-service-start": "bin/service.start.sh",
-        "thinksuit-tty-service-stop": "bin/service.stop.sh",
-        "thinksuit-tty-service-kill": "bin/service.kill.sh",
-        "thinksuit-tty-service-logs": "bin/service.logs.sh",
-        "thinksuit-tty-service-info": "bin/service.info.sh"
     },
     "scripts": {
         "prepare": "npm run build",

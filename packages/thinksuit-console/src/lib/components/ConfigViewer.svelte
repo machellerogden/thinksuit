@@ -234,11 +234,21 @@
                     </Card>
                 {/if}
 
-                <!-- Working Directory -->
+                <!-- Workdir (session home base) -->
+                {#if config.workdir}
+                    <Card>
+                        <div class="p-3">
+                            <h2 class="text-sm font-semibold mb-3 text-gray-700">Workdir (session home base)</h2>
+                            <code class="text-sm bg-gray-100 p-2 rounded block">{config.workdir}</code>
+                        </div>
+                    </Card>
+                {/if}
+
+                <!-- Working Directory (legacy cwd) -->
                 {#if config.cwd}
                     <Card>
                         <div class="p-3">
-                            <h2 class="text-sm font-semibold mb-3 text-gray-700">Working Directory</h2>
+                            <h2 class="text-sm font-semibold mb-3 text-gray-700">Working Directory (legacy)</h2>
                             <code class="text-sm bg-gray-100 p-2 rounded block">{config.cwd}</code>
                         </div>
                     </Card>

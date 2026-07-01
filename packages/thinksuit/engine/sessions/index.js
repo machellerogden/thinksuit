@@ -594,8 +594,25 @@ export async function provisionWorkspace(sessionId, { workdir, baseCwd } = {}) {
     const wsPath = getWorkspaceDir(sessionId);
 
     // Already provisioned (subsequent turn / pre-existing session): reuse it.
+    // workdir is immutable for a session's lifetime — if a later turn names a
+    // different one, reject rather than silently ignore it.
     if (await exists(wsPath)) {
-        return realpath(wsPath);
+        const existing = await realpath(wsPath);
+        if (workdir) {
+            const requested = resolve(baseCwd || process.cwd(), workdir);
+            let requestedReal = requested;
+            try {
+                requestedReal = await realpath(requested);
+            } catch {
+                // requested target doesn't resolve yet; compare the literal path
+            }
+            if (requestedReal !== existing) {
+                throw new Error(
+                    `workdir is fixed for this session (${existing}); cannot change to ${requestedReal}`
+                );
+            }
+        }
+        return existing;
     }
 
     await mkdir(dirname(wsPath), { recursive: true });

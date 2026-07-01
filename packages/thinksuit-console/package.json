@@ -18,16 +18,8 @@
         "url": "https://github.com/machellerogden/thinksuit/issues"
     },
     "homepage": "https://github.com/machellerogden/thinksuit/tree/main/packages/thinksuit-console#readme",
-    "bin": {
-        "thinksuit-console-service": "./bin/service.mjs",
-        "thinksuit-console-service-init": "./bin/service.init.sh",
-        "thinksuit-console-service-load": "./bin/service.load.sh",
-        "thinksuit-console-service-unload": "./bin/service.unload.sh",
-        "thinksuit-console-service-start": "./bin/service.start.sh",
-        "thinksuit-console-service-stop": "./bin/service.stop.sh",
-        "thinksuit-console-service-kill": "./bin/service.kill.sh",
-        "thinksuit-console-service-logs": "./bin/service.logs.sh",
-        "thinksuit-console-service-info": "./bin/service.info.sh"
+    "exports": {
+        "./service": "./service.js"
     },
     "scripts": {
         "dev": "vite dev",

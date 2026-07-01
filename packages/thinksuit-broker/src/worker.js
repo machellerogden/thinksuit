@@ -34,9 +34,45 @@ import {
     resolveSecret
 } from 'thinksuit';
 import { modules as defaultModules } from 'thinksuit-modules';
+import { assertValidTurnRequest } from 'thinksuit/schemas/validate';
+import { getFrame } from 'thinksuit/frames';
 
 let interruptFn = null;
 let started = false;
+
+// Project the serializable broker payload down to the surface turnRequest for
+// validation. Transport bits the worker needs (modulesPackage, workdir,
+// providerConfig) are intentionally excluded — they are not part of the contract.
+// The allow-list rides as `allowedTools` on the wire but is `tools` in the contract.
+function toTurnRequest(config) {
+    const r = {};
+    const tools = config.tools ?? config.allowedTools;
+    const surface = {
+        input: config.input,
+        sessionId: config.sessionId,
+        module: config.module,
+        provider: config.provider,
+        model: config.model,
+        policy: config.policy,
+        plan: config.plan,
+        frame: config.frame,
+        modality: config.modality,
+        tools,
+        workdir: config.workdir,
+        cwd: config.cwd,
+        allowedDirectories: config.allowedDirectories,
+        mcpServers: config.mcpServers,
+        autoApproveTools: config.autoApproveTools,
+        trace: config.trace,
+        output: config.output
+    };
+    for (const [k, v] of Object.entries(surface)) {
+        // Omit null as well as undefined: a nullish optional is "absent", not a
+        // wire value (e.g. the REPL sends `frame: null` for no frame).
+        if (v != null) r[k] = v;
+    }
+    return r;
+}
 
 function send(message) {
     if (process.send) process.send(message);
@@ -106,6 +142,18 @@ async function start(config) {
     if (started) return;
     started = true;
 
+    // Door: validate the turn request (IN contract) before any session work, so a
+    // malformed request fails fast with an actionable error (409 to the client)
+    // rather than a silent half-session.
+    try {
+        assertValidTurnRequest(toTurnRequest(config));
+    } catch (err) {
+        send({ type: 'error', reason: err.message });
+        await flushSafe();
+        process.exit(1);
+        return;
+    }
+
     const provider = config.provider || 'openai';
     const providerConfig = mergeProviderConfig(config.providerConfig);
 
@@ -147,29 +195,42 @@ async function start(config) {
         format: 'json'
     });
 
-    // Determine the sessionId up front (schedule would otherwise generate it) so
-    // we can provision the workspace and anchor execution in it BEFORE the run
-    // starts. `workdir` binds an explicit dir (resolved against the client's
-    // invocation cwd); absent it, a fresh per-session workspace is provisioned.
-    // Existing sessions reuse their workspace. The resolved workspace becomes the
-    // engine `cwd`, which drives allowedDirectories + the filesystem MCP roots.
+    // Determine the sessionId up front (schedule would otherwise generate it) so we
+    // can provision the workspace BEFORE the run starts. `workdir` is the session's
+    // owned home base; it defaults to the client's invocation directory when not
+    // given, binds an explicit dir, or reuses an existing session's (rejecting a
+    // mismatch). The resolved workspace is the engine `workdir`; the turn's `cwd`
+    // defaults to it in normalizeConfig, which drives allowedDirectories + MCP roots.
     const sessionId = config.sessionId || generateId();
     const workspace = await provisionWorkspace(sessionId, {
-        workdir: config.workdir,
+        workdir: config.workdir || config.cwd,
         baseCwd: config.cwd
     });
+
+    // Resolve the frame NAME (contract surface) to the { text } object the engine
+    // consumes. execute.js does this at its door; the broker door must too, or
+    // frames silently never apply on this path.
+    let resolvedFrame = null;
+    if (config.frame) {
+        const moduleName = config.module || 'thinksuit/mu';
+        resolvedFrame = await getFrame(config.frame, moduleName, modules[moduleName]);
+        if (!resolvedFrame) {
+            logger.warn({ frame: config.frame }, 'Frame not found; proceeding without it');
+        }
+    }
 
     const scheduleConfig = {
         ...config,
         sessionId,
         provider,
         providerConfig,
-        cwd: workspace,
+        workdir: workspace,
+        frame: resolvedFrame,
         modules,
         logger
     };
     delete scheduleConfig.modulesPackage; // schedule() takes loaded modules, not a path
-    delete scheduleConfig.workdir; // resolved into cwd above
+    delete scheduleConfig.cwd; // the turn's cwd defaults to workdir in normalizeConfig
 
     const { scheduled, isNew, execution, interrupt, reason } = await schedule(scheduleConfig);
 

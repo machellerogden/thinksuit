@@ -48,10 +48,6 @@ export async function GET({ url }) {
             adaptations: Object.keys(module.prompts || {})
                 .filter(key => key.startsWith('adapt.'))
                 .map(key => key.replace('adapt.', '')),
-            // Include presets if available
-            presets: module.presets || {},
-            // Include frames if available
-            frames: module.frames || [],
             // Modality names the module declares (for the voice modality selector)
             modalities: Object.keys(module.modalities || {})
         };

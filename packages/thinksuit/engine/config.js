@@ -9,7 +9,7 @@ import {
     DEFAULT_MODEL,
     DEFAULT_POLICY
 } from './constants/defaults.js';
-import { validateConfig, formatValidationErrors } from '../schemas/validate.js';
+import { validateUserConfig, formatValidationErrors } from '../schemas/validate.js';
 import { resolveSecret } from './secrets/index.js';
 
 import meow from 'meow';
@@ -34,10 +34,11 @@ function parseCLI(argv) {
       --max-fanout       Max parallel branches (default: 3)
       --max-children     Max child operations (default: 5)
       --session-id       Session ID to resume or create
-      --preset           Preset name to use
+      --plan             Plan name to use (from the plans library)
       --frame            Frame name to use
       --modality         Modality name (e.g. 'voice'); module renders it into the prelude
-      --cwd              Working directory for tools (default: current directory)
+      --workdir          Session home-base directory (default: where the command was run)
+      --cwd              Per-turn working directory (default: workdir)
       --allow-tool       Tool to allow (can be specified multiple times)
       --allow-tools      Comma-separated list of tools to allow
       --allow-dir        Directory to allow access to (can be specified multiple times)
@@ -103,9 +104,9 @@ function parseCLI(argv) {
                     type: 'string'
                     // No default - will generate if not provided
                 },
-                preset: {
+                plan: {
                     type: 'string'
-                    // No default - optional preset selection
+                    // No default - optional plan selection from the plans library
                 },
                 frame: {
                     type: 'string'
@@ -121,8 +122,8 @@ function parseCLI(argv) {
                 },
                 workdir: {
                     type: 'string'
-                    // Broker only: bind the session to an existing directory
-                    // (otherwise a fresh per-session workspace is provisioned)
+                    // Session home-base directory; defaults to the invocation dir.
+                    // Immutable for a session's lifetime (a mismatching one is rejected).
                 },
                 allowTool: {
                     type: 'string',
@@ -194,7 +195,7 @@ function loadConfigFile(path) {
         }
 
         // Validate config against schema
-        const validation = validateConfig(parsed);
+        const validation = validateUserConfig(parsed);
         if (!validation.valid) {
             const errorMsg = `Invalid config file "${path}":\n${formatValidationErrors(validation)}`;
             throw new Error(errorMsg);
@@ -367,7 +368,7 @@ function buildConfig(options = {}) {
         },
         trace: cli.flags.trace || fileConfig.trace || defaults.trace,
         sessionId: cli.flags.sessionId || fileConfig.sessionId,
-        preset: cli.flags.preset || fileConfig.preset,
+        plan: cli.flags.plan || fileConfig.plan,
         cwd: cli.flags.cwd || fileConfig.cwd, // No default here
         workdir: cli.flags.workdir || fileConfig.workdir, // Broker: bind session to a dir
         allowedTools: (() => {

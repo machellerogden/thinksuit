@@ -1,0 +1,142 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ThinkSuit Turn Request",
+  "description": "The surface contract for what a caller may send to start a single turn. Names, not resolved objects; no secrets or runtime handles.",
+  "type": "object",
+  "properties": {
+    "input": {
+      "type": "string",
+      "description": "User input text for the turn"
+    },
+    "sessionId": {
+      "type": "string",
+      "description": "Session ID to resume or create"
+    },
+    "module": {
+      "type": "string",
+      "description": "Module to load (e.g., 'thinksuit/mu')"
+    },
+    "provider": {
+      "type": "string",
+      "enum": [
+        "openai",
+        "google",
+        "anthropic",
+        "hugging-face",
+        "onnx"
+      ],
+      "description": "LLM provider / API gateway"
+    },
+    "model": {
+      "type": "string",
+      "description": "Model name (e.g., 'gpt-4o-mini')"
+    },
+    "policy": {
+      "type": "object",
+      "description": "Execution policy limits",
+      "properties": {
+        "maxDepth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Maximum recursion depth"
+        },
+        "maxFanout": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Maximum parallel branches"
+        },
+        "maxChildren": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Maximum child operations"
+        }
+      },
+      "additionalProperties": false
+    },
+    "plan": {
+      "type": "string",
+      "description": "Plan name to use from the plans library"
+    },
+    "frame": {
+      "type": "string",
+      "description": "Frame name to use from the frames library"
+    },
+    "modality": {
+      "type": "string",
+      "description": "Modality name (e.g. 'voice'); the module renders it into the prelude"
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Allow-list of tool names (empty or omitted means all tools allowed)"
+    },
+    "workdir": {
+      "type": "string",
+      "description": "Owned home-base root directory (absolute path). Set when the session is created and immutable for the session's lifetime; a later turn passing a different workdir is rejected. Declares space you own — it does not restrict where the agent may operate (that is allowedDirectories). Defaults cwd and allowedDirectories."
+    },
+    "cwd": {
+      "type": "string",
+      "description": "Working directory for this turn (absolute path) — where the tools run and what the agent is told it is working in. Caller-owned; defaults to workdir when omitted."
+    },
+    "allowedDirectories": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Directory paths the tools may access (absolute)"
+    },
+    "mcpServers": {
+      "type": "object",
+      "description": "MCP server configurations",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string"
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "env": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "command"
+        ]
+      }
+    },
+    "autoApproveTools": {
+      "type": "boolean",
+      "description": "Auto-approve tool calls instead of prompting"
+    },
+    "trace": {
+      "type": "boolean",
+      "description": "Enable execution tracing"
+    },
+    "output": {
+      "type": "string",
+      "enum": [
+        "json",
+        "text",
+        "none"
+      ],
+      "description": "Output format"
+    }
+  },
+  "required": [
+    "input"
+  ],
+  "additionalProperties": false
+}

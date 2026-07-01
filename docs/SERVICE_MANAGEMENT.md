@@ -2,9 +2,14 @@
 
 ThinkSuit's core — the engine, broker, and modules — is platform-agnostic. The long-lived
 processes can be supervised by whatever your operating system provides. This guide covers
-one such path: running them as **macOS LaunchAgents**, which start at login, survive
-reboots, and log to a predictable location. Everything here is local-only; nothing listens
-beyond your machine.
+one such path: running them as **macOS LaunchAgents**, driven by **`thinkctl`**, ThinkSuit's
+operations control plane. They start at login, survive reboots, and log to a predictable
+location. Everything here is local-only; nothing listens beyond your machine.
+
+> **Platform note.** `thinkctl`'s verbs and each package's `service.js` definition are
+> platform-neutral; only the service *backend* (launchd plists + `launchctl`) is
+> macOS-specific. launchd is the only backend today — Linux (systemd) and Windows are
+> intended and would slot in behind the same commands without changing the interface.
 
 ## The services
 
@@ -21,62 +26,51 @@ The console embeds a terminal, so it needs the tty service; both share a
 `THINKSUIT_TTY_AUTH_TOKEN`. The voice service and the CLI/console all reach execution
 through the broker.
 
+## The control plane: `thinkctl`
+
+`thinkctl` (package `thinksuit-control`) is the single front door for service ops. It
+discovers the four services from its own dependencies, generates each launchd plist **in
+code** from a self-describing definition every service package exports
+(`packages/thinksuit-<name>/service.js`), and owns the `launchctl` mechanics so you never
+touch them directly.
+
+Run `thinkctl help` for the full verb list. Address a service by short name (`broker`) or full
+name (`thinksuit-broker`), or use `-a`/`--all` for every service.
+
 ## Installation
 
-Run the macOS setup from the monorepo root:
+Bring everything up from the monorepo root:
 
 ```bash
-npm run install:macos
+thinkctl up -a
 ```
 
-It is idempotent and re-runnable. For each service it:
+`up` is `install` + `load`. Install is idempotent and re-runnable; for each service it:
 
-- detects machine-specific values (home, repo path, node binary) and renders the
-  `etc/*.service.plist.template` files into `~/Library/LaunchAgents/`;
-- builds the voice `.app` bundle — the microphone-permission shim (see
-  [Microphone permission](#microphone-permission));
-- provisions the default `hey_thinksuit` wakeword if none is present;
-- seeds the keys ThinkSuit needs in `~/.thinksuit.json` (the local custom-tools MCP server,
-  and — on first setup — `provider`/`model`/`allowedDirectories`) without overwriting
-  values you already have;
-- loads and starts all four LaunchAgents.
+- generates `~/Library/LaunchAgents/thinksuit-<name>.service.plist` from the service
+  definition (machine paths, ports, and the shared TTY token filled in), validated with
+  `plutil -lint`;
+- runs any per-service hooks — for voice, builds the `.app` bundle (the mic-permission
+  shim, see [Microphone permission](#microphone-permission)) and provisions the default
+  `hey_thinksuit` wakeword if none is present;
+- on first setup, **onboards** `~/.thinksuit.json` — seeds the local custom-tools MCP
+  server and, *only where a value is missing*, prompts for `provider`/`model`/
+  `allowedDirectories`. A fully-configured machine is asked nothing, and nothing you've
+  already set is overwritten.
 
-Flags: `--yes` runs non-interactively (keeps existing config, fills defaults only where
-absent); `--no-load` does everything except start the services.
+`--yes` runs onboarding non-interactively (fills defaults only where absent). To stage
+without starting, use `thinkctl install -a` then `thinkctl load -a`.
 
-**Prerequisites:** macOS, Node ≥ 22, and the monorepo cloned with `npm install` already
-run (the [root README](../README.md#installation) covers cloning and global command
-links).
+**Prerequisites:** macOS, Node ≥ 22, and the monorepo cloned with `npm install` already run.
 
-Two things the installer deliberately does **not** do — complete them afterward:
+Two things `thinkctl` deliberately does **not** do — complete them afterward:
 [Secrets](#secrets) and [Microphone permission](#microphone-permission).
-
-### Manual setup (without the installer)
-
-The installer is the supported path; this is the equivalent by hand, useful for
-understanding or adapting it. Per service `<name>` ∈ {`broker`, `voice`, `console`, `tty`}:
-
-1. Render `packages/thinksuit-<name>/etc/thinksuit-<name>.service.plist.template`,
-   substituting the `{{HOME}}`, `{{REPO}}`, `{{NODE_BIN}}`, `{{NODE_DIR}}` placeholders
-   (and, for console/tty, `{{CONSOLE_PORT}}`/`{{TTY_PORT}}`/`{{TTY_AUTH_TOKEN}}` — use the
-   same token for both; for voice, `{{VOICE_APP_EXE}}`). Write the result to
-   `~/Library/LaunchAgents/thinksuit-<name>.service.plist` and validate with
-   `plutil -lint`.
-2. Load and start it:
-   ```bash
-   launchctl bootstrap gui/$UID ~/Library/LaunchAgents/thinksuit-<name>.service.plist
-   launchctl kickstart -k gui/$UID/thinksuit-<name>.service
-   ```
-
-Voice has two extra requirements the installer handles for you: the `.app` bundle
-(`packages/thinksuit-voice/bin/service.appbundle.sh`) and at least one enabled wakeword
-(`node packages/thinksuit-voice/bin/ctl.mjs wakeword import hey_thinksuit --phrase "Hey ThinkSuit" --model packages/thinksuit-voice/defaults/hey_thinksuit/model.onnx`).
 
 ## Secrets
 
-Secrets are **never** stored in `~/.thinksuit.json`, and the installer does not provision
-them — this step is always manual. ThinkSuit resolves each secret *by name* at startup:
-from the **environment** first, then from a vendor-neutral **`~/.thinksuit/secrets.env`**
+Secrets are **never** stored in `~/.thinksuit.json`, and `thinkctl` does not provision them —
+this step is always manual. ThinkSuit resolves each secret *by name* at startup: from the
+**environment** first, then from a vendor-neutral **`~/.thinksuit/secrets.env`**
 (`KEY=value` per line; override the path with `THINKSUIT_SECRETS_FILE`). Resolution is
 per-name, so each service loads only the keys it uses — the voice and tty agents never see
 `OPENAI_API_KEY`.
@@ -84,12 +78,13 @@ per-name, so each service loads only the keys it uses — the voice and tty agen
 ```bash
 printf 'ANTHROPIC_API_KEY=sk-ant-...\nOPENAI_API_KEY=sk-...\n' > ~/.thinksuit/secrets.env
 chmod 600 ~/.thinksuit/secrets.env
-launchctl kickstart -k gui/$UID/thinksuit-broker.service   # reload so the worker sees them
+thinkctl start broker   # reload so the worker sees them
 ```
 
-How you populate the file is your concern — e.g. a 1Password `op inject` template. If the
-selected provider has no credential anywhere, the broker worker fails fast with an
-actionable error rather than starting a half-session.
+How you populate the file is your concern — e.g. a 1Password `op inject` template (see
+`packages/thinksuit-broker/etc/secrets-pull.sh`). If the selected provider has no
+credential anywhere, the broker worker fails fast with an actionable error rather than
+starting a half-session.
 
 ## Microphone permission
 
@@ -97,7 +92,8 @@ macOS grants microphone access per code-signed bundle. A bare LaunchAgent pointe
 `node` has no bundle identity and is silently denied the mic (CoreAudio hands it
 all-zero buffers and wake detection never fires). The voice service therefore runs through
 a small ad-hoc-signed `.app` bundle built by `service.appbundle.sh` (a private copy of
-`node` plus an `Info.plist` carrying the mic-usage string).
+`node` plus an `Info.plist` carrying the mic-usage string). `thinkctl install voice` builds
+it via the voice service's `preInstall` hook.
 
 On the first voice run macOS should prompt for access; if it doesn't, enable
 **"ThinkSuit Voice"** under **System Settings → Privacy & Security → Microphone**. The
@@ -107,49 +103,49 @@ each machine. The bundle is never committed — it's a ~112MB architecture-speci
 
 ## Managing a service
 
-Each package exposes the same set of management commands, globally available after
-`npm link -ws` (run from the root as part of the [main install](../README.md#installation)).
-Substitute `<name>` ∈ {`broker`, `voice`, `console`, `tty`}:
+All ops go through `thinkctl` — never raw `launchctl`. Substitute `<svc>` with a name
+(`broker`) or `-a`/`--all`:
 
 | Command | Action |
 |---|---|
-| `thinksuit-<name>-service-init` | Reset logs, bootstrap, start, then tail logs (Ctrl-C to stop tailing; the service keeps running). Use for first run or troubleshooting. |
-| `thinksuit-<name>-service-load` | Register with launchd (bootstrap) without starting. |
-| `thinksuit-<name>-service-unload` | Unregister from launchd (bootout). |
-| `thinksuit-<name>-service-start` | Start or restart (kickstart). |
-| `thinksuit-<name>-service-stop` | Graceful stop (SIGTERM). |
-| `thinksuit-<name>-service-kill` | Force kill (SIGKILL); use only when stop fails. |
-| `thinksuit-<name>-service-logs` | Tail stdout + stderr (Ctrl-C to stop). |
-| `thinksuit-<name>-service-info` | `launchctl print` — state, PID, configuration. |
-
-If you didn't link the commands globally, the same operations are plain `launchctl`:
-
-```bash
-launchctl bootstrap gui/$UID ~/Library/LaunchAgents/thinksuit-<name>.service.plist  # load
-launchctl kickstart -k gui/$UID/thinksuit-<name>.service                            # (re)start
-launchctl bootout   gui/$UID/thinksuit-<name>.service                               # unload
-launchctl print     gui/$UID/thinksuit-<name>.service                               # status
-```
+| `thinkctl up <svc>` | install + load (bring up) |
+| `thinkctl down <svc>` | unload + uninstall (tear down) |
+| `thinkctl start <svc>` | start or restart (kickstart) |
+| `thinkctl stop <svc>` | graceful stop (SIGTERM) |
+| `thinkctl status [<svc>]` | launchd state + PID |
+| `thinkctl ls` | list all services and their state |
+| `thinkctl logs <svc>` | tail stdout + stderr (Ctrl-C to stop) |
+| `thinkctl clear-logs <svc>` | delete the log files |
+| `thinkctl install` / `uninstall` / `load` / `unload` | the primitives `up` / `down` compose |
 
 Logs are always at `~/Library/Logs/thinksuit-<name>.service.{stdout,stderr}.log`.
 
+### Restart policy
+
+Only the **broker** auto-restarts on a crash — `KeepAlive={Crashed:true}`, throttled to
+30s. It's the execution hub and safe to relaunch. `console`/`tty`/`voice` do **not**
+auto-restart; a crash leaves them down until `thinkctl start <svc>`. A `thinkctl stop` is always
+respected (SIGTERM is not a crash), so a stopped service stays stopped. There is no
+"give up after N crashes" — a persistently-crashing broker re-launches every 30s until you
+`thinkctl stop` it.
+
 ## Operations
 
-**Editing a plist.** Re-running `npm run install:macos` re-renders every plist (reusing the
-existing auth token) and reloads the services. To edit by hand, change the template, render
-it into `~/Library/LaunchAgents/`, then `…-service-unload` and `…-service-load` so launchd
-picks up the change — editing the loaded file alone has no effect.
+**Editing a service.** Definitions live in code — `packages/thinksuit-<name>/service.js`
+plus the generic plist generator in `thinksuit-control` — so there's nothing to hand-edit
+in `~/Library/LaunchAgents/`. Change the definition, then `thinkctl up <name>` to regenerate
+and reload.
 
-**After pulling new code.** `npm install`, then restart the affected services
-(`thinksuit-<name>-service-start`). The broker forks a fresh worker per turn, so most
-engine changes take effect on the next turn without a restart.
+**After pulling new code.** `npm install`, then `thinkctl start <svc>` for the affected
+services. The broker forks a fresh worker per turn, so most engine changes take effect on
+the next turn without a restart.
 
 ## Troubleshooting
 
 **Service won't start / `spawn scheduled` with no PID.** launchd can't exec the program.
 Check `~/Library/Logs/thinksuit-<name>.service.stderr.log`, and confirm the plist's
 `ProgramArguments` path exists — a node version that isn't installed, or (for voice) a
-missing `.app` bundle, are the usual causes.
+missing `.app` bundle, are the usual causes. `thinkctl up <name>` regenerates the plist.
 
 **Service keeps crashing.** Run it in the foreground to see the error directly:
 `cd packages/thinksuit-<name> && node bin/service.mjs`. Confirm dependencies
@@ -157,31 +153,34 @@ missing `.app` bundle, are the usual causes.
 
 **Voice: "no enabled wakewords".** Import the default:
 `node packages/thinksuit-voice/bin/ctl.mjs wakeword import hey_thinksuit --phrase "Hey ThinkSuit" --model packages/thinksuit-voice/defaults/hey_thinksuit/model.onnx`,
-then restart voice. Confirm with `… wakeword ls` (a `*` marks enabled).
+then `thinkctl start voice`. Confirm with `… wakeword ls` (a `*` marks enabled).
 
 **Voice: silent / never wakes.** Almost always the microphone grant — see
 [Microphone permission](#microphone-permission).
 
-**"Module requires tools not provided by MCP servers" (e.g. `roll_dice`).** The
-`customTools` MCP server is missing from `~/.thinksuit.json`. Re-run `npm run install:macos`
-(it seeds it), then restart the broker.
+**"Module requires tools not provided by MCP servers."** A module declares tool
+dependencies the running MCP servers don't provide. The filesystem server is auto-provided
+by the engine; the local custom-tools server comes from `mcpServers.customTools` in
+`~/.thinksuit.json` (seeded by `thinkctl` onboarding). Fix the config, then `thinkctl start broker`.
 
-**Console can't reach the terminal.** Verify the tty service is running
-(`thinksuit-tty-service-info`) and that console and tty share the same
-`THINKSUIT_TTY_AUTH_TOKEN`. A clean re-render via the installer keeps them in sync.
+**Console can't reach the terminal.** Verify the tty service is running (`thinkctl status tty`)
+and that console and tty share the same `THINKSUIT_TTY_AUTH_TOKEN` — `thinkctl up -a` mints
+the token once and reuses it across both, keeping them in sync.
 
 **Port already in use.** `lsof -i :60660` (console) / `lsof -i :60662` (tty).
 
 ## Service lifecycle
 
 ```
-plist in ~/Library/LaunchAgents/
-        ↓  bootstrap (load)
-        ↓  kickstart (start)
-   service running
-        ↓  SIGTERM (stop) / SIGKILL (kill)
-        ↓  bootout (unload)
-   unregistered
+thinkctl install  → plist in ~/Library/LaunchAgents/
+thinkctl load     → bootstrap (register with launchd)
+     RunAtLoad → service running
+thinkctl stop     → SIGTERM (graceful)
+thinkctl start    → kickstart (start / restart)
+thinkctl unload   → bootout (unregister)
+thinkctl uninstall→ remove plist
+
+thinkctl up   = install + load        thinkctl down = unload + uninstall
 ```
 
 ## License

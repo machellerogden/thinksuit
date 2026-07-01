@@ -50,7 +50,9 @@ See **../../CONTRIBUTING.md** for repo-wide commands, architecture, and style.
   approvalId) and `derivePendingApprovalDetail(entries)` (`{approvalId, tool,
   args}`). Both pure. `queue` aggregates the latter across live sessions.
 - `src/paths.js` — socket path resolution (`THINKSUIT_BROKER_SOCK` or default).
-- `bin/service.*`, `etc/*.plist` — LaunchAgent service scaffolding.
+- `bin/service.mjs` — daemon entry (also runnable directly for debugging).
+- `service.js` — the service definition `thinkctl` (`thinksuit-control`) consumes to
+  generate the LaunchAgent plist in code; `etc/secrets-pull.sh` — example secret puller.
 
 ### Workspaces
 

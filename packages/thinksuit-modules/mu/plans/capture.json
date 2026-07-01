@@ -1,0 +1,11 @@
+{
+  "name": "Capture",
+  "description": "Record information verbatim without commentary",
+  "plan": {
+    "name": "capture",
+    "rationale": "Direct recording preserves exact content without analysis or transformation",
+    "strategy": "direct",
+    "role": "capture",
+    "lengthLevel": "brief"
+  }
+}

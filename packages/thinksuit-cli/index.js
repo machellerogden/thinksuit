@@ -20,7 +20,10 @@ const KNOWN_VERBS = new Set([
 
 const verb = process.argv[2];
 
-if (verb && KNOWN_VERBS.has(verb)) {
+if (verb === 'help' || verb === '--help' || verb === '-h') {
+    const { printUsage } = await import('./src/cli.js');
+    printUsage();
+} else if (verb && KNOWN_VERBS.has(verb)) {
     const { dispatch } = await import('./src/cli.js');
     await dispatch(verb, process.argv.slice(3));
 } else {

@@ -93,8 +93,8 @@ thinksuit-console/
 - Collapsible sidebar with search
 
 ### Session Controls
-- Interactive preset and frame management
-- Create, edit, and delete user presets and frames
+- Interactive plan and frame management
+- Create, edit, and delete user plans and frames
 - Configure execution parameters (model, tools, depth, etc.)
 
 ### Data Visualization

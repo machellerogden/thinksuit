@@ -290,7 +290,7 @@ ThinkSuit supports multiple configuration sources with the following precedence:
 --max-fanout      Max parallel branches (default: 3)
 --max-children    Max child operations (default: 5)
 --session-id      Session ID to resume or validate
---preset          Preset name to use (from module or user presets)
+--plan            Plan name to use (from the plans library)
 --frame           Frame name to use (persistent context)
 --trace           Enable execution tracing
 --silent          Suppress all logging
@@ -353,76 +353,64 @@ Create a JSON config file (default: `~/.thinksuit.json`):
 
 **Note:** For Vertex AI, ensure you've authenticated with `gcloud auth application-default login` and set `GOOGLE_CLOUD_PROJECT` environment variable.
 
-### Presets
+### Plans
 
-Presets allow you to save and reuse execution plans. They are stored in `~/.thinksuit.json` under the `presets` field, organized by module:
+A plan is a named execution plan in the **plans library**. Each plan is a
+self-describing file under `~/.thinksuit/plans/<name>.json`, where the filename is
+its address:
 
 ```json
+// ~/.thinksuit/plans/my-custom-plan.json
 {
-    "presets": {
-        "thinksuit/mu": [
-            {
-                "id": "my-custom-preset",
-                "name": "My Custom Preset",
-                "description": "A preset for common tasks with specific tools",
-                "plan": {
-                    "strategy": "task",
-                    "role": "execute",
-                    "tools": ["read_text_file", "read_media_file", "read_multiple_files", "write_file", "edit_file"],
-                    "resolution": {
-                        "maxCycles": 8,
-                        "maxTokens": 12000,
-                        "maxToolCalls": 20
-                    },
-                    "lengthLevel": "standard"
-                }
-            }
-        ]
+    "name": "My Custom Plan",
+    "description": "A plan for common tasks with specific tools",
+    "plan": {
+        "name": "my-custom-plan",
+        "strategy": "task",
+        "role": "execute",
+        "tools": ["read_text_file", "read_media_file", "read_multiple_files", "write_file", "edit_file"],
+        "resolution": {
+            "maxCycles": 8,
+            "maxTokens": 12000,
+            "maxToolCalls": 20
+        },
+        "lengthLevel": "standard"
     }
 }
 ```
 
-**Using presets:**
+An optional `~/.thinksuit/plans.json` is an ordered array of names that sets
+display order (it only orders; every file in the directory is available).
+
+**Using plans:**
 
 ```bash
-# Use a preset from the command line
-thinksuit-exec --preset my-custom-preset "Analyze this code"
+# Use a plan from the command line
+thinksuit-exec --plan my-custom-plan "Analyze this code"
 
-# Presets combine module-defined presets with user-defined presets
-# Module presets are built into the module
-# User presets are defined in ~/.thinksuit.json
+# The library merges module-shipped plans with your user plans
+# Module plans ship inside the module; user plans live in ~/.thinksuit/plans/
 ```
 
-**Creating presets:**
+**Creating plans:**
 
-- Use the ThinkSuit Console UI to create and save presets interactively
-- Or manually edit `~/.thinksuit.json` and add presets to the `presets[moduleName]` array
-
-See `config.example.json` for a complete example.
+- Use the ThinkSuit Console UI to create and save plans interactively
+- Or drop a `<name>.json` file into `~/.thinksuit/plans/`
 
 ### Frames
 
-Frames provide persistent context that applies to all interactions within a session. Unlike presets (which define execution plans), frames inject contextual information into the system instructions.
+Frames provide persistent context that applies to all interactions within a session. Unlike plans (which define execution plans), frames inject contextual information into the system instructions.
 
-Frames are stored in `~/.thinksuit.json` as a flat array (not module-namespaced):
+Each frame is a Markdown file under `~/.thinksuit/frames/<name>.md` — YAML
+frontmatter for metadata, body for the frame text:
 
-```json
-{
-    "frames": [
-        {
-            "id": "code-review",
-            "name": "Code Review Context",
-            "description": "Context for reviewing pull requests",
-            "text": "You are reviewing code in a TypeScript monorepo. Focus on type safety, error handling, and maintainability."
-        },
-        {
-            "id": "docs-writer",
-            "name": "Documentation Writer",
-            "description": "Context for writing documentation",
-            "text": "Write clear, concise documentation. Use examples where helpful. Target audience is developers familiar with JavaScript."
-        }
-    ]
-}
+```markdown
+<!-- ~/.thinksuit/frames/code-review.md -->
+---
+name: Code Review Context
+description: Context for reviewing pull requests
+---
+You are reviewing code in a TypeScript monorepo. Focus on type safety, error handling, and maintainability.
 ```
 
 **Using frames:**
@@ -431,8 +419,8 @@ Frames are stored in `~/.thinksuit.json` as a flat array (not module-namespaced)
 # Use a frame from the command line
 thinksuit-exec --frame code-review "Review this function"
 
-# Frames can be combined with presets
-thinksuit-exec --frame docs-writer --preset task "Document this module"
+# Frames can be combined with plans
+thinksuit-exec --frame docs-writer --plan analyze "Document this module"
 ```
 
 **Creating frames:**

@@ -72,7 +72,8 @@ independently, not as a per-session attribute.
      `secrets.env`, and the wakeword store's "two homes by design"
      (`thinksuit-voice/src/wakewords/store.js:1-10`).
 6. **`mainSessionId` retires** from both `~/.thinksuit.json` and
-   `config.v1.json`, replaced by `designations` in `state.json`.
+   `userConfig.v1.json` (formerly `config.v1.json`), replaced by `designations` in
+   `state.json`.
 7. **Voice semantics:**
    - `converse` -> resume the voice designation.
    - `new` -> mint a fresh session *and* repoint the voice designation to it.

@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { schedule, resolveSecret } from 'thinksuit';
+import { buildConfig } from 'thinksuit';
+import * as client from 'thinksuit-broker';
 
 export function registerThinkSuitTool(server) {
     server.tool(
@@ -31,40 +32,85 @@ export function registerThinkSuitTool(server) {
         },
         async ({ input, options = {} }) => {
             try {
+                // The broker hosts the execution out-of-process; this server is a
+                // thin client. Base config comes from ~/.thinksuit.json via
+                // buildConfig (mcpServers, provider/model defaults, policy,
+                // allowedDirectories); call-time options override on top. Credentials
+                // are resolved by the worker from the environment /
+                // ~/.thinksuit/secrets.env — never passed from here.
+                const base = buildConfig();
+                const { tools, autoApproveTools, maxDepth, maxFanout, ...rest } = options;
                 const config = {
-                    ...options,
-                    apiKey: resolveSecret('OPENAI_API_KEY')
+                    module: base.module,
+                    modulesPackage: base.modulesPackage,
+                    provider: base.provider,
+                    model: base.model,
+                    providerConfig: base.providerConfig,
+                    cwd: base.cwd,
+                    allowedDirectories: base.allowedDirectories,
+                    mcpServers: base.mcpServers,
+                    allowedTools: base.allowedTools,
+                    policy: base.policy,
+                    approvalTimeout: base.approvalTimeout,
+                    trace: base.trace,
+                    // Call-time overrides: module, provider, model, trace, cwd,
+                    // sessionId, temperature, maxTokens.
+                    ...rest,
+                    input,
+                    ...(tools !== undefined && { allowedTools: tools }),
+                    ...((maxDepth !== undefined || maxFanout !== undefined) && {
+                        policy: {
+                            ...base.policy,
+                            ...(maxDepth !== undefined && { maxDepth }),
+                            ...(maxFanout !== undefined && { maxFanout })
+                        }
+                    }),
+                    // Headless: no approval channel, so default to auto-approve to
+                    // avoid hanging on a prompt nobody can answer. Honor explicit false.
+                    autoApproveTools: autoApproveTools ?? true
                 };
 
-                const { sessionId, isNew, execution } = await schedule({
-                    input,
-                    sessionId: options.sessionId,
-                    ...config
+                // Start the turn in the broker. `from` is the pre-run entry count,
+                // so awaitTurn observes only this turn, not session history.
+                const { sessionId, from = 0, isNew } = await client.run(config);
+
+                let traceId = null;
+                const { outcome, response, error } = await client.awaitTurn(sessionId, {
+                    from,
+                    onEvent: (entry) => {
+                        if (!traceId && entry.traceId) traceId = entry.traceId;
+                    }
                 });
 
-                const result = await execution;
+                if (outcome !== 'completed') {
+                    return {
+                        content: [
+                            {
+                                type: 'text',
+                                text: `❌ **Error** (${outcome}): ${error || 'Turn did not complete'}`
+                            }
+                        ]
+                    };
+                }
 
-                const response = {
-                    content: [
-                        {
-                            type: 'text',
-                            text: result.response
-                        }
-                    ]
-                };
+                const content = [
+                    {
+                        type: 'text',
+                        text: response ?? ''
+                    }
+                ];
 
-                if (options.trace && result.metadata?.traceId) {
-                    response.content.push({
+                if (options.trace) {
+                    content.push({
                         type: 'text',
                         text: `\n\n_Session: ${sessionId}${isNew ? ' (new)' : ' (resumed)'}_`
                     });
-                    response.content.push({
-                        type: 'text',
-                        text: `_Trace: ${result.metadata.traceId}_`
-                    });
+                    if (traceId) {
+                        content.push({ type: 'text', text: `_Trace: ${traceId}_` });
+                    }
                 }
 
-                return response;
+                return { content };
             } catch (error) {
                 return {
                     content: [

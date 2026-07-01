@@ -9,8 +9,11 @@ import { createLogger } from './logger.js';
 import { loadModules } from './modules/loader.js';
 import { modules as defaultModules } from 'thinksuit-modules';
 import { flushAllSessionStreams } from './transports/session-router.js';
-import { getPreset } from '../presets.js';
+import { getPlan } from '../plans.js';
 import { getFrame } from '../frames.js';
+import { assertValidTurnRequest } from '../schemas/validate.js';
+import { provisionWorkspace } from './sessions/index.js';
+import { generateId } from './utils/id.js';
 
 /**
  * Output message respecting CLI output mode
@@ -68,6 +71,36 @@ async function main() {
         });
     }
 
+    // Door: validate the turn request (IN contract) before resolving names or
+    // scheduling. Pick only the surface fields — names, not resolved objects.
+    const turnRequest = {
+        input,
+        ...(config.sessionId !== undefined && { sessionId: config.sessionId }),
+        ...(config.module !== undefined && { module: config.module }),
+        ...(config.provider !== undefined && { provider: config.provider }),
+        ...(config.model !== undefined && { model: config.model }),
+        ...(config.policy !== undefined && { policy: config.policy }),
+        ...(config.plan !== undefined && { plan: config.plan }),
+        ...(config.frame !== undefined && { frame: config.frame }),
+        ...(config.modality !== undefined && { modality: config.modality }),
+        ...(config.allowedTools !== undefined && { tools: config.allowedTools }),
+        ...(config.workdir !== undefined && { workdir: config.workdir }),
+        ...(config.cwd !== undefined && { cwd: config.cwd }),
+        ...(config.allowedDirectories !== undefined && {
+            allowedDirectories: config.allowedDirectories
+        }),
+        ...(config.mcpServers !== undefined && { mcpServers: config.mcpServers }),
+        ...(config.trace !== undefined && { trace: config.trace }),
+        ...(config.output !== undefined && { output: config.output })
+    };
+    try {
+        assertValidTurnRequest(turnRequest);
+    } catch (error) {
+        console.error(error.message);
+        console.error('Run with --help to see available options');
+        process.exit(1);
+    }
+
     // Create logger for CLI context
     const logger = createLogger({
         level: 'info',
@@ -96,19 +129,19 @@ async function main() {
     const moduleName = config.module || 'thinksuit/mu';
     const currentModule = modules[moduleName];
 
-    // Resolve preset if specified (interface-level concern)
+    // Resolve plan if specified (interface-level concern)
     let selectedPlan = config.selectedPlan; // May come from config file
-    if (config.preset) {
-        const preset = await getPreset(config.preset, moduleName, currentModule);
-        if (!preset) {
-            console.error(`Error: Preset "${config.preset}" not found`);
+    if (config.plan) {
+        const plan = await getPlan(config.plan, moduleName, currentModule);
+        if (!plan) {
+            console.error(`Error: Plan "${config.plan}" not found`);
             console.error('Run with --help to see available options');
             process.exit(1);
         }
 
-        selectedPlan = preset.plan;
+        selectedPlan = plan.plan;
         if (!selectedPlan) {
-            console.error(`Error: Preset "${config.preset}" has no plan defined`);
+            console.error(`Error: Plan "${config.plan}" has no execution plan defined`);
             process.exit(1);
         }
     }
@@ -124,6 +157,23 @@ async function main() {
         }
     }
 
+    // Establish the session's workdir up front: default to the directory the command
+    // was run from when --workdir isn't given, then provision (bind it, or reuse the
+    // session's existing one — rejecting a mismatch). The resolved workspace is the
+    // engine workdir; the turn's cwd defaults to it in normalizeConfig.
+    const invocationDir = process.env.INIT_CWD || process.cwd();
+    const sessionId = config.sessionId || generateId();
+    let workdir;
+    try {
+        workdir = await provisionWorkspace(sessionId, {
+            workdir: config.workdir || invocationDir,
+            baseCwd: invocationDir
+        });
+    } catch (error) {
+        console.error(error.message);
+        process.exit(1);
+    }
+
     // Map CLI config to schedule() config
     const scheduleConfig = {
         input,
@@ -132,8 +182,8 @@ async function main() {
         provider: config.provider,
         model: config.model,
         providerConfig: config.providerConfig,
-        // Use INIT_CWD (where npm was run from) if available, else config.cwd, else process.cwd()
-        cwd: config.cwd || process.env.INIT_CWD || process.cwd(),
+        workdir, // resolved session home base
+        cwd: config.cwd, // explicit --cwd only; defaults to workdir in normalizeConfig
         allowedDirectories: config.allowedDirectories, // Pass through allowed directories
         mcpServers: config.mcpServers, // Pass through MCP server configurations
         tools: config.tools, // Pass through the tools list if provided
@@ -144,7 +194,7 @@ async function main() {
             maxChildren: config.policy.maxChildren
         },
         trace: config.trace,
-        sessionId: config.sessionId,
+        sessionId, // resolved up front so the workspace is provisioned before run
         selectedPlan, // Pass resolved selectedPlan
         frame, // Pass resolved frame
         modality: config.modality, // Pass modality name through (module renders it)

@@ -13,7 +13,7 @@ const uiState = new LocalStorage('thinksuit-ui-state', {
     terminalSizeVertical: 300,
     terminalSizeHorizontal: 800,
     terminalFullscreen: false,
-    presetOrder: [],  // Array of preset names for custom sort order
+    planOrder: [],  // Array of plan names for custom sort order
     frameOrder: []    // Array of frame names for custom sort order
 });
 

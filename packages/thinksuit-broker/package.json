@@ -16,18 +16,8 @@
     "main": "./src/client.js",
     "exports": {
         ".": "./src/client.js",
-        "./broker": "./src/broker.js"
-    },
-    "bin": {
-        "thinksuit-broker-service": "bin/service.mjs",
-        "thinksuit-broker-service-init": "bin/service.init.sh",
-        "thinksuit-broker-service-load": "bin/service.load.sh",
-        "thinksuit-broker-service-unload": "bin/service.unload.sh",
-        "thinksuit-broker-service-start": "bin/service.start.sh",
-        "thinksuit-broker-service-stop": "bin/service.stop.sh",
-        "thinksuit-broker-service-kill": "bin/service.kill.sh",
-        "thinksuit-broker-service-logs": "bin/service.logs.sh",
-        "thinksuit-broker-service-info": "bin/service.info.sh"
+        "./broker": "./src/broker.js",
+        "./service": "./service.js"
     },
     "scripts": {
         "dev": "node ./bin/service.mjs",

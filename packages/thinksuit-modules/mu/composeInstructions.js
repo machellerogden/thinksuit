@@ -40,7 +40,7 @@ function addPromptToThread(resolved, thread) {
  * @param {Object} module - The mu module
  * @returns {Object} - { thread, indices, adaptations, lengthGuidance, toolInstructions, maxTokens, metadata }
  */
-export async function composeInstructions({ plan = {}, factMap = {}, thread = [], input = '', frame = null, modality = null, compositionType = 'default', cwd = null }, module) {
+export async function composeInstructions({ plan = {}, factMap = {}, thread = [], input = '', frame = null, modality = null, compositionType = 'default', cwd = null, workdir = null }, module) {
     // Resolve the modality instruction text the module declares for the active
     // modality name (e.g. 'voice'). A discrete sibling to frame, composed into the
     // same synthetic prelude. Unknown/absent modality → nothing.
@@ -58,7 +58,8 @@ export async function composeInstructions({ plan = {}, factMap = {}, thread = []
         role,
         adaptations: plan.adaptations || [],
         lengthLevel: plan.lengthLevel || 'standard',
-        cwd
+        cwd,
+        workdir // session home base; available to prompts (unused in mu today)
     };
 
     // Resolve system prompt (always a string)

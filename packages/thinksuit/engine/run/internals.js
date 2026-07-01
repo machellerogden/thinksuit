@@ -33,6 +33,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  * @throws {Error} If required fields are missing
  */
 export function normalizeConfig(config) {
+    // workdir is the session's owned home base; cwd is this turn's working
+    // directory, defaulting to workdir. allowedDirectories (the fence) defaults to
+    // [workdir].
+    const workdir = config.workdir;
+    const cwd = config.cwd || workdir;
+
     // Normalize allowedDirectories
     let allowedDirectories = config.allowedDirectories;
     if (allowedDirectories) {
@@ -45,9 +51,11 @@ export function normalizeConfig(config) {
                 throw new Error(`allowedDirectories must contain absolute paths: ${dir}`);
             }
         }
-    } else if (config.cwd) {
-        // Default to cwd if not specified
-        allowedDirectories = [config.cwd];
+    } else if (workdir) {
+        // Default the fence to the owned home base
+        allowedDirectories = [workdir];
+    } else if (cwd) {
+        allowedDirectories = [cwd];
     }
 
     const finalConfig = {
@@ -81,7 +89,8 @@ export function normalizeConfig(config) {
         selectedPlan: config.selectedPlan, // Manual plan override
         frame: config.frame || null, // Frame context { text: string } | null
         modality: config.modality || null, // Modality name (e.g. 'voice'); module renders it
-        cwd: config.cwd,
+        workdir, // session owned home base (resolved workspace)
+        cwd, // this turn's working dir (caller cwd, else workdir)
         allowedDirectories,
         mcpServers: config.mcpServers,
         tools: config.tools,

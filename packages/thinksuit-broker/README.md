@@ -55,26 +55,28 @@ no auto-start and no in-process fallback.
 
 `interrupt --all` stops in-flight *work* but leaves the daemon running; taking the
 *daemon* itself down is the separate service concern below
-(`thinksuit-broker-service-stop` / SIGTERM, which cascade-kills its workers).
+(`thinkctl stop broker` / SIGTERM, which cascade-kills its workers).
 
 ## Service management (macOS LaunchAgent)
 
-The broker is intended to be resident (RunAtLoad). Scaffolding mirrors the other
-ThinkSuit services:
+The broker is intended to be resident (RunAtLoad) and is the one service that
+auto-restarts on a crash (`KeepAlive={Crashed:true}`, throttled to 30s). It's
+managed — like every ThinkSuit service — through `thinkctl`, the operations control
+plane (package `thinksuit-control`):
 
 ```bash
-thinksuit-broker-service-init    # bootstrap + start + tail logs (first run)
-thinksuit-broker-service-start   # (re)start
-thinksuit-broker-service-stop    # stop
-thinksuit-broker-service-logs    # tail logs
-thinksuit-broker-service-info    # launchctl print
+thinkctl up broker       # generate the plist + load (bring up)
+thinkctl start broker    # (re)start
+thinkctl stop broker     # stop
+thinkctl logs broker     # tail logs
+thinkctl status broker   # launchd state + PID
 ```
 
-On macOS, run `npm run install:macos` from the monorepo root to render
-`etc/thinksuit-broker.service.plist.template` (filling in machine-specific paths)
-into `~/Library/LaunchAgents/` and load it. To do it by hand, substitute the
-`{{…}}` placeholders in the template yourself and copy it there before
-`…-service-init`.
+The service definition lives in `service.js`; `thinkctl` generates the LaunchAgent
+plist from it in code (machine paths filled in) and owns the `launchctl` mechanics.
+The daemon also stays runnable directly for debugging: `node bin/service.mjs`. See
+the [Service Management Guide](../../docs/SERVICE_MANAGEMENT.md) for the full verb
+set and restart policy.
 
 ## Configuration & secrets
 

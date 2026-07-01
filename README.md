@@ -137,17 +137,18 @@ thinksuit-exec --provider hugging-face --model meta-llama/Llama-3.3-70B-Instruct
 ThinkSuit's core (engine, broker, modules) is platform-agnostic — the processes can be
 supervised however your OS prefers. On macOS, you can run them as LaunchAgents: **broker**
 (turn execution), **voice** (hands-free wake → speech), **console** (web UI), and **tty**
-(terminal WebSocket). Set all four up with:
+(terminal WebSocket). All four are managed by `thinkctl`, the operations control plane. Bring
+them up with:
 
 ```bash
-npm run install:macos
+thinkctl up -a
 ```
 
-It detects machine-specific paths, renders the LaunchAgent plists, builds the voice
-`.app` bundle (the macOS microphone-permission shim), provisions the default
-`hey_thinksuit` wakeword, seeds the required keys in `~/.thinksuit.json` (without
-overwriting your existing values), and loads all four services. Re-runnable and
-idempotent; pass `--yes` for non-interactive, `--no-load` to set up without starting.
+`thinkctl` generates each LaunchAgent plist in code, builds the voice `.app` bundle (the macOS
+microphone-permission shim), provisions the default `hey_thinksuit` wakeword, and — on
+first setup — seeds the required keys in `~/.thinksuit.json` without overwriting your
+existing values. Re-runnable and idempotent; pass `--yes` for non-interactive onboarding.
+Run `thinkctl help` for the full verb list (`up`/`down`/`start`/`stop`/`status`/`ls`/`logs`).
 
 **Two manual steps remain afterward:**
 
@@ -156,13 +157,13 @@ idempotent; pass `--yes` for non-interactive, `--no-load` to set up without star
    ```bash
    printf 'ANTHROPIC_API_KEY=sk-ant-...\nOPENAI_API_KEY=sk-...\n' > ~/.thinksuit/secrets.env
    chmod 600 ~/.thinksuit/secrets.env
-   launchctl kickstart -k gui/$UID/thinksuit-broker.service
+   thinkctl start broker
    ```
 2. **Microphone** — on first voice run macOS prompts for mic access; if not, grant
    "ThinkSuit Voice" under System Settings → Privacy & Security → Microphone.
 
 See the **[Service Management Guide](docs/SERVICE_MANAGEMENT.md)** for per-service
-operation, troubleshooting, and the manual (non-installer) setup path.
+operation, the restart policy, and troubleshooting.
 
 ## Development
 

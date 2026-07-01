@@ -2,7 +2,6 @@ import prompts from './prompts.js';
 import classifiers from './classifiers/index.js';
 import rules from './rules.js';
 import { composeInstructions } from './composeInstructions.js';
-import presets from './presets.json' with { type: 'json' };
 
 /**
  * Core Thinking Companion Module
@@ -81,16 +80,18 @@ const mu = {
         { name: 'directory_tree', description: 'Show recursive directory structure' },
         { name: 'create_directory', description: 'Create new directories' },
         { name: 'move_file', description: 'Move or rename files/directories' },
-        { name: 'search_files', description: 'Search for files by pattern' },
-        { name: 'roll_dice', description: 'Roll dice for decision making' }
+        { name: 'search_files', description: 'Search for files by pattern' }
     ],
 
     prompts,
     classifiers,
     rules,
     composeInstructions,
-    presets,
-    frames: [],  // Forward-looking: will contain named frame definitions
+
+    // Locates this module's on-disk artifacts (plans/, frames/). The engine's
+    // artifact store reads `<dir>/plans/*.json` + `<dir>/plans.json` (and frames
+    // likewise), so module and user spaces share one reader.
+    dir: import.meta.dirname,
 
     // Modality instruction text, keyed by modality name. A caller (e.g. the voice
     // daemon) asserts a modality; the engine composes the matching text into the

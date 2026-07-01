@@ -73,7 +73,7 @@ self-operation spec.
 - An end-to-end engine cognition pipeline (signals → rules → plans → compose →
   execute) behind `schedule()`.
 - Config-as-registry (`~/.thinksuit.json` with `readUserConfig`/`patchUserConfig`,
-  validated by `schemas/config.v1.json`) and a secrets keyring (`engine/secrets`).
+  validated by `schemas/userConfig.v1.json`) and a secrets keyring (`engine/secrets`).
 - The broker process-host (worker-per-turn, control channel, queue, workspaces).
 - A working voice loop (wake → capture → STT → turn → TTS) with a wakeword studio.
 - MCP tools exposing self-introspection and self-invocation

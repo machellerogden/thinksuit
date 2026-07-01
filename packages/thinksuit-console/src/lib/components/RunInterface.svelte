@@ -26,7 +26,7 @@
 
     let input = $state('');
     let trace = $state(false);
-    let cwd = $state('');  // Working directory for tools
+    let workdir = $state('');  // Session home-base directory (immutable once the session exists)
     let selectedPlan = $state('');  // Manual plan override (JSON string)
     let frame = $state({ text: '' });  // Session context frame
     let modality = $state('text');  // Runtime modality (sibling to frame); console is a text caller
@@ -37,17 +37,17 @@
     let sessionControlsComponent = $state();
 
 
-    // Fetch default working directory from config on mount
+    // Fetch default home-base directory (workdir) from config on mount
     onMount(async () => {
         try {
             const response = await fetch('/api/config');
             if (response.ok) {
                 const config = await response.json();
-                // Use cwd from config if available, otherwise use workingDirectory from sources
-                cwd = config.cwd || config._sources?.workingDirectory || '';
+                // Prefer workdir; fall back to the legacy cwd, then the resolved working dir
+                workdir = config.workdir || config.cwd || config._sources?.workingDirectory || '';
             }
         } catch (error) {
-            console.error('Failed to fetch config for default cwd:', error);
+            console.error('Failed to fetch config for default workdir:', error);
         }
     });
 
@@ -145,7 +145,7 @@
                 body: JSON.stringify({
                     input: input.trim(),
                     trace,
-                    cwd: cwd.trim() || undefined,  // Include working directory if provided
+                    workdir: workdir.trim() || undefined,  // Session home base (honored at session creation)
                     selectedPlan: parsedPlan || undefined,  // Include plan override if provided
                     frame: frame.text?.trim() ? frame : undefined,  // Include frame if provided
                     modality: modality || undefined,  // Runtime modality (sibling to frame)
@@ -443,7 +443,7 @@
                     bind:this={sessionControlsComponent}
                     bind:input
                     bind:trace
-                    bind:cwd
+                    bind:workdir
                     bind:selectedPlan
                     bind:frame
                     bind:modality

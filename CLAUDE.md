@@ -16,6 +16,9 @@ personal operating system (vision: `docs/vision.md`; what-goes-where:
 - **`packages/thinksuit-tty/`** - Terminal component + TTY WebSocket server
 - **`packages/thinksuit-mcp-server/`** - Exposes ThinkSuit *outward* as MCP tools to external clients
 - **`packages/thinksuit-mcp-tools/`** - Custom MCP tools consumed *inward* by ThinkSuit
+- **`packages/thinksuit-control/`** - Operations control plane (`thinkctl`): manages the LaunchAgent services (broker/console/tty/voice), generating each plist in code from the package's `service.js`
+
+**Service ops go through `thinkctl`** (`up`/`down`/`start`/`stop`/`status`/`ls`/`logs`) — never raw `launchctl`.
 
 ## For Development Details
 

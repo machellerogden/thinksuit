@@ -126,7 +126,7 @@ switches sessions.
   session, observable and attachable from the CLI (`ps`) and console.
 - **Voice config lives in the thinksuit config under a `voice` namespace**
   (`voice.input` / `voice.wakewords` / `voice.capture` / `voice.cues` / `voice.stt`
-  / `voice.tts`), validated by `config.v1.json` and surfaced through
+  / `voice.tts`), validated by `userConfig.v1.json` and surfaced through
   `buildConfig().voice`. The daemon reads it via `loadVoiceConfig(base.voice,
   overrides)` — layered defaults < file < overrides. Per-wakeword settings live
   under `voice.wakewords.<name>` (the retired `voice.wake` section is gone). Device

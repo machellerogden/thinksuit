@@ -12,7 +12,6 @@
         "mcp": "npm -w thinksuit-mcp-server run start --",
         "exec": "npm -w thinksuit run exec --",
         "start": "npm -w thinksuit-cli run start --",
-        "install:macos": "node scripts/install-macos.mjs",
         "build": "npm run build --workspaces --if-present",
         "publish": "npm run publish --workspaces --if-present",
         "lint": "npm run lint --workspaces --if-present",

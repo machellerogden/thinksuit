@@ -38,6 +38,7 @@
     "dependencies": {
         "@modelcontextprotocol/sdk": "^1.19.1",
         "thinksuit": "*",
+        "thinksuit-broker": "*",
         "zod": "^4.4.3"
     },
     "engines": {

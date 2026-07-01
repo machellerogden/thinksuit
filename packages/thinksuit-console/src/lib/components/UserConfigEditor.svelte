@@ -20,6 +20,7 @@
     let maxDepth = $state(5);
     let maxFanout = $state(3);
     let maxChildren = $state(5);
+    let workdir = $state('');
     let cwd = $state('');
     let trace = $state(false);
     let silent = $state(false);
@@ -93,6 +94,7 @@
             maxDepth = config.maxDepth || 5;
             maxFanout = config.maxFanout || 3;
             maxChildren = config.maxChildren || 5;
+            workdir = config.workdir || '';
             cwd = config.cwd || '';
             trace = config.trace || false;
             silent = config.silent || false;
@@ -138,6 +140,7 @@
             if (maxDepth !== undefined) updatedConfig.maxDepth = maxDepth;
             if (maxFanout !== undefined) updatedConfig.maxFanout = maxFanout;
             if (maxChildren !== undefined) updatedConfig.maxChildren = maxChildren;
+            if (workdir) updatedConfig.workdir = workdir;
             if (cwd) updatedConfig.cwd = cwd;
             updatedConfig.trace = trace;
             updatedConfig.silent = silent;
@@ -250,7 +253,7 @@
 
     let hasChanges = $derived.by(() => {
         const current = {
-            module, modulesPackage, provider, model, maxDepth, maxFanout, maxChildren, cwd, trace, silent, verbose,
+            module, modulesPackage, provider, model, maxDepth, maxFanout, maxChildren, workdir, cwd, trace, silent, verbose,
             allowedTools: allowedTools.split(',').map(t => t.trim()).filter(Boolean),
             allowedDirectories: allowedDirectories.split('\n').map(d => d.trim()).filter(Boolean),
             mcpServersJson,
@@ -267,6 +270,7 @@
             maxDepth: originalConfig.maxDepth || 5,
             maxFanout: originalConfig.maxFanout || 3,
             maxChildren: originalConfig.maxChildren || 5,
+            workdir: originalConfig.workdir || '',
             cwd: originalConfig.cwd || '',
             trace: originalConfig.trace || false,
             silent: originalConfig.silent || false,
@@ -400,8 +404,18 @@
                                 </div>
                             </div>
                             <div>
+                                <label for="workdir" class="block text-xs font-medium text-gray-600 mb-1">
+                                    Workdir (default session home base)
+                                    <Input
+                                        name="workdir"
+                                        bind:value={workdir}
+                                        placeholder="/path/to/home-base"
+                                    />
+                                </label>
+                            </div>
+                            <div>
                                 <label for="cwd" class="block text-xs font-medium text-gray-600 mb-1">
-                                    Working Directory
+                                    Working Directory (legacy; prefer Workdir)
                                     <Input
                                         name="cwd"
                                         bind:value={cwd}

@@ -241,6 +241,29 @@ async function cmdAttach(args) {
     process.on('SIGINT', detach);
 }
 
+export function printUsage() {
+    console.log(`thinksuit — interactive REPL + thin client over the ThinkSuit broker
+
+usage:
+  thinksuit                          launch the interactive REPL
+  thinksuit <command> [args]         run a one-shot client command
+
+commands:
+  run "<input>" [--model M] [--require-approval] [--json]
+                                     start a turn (prints sessionId; --json for full result)
+  ps [-a/--all] [--json]             list sessions (default: active only)
+  queue [--json]                     list tool calls awaiting approval
+  status <sessionId> [--json]        show a session's status + workdir
+  log <sessionId> [--tail]           print a session's event log (--tail to follow)
+  attach <sessionId>                 observe a live session; act on the in-flight turn
+  interrupt <sessionId> | -a/--all [--json]
+                                     cancel in-flight turn(s)
+  approve <sessionId> [approvalId] [--deny]
+                                     approve (or --deny) a pending tool call
+
+service ops (broker, console, tty, voice) live in a separate control plane: thinkctl`);
+}
+
 export async function dispatch(verb, args) {
     try {
         switch (verb) {

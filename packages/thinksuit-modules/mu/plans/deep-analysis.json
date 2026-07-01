@@ -1,0 +1,51 @@
+{
+  "name": "Deep Analysis",
+  "description": "Multi-stage investigation, analysis, and synthesis",
+  "plan": {
+    "name": "investigate-analyze-synthesize-fs",
+    "rationale": "We must first gather file information using tools (investigate), then reason about structure and patterns (analyze), and finally present a coherent report (synthesize). Thread accumulation preserves findings across steps; only the final synthesized report should be returned.",
+    "strategy": "sequential",
+    "resultStrategy": "last",
+    "sequence": [
+      {
+        "role": "investigate",
+        "strategy": "task",
+        "tools": [
+          "list_directory",
+          "read_text_file",
+          "read_media_file",
+          "read_multiple_files"
+        ],
+        "resolution": {
+          "maxCycles": 5,
+          "maxTokens": 10000,
+          "maxToolCalls": 15,
+          "timeoutMs": 43200000
+        },
+        "lengthLevel": "standard"
+      },
+      {
+        "role": "analyze",
+        "strategy": "task",
+        "tools": [],
+        "resolution": {
+          "maxCycles": 3,
+          "maxTokens": 10000,
+          "maxToolCalls": 0,
+          "timeoutMs": 43200000
+        },
+        "lengthLevel": "standard"
+      },
+      {
+        "role": "synthesize",
+        "strategy": "direct",
+        "resolution": {
+          "maxTokens": 10000
+        },
+        "tools": [],
+        "adaptations": [],
+        "lengthLevel": "comprehensive"
+      }
+    ]
+  }
+}

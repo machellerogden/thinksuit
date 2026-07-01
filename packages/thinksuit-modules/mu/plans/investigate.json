@@ -1,0 +1,24 @@
+{
+  "name": "Investigate",
+  "description": "Gather information using available tools",
+  "plan": {
+    "name": "investigate",
+    "rationale": "Task strategy with tools for systematic discovery and examination. Multiple cycles support thorough exploration of external sources",
+    "strategy": "task",
+    "role": "investigate",
+    "tools": [
+      "list_directory",
+      "read_text_file",
+      "read_media_file",
+      "read_multiple_files",
+      "search"
+    ],
+    "resolution": {
+      "maxCycles": 5,
+      "maxTokens": 10000,
+      "maxToolCalls": 15,
+      "timeoutMs": 43200000
+    },
+    "lengthLevel": "standard"
+  }
+}
