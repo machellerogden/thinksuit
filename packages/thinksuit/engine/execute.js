@@ -157,16 +157,17 @@ async function main() {
         }
     }
 
-    // Establish the session's workdir up front: default to the directory the command
-    // was run from when --workdir isn't given, then provision (bind it, or reuse the
-    // session's existing one — rejecting a mismatch). The resolved workspace is the
-    // engine workdir; the turn's cwd defaults to it in normalizeConfig.
+    // Establish the session's workdir up front. A new session with no explicit
+    // --workdir binds the directory the command was run from (baseCwd); a resumed
+    // session reuses its fixed home (baseCwd is ignored on reuse, so running from
+    // a different dir never conflicts). The resolved workspace is the engine
+    // workdir; the turn's cwd defaults to it in normalizeConfig.
     const invocationDir = process.env.INIT_CWD || process.cwd();
     const sessionId = config.sessionId || generateId();
     let workdir;
     try {
         workdir = await provisionWorkspace(sessionId, {
-            workdir: config.workdir || invocationDir,
+            workdir: config.workdir,
             baseCwd: invocationDir
         });
     } catch (error) {

@@ -581,21 +581,29 @@ export async function deleteSession(sessionId) {
 /**
  * Provision (or reuse) a session's workspace directory — its filesystem home.
  * Idempotent: if it already exists (any prior turn), the existing resolved path
- * is returned. For a new session, an explicit `workdir` is bound by symlinking
- * the workspace path to it; otherwise a fresh directory is created.
+ * is returned.
+ *
+ * `workdir` and `baseCwd` are distinct on purpose:
+ * - `workdir` is an **explicit** caller choice to bind the session to a specific
+ *   directory. It is set-once: naming a different one on a later turn rejects.
+ * - `baseCwd` is the caller's invocation cwd. It serves as the **creation-time
+ *   default** (a new session with no explicit workdir binds here — the "summoned
+ *   in" directory) and as the base for resolving a relative `workdir`. It is
+ *   ignored on reuse, so resuming a session from a different cwd never conflicts.
+ *
+ * With neither, a fresh managed workspace directory is created (the
+ * auto-provisioning path, e.g. a resident daemon with no summon location).
  *
  * @param {string} sessionId
- * @param {{ workdir?: string, baseCwd?: string }} [opts] - `workdir`: explicit
- *   directory to bind (resolved against `baseCwd`); `baseCwd`: directory to
- *   resolve a relative `workdir` against (the client's invocation cwd).
+ * @param {{ workdir?: string, baseCwd?: string }} [opts]
  * @returns {Promise<string>} The resolved absolute workspace path.
  */
 export async function provisionWorkspace(sessionId, { workdir, baseCwd } = {}) {
     const wsPath = getWorkspaceDir(sessionId);
 
     // Already provisioned (subsequent turn / pre-existing session): reuse it.
-    // workdir is immutable for a session's lifetime — if a later turn names a
-    // different one, reject rather than silently ignore it.
+    // Only an EXPLICIT workdir is set-once — a defaulted summon dir (baseCwd)
+    // must not retroactively conflict with a session's fixed home.
     if (await exists(wsPath)) {
         const existing = await realpath(wsPath);
         if (workdir) {
@@ -617,9 +625,12 @@ export async function provisionWorkspace(sessionId, { workdir, baseCwd } = {}) {
 
     await mkdir(dirname(wsPath), { recursive: true });
 
-    if (workdir) {
-        // Bind: the workspace path is a symlink to the user's directory.
-        const target = resolve(baseCwd || process.cwd(), workdir);
+    // Bind target at creation: an explicit workdir wins; otherwise the summon dir
+    // (baseCwd) becomes the home. With neither, provision a fresh managed dir.
+    const bindTarget = workdir ?? baseCwd;
+    if (bindTarget) {
+        // Bind: the workspace path is a symlink to the resolved directory.
+        const target = resolve(baseCwd || process.cwd(), bindTarget);
         await mkdir(target, { recursive: true });
         await symlink(target, wsPath);
     } else {

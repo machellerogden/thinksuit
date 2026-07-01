@@ -132,6 +132,14 @@ export function createBroker() {
                         break;
                     case 'failed':
                         entry.status = 'failed';
+                        // A throw before `started` (e.g. provisionWorkspace
+                        // rejecting a workdir mismatch) settles here — otherwise
+                        // the exit handler masks the real reason with the generic
+                        // "Worker exited before starting".
+                        if (!settled) {
+                            settled = true;
+                            resolve({ ok: false, reason: msg.error });
+                        }
                         break;
                     default:
                         break;

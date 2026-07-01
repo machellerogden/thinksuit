@@ -44,6 +44,42 @@ describe('provisionWorkspace', () => {
             await rm(target, { recursive: true, force: true });
         }
     });
+
+    it('binds the summon dir (baseCwd) at creation when no explicit workdir', async () => {
+        const summon = join(tmpdir(), `ts-ws-summon-${randomBytes(5).toString('hex')}`);
+        await mkdir(summon, { recursive: true });
+        try {
+            const ws = await provisionWorkspace('sess-summon', { baseCwd: summon });
+            expect(ws).toBe(await realpath(summon));
+            const entry = await lstat(join(WS_BASE, 'sess-summon'));
+            expect(entry.isSymbolicLink()).toBe(true);
+        } finally {
+            await rm(summon, { recursive: true, force: true });
+        }
+    });
+
+    it('reuses on resume regardless of baseCwd — a defaulted cwd is not set-once', async () => {
+        // Created as a managed workspace (no summon location)...
+        const created = await provisionWorkspace('sess-resume', {});
+        // ...then resumed from an unrelated cwd. baseCwd must not conflict.
+        const resumed = await provisionWorkspace('sess-resume', {
+            baseCwd: join(tmpdir(), `ts-ws-elsewhere-${randomBytes(5).toString('hex')}`)
+        });
+        expect(resumed).toBe(created);
+    });
+
+    it('rejects an explicit workdir that differs from the fixed home on resume', async () => {
+        await provisionWorkspace('sess-fixed', {});
+        const other = join(tmpdir(), `ts-ws-other-${randomBytes(5).toString('hex')}`);
+        await mkdir(other, { recursive: true });
+        try {
+            await expect(
+                provisionWorkspace('sess-fixed', { workdir: other })
+            ).rejects.toThrow(/workdir is fixed for this session/);
+        } finally {
+            await rm(other, { recursive: true, force: true });
+        }
+    });
 });
 
 describe('getSessionWorkspace', () => {

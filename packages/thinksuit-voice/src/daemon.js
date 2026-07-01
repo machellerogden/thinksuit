@@ -117,7 +117,9 @@ export async function createVoiceDaemon(overrides = {}) {
             provider: base.provider,
             model: base.model,
             providerConfig: base.providerConfig,
-            cwd: base.cwd,
+            // No cwd/workdir: the voice daemon has no summon location, so sessions
+            // lean on auto-provisioning (a managed workspace). A pre-existing
+            // session promoted to the voice designation keeps its own fixed home.
             mcpServers: base.mcpServers,
             allowedTools: base.allowedTools,
             allowedDirectories: base.allowedDirectories,

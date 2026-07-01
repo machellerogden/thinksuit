@@ -203,7 +203,7 @@ async function start(config) {
     // defaults to it in normalizeConfig, which drives allowedDirectories + MCP roots.
     const sessionId = config.sessionId || generateId();
     const workspace = await provisionWorkspace(sessionId, {
-        workdir: config.workdir || config.cwd,
+        workdir: config.workdir,
         baseCwd: config.cwd
     });
 

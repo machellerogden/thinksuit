@@ -24,6 +24,11 @@
     let routeView = $derived(params.view || 'workbench');
     let routeEventId = $derived(params.eventId || null);
 
+    // workdir is fixed at session creation. Once a session has any entries it is
+    // established, so the input is read-only AND the value must not be sent —
+    // resending it on resume trips provisionWorkspace's set-once guard.
+    let workdirLocked = $derived(session.entries.length > 0);
+
     let input = $state('');
     let trace = $state(false);
     let workdir = $state('');  // Session home-base directory (immutable once the session exists)
@@ -145,7 +150,7 @@
                 body: JSON.stringify({
                     input: input.trim(),
                     trace,
-                    workdir: workdir.trim() || undefined,  // Session home base (honored at session creation)
+                    workdir: workdirLocked ? undefined : (workdir.trim() || undefined),  // Only at session creation; never resend on resume
                     selectedPlan: parsedPlan || undefined,  // Include plan override if provided
                     frame: frame.text?.trim() ? frame : undefined,  // Include frame if provided
                     modality: modality || undefined,  // Runtime modality (sibling to frame)
