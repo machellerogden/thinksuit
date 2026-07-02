@@ -198,6 +198,16 @@ export function awaitTurn(sessionId, { from = 0, onEvent, socketPath } = {}) {
  * then live). Returns a handle with `close()`. `onError` is optional.
  */
 export function tail(sessionId, onEntry, { socketPath = resolveSocketPath(), onError, from = 0 } = {}) {
+    let closedByUs = false;
+    let notified = false;
+    // Report a stream failure at most once, and never when *we* closed the stream
+    // (an intentional close is not an error — e.g. Ctrl-C on `log --tail`).
+    const notifyError = (err) => {
+        if (closedByUs || notified) return;
+        notified = true;
+        if (onError) onError(err);
+    };
+
     const req = http.request(
         {
             socketPath,
@@ -226,15 +236,24 @@ export function tail(sessionId, onEntry, { socketPath = resolveSocketPath(), onE
                     }
                 }
             });
-            res.on('error', (err) => onError && onError(err));
+            res.on('error', (err) => notifyError(err));
+            // A stream that ends or closes without a terminal event means the broker
+            // went away mid-turn — surface it so awaitTurn settles instead of hanging.
+            const onEnd = () =>
+                notifyError(new Error('Broker stream closed before the turn completed'));
+            res.on('end', onEnd);
+            res.on('close', onEnd);
         }
     );
     req.on('error', (err) => {
-        if (onError) onError(isBrokerDown(err) ? new Error(BROKER_DOWN_HINT) : err);
+        notifyError(isBrokerDown(err) ? new Error(BROKER_DOWN_HINT) : err);
     });
     req.end();
 
     return {
-        close: () => req.destroy()
+        close: () => {
+            closedByUs = true;
+            req.destroy();
+        }
     };
 }

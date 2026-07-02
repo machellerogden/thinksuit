@@ -96,17 +96,11 @@ export function createBroker() {
      * `started` (with the real sessionId) or `error` (could not schedule).
      * Wires the persistent lifecycle listeners so the registry stays accurate.
      */
-    function spawnWorker(config) {
+    function spawnWorker(config, entry) {
         return new Promise((resolve) => {
             const child = fork(WORKER_PATH, [], { env: process.env });
+            entry.child = child;
             let settled = false;
-
-            const entry = {
-                child,
-                sessionId: config.sessionId ?? null,
-                status: 'starting',
-                startTime: Date.now()
-            };
 
             child.on('message', (msg) => {
                 if (!msg || typeof msg !== 'object') return;
@@ -187,22 +181,28 @@ export function createBroker() {
             return sendJson(res, 400, { ok: false, error: 'config.input (string) is required' });
         }
 
-        // Refuse a turn for a session that is already running here (one in-flight
-        // turn per session). schedule()'s acquireSession is the authoritative
-        // lock; this is a fast-path rejection before we spend a fork.
+        // Reserve the session synchronously — before any await — so a second /run
+        // for the same session can't slip in before this worker reports 'started'
+        // (that gap is the acquireSession race). schedule()'s acquireSession stays a
+        // backstop; this request-time reservation is the real gate. A new session
+        // gets its id inside the worker, so there is nothing to collide on.
+        let entry;
         if (config.sessionId) {
             const existing = registry.get(config.sessionId);
-            if (existing && existing.status === 'running') {
+            if (existing && (existing.status === 'running' || existing.status === 'starting')) {
                 return sendJson(res, 409, {
                     ok: false,
                     error: `Session ${config.sessionId} already has an in-flight turn`
                 });
             }
+            entry = { child: null, sessionId: config.sessionId, status: 'starting', startTime: Date.now() };
+            registry.set(config.sessionId, entry);
+        } else {
+            entry = { child: null, sessionId: null, status: 'starting', startTime: Date.now() };
         }
 
         // Pre-run entry count, so a client can tail only the new turn (from this
-        // offset) instead of replaying the session's history. Read before fork;
-        // no other writer touches the session until the worker starts.
+        // offset) instead of replaying the session's history.
         let from = 0;
         if (config.sessionId) {
             try {
@@ -213,8 +213,13 @@ export function createBroker() {
             }
         }
 
-        const result = await spawnWorker(config);
+        const result = await spawnWorker(config, entry);
         if (!result.ok) {
+            // Free the reservation if the worker never started (the exit handler
+            // also cleans up, but may not fire if the fork itself failed).
+            if (config.sessionId && registry.get(config.sessionId) === entry) {
+                registry.delete(config.sessionId);
+            }
             return sendJson(res, 409, { ok: false, error: result.reason });
         }
         return sendJson(res, 200, {
@@ -240,6 +245,14 @@ export function createBroker() {
         } catch {
             body = {};
         }
+        // The worker may have exited during readBody; sending on a closed IPC
+        // channel is a silent no-op, so report honestly instead of a false 200.
+        if (!entry.child.connected) {
+            return sendJson(res, 409, {
+                ok: false,
+                error: `Turn for session ${sessionId} already ended`
+            });
+        }
         entry.child.send({ type: 'interrupt', reason: body.reason || 'Interrupted via broker' });
         sendJson(res, 200, { ok: true, sessionId });
     }
@@ -258,6 +271,7 @@ export function createBroker() {
         const interrupted = [];
         for (const [sessionId, entry] of registry.entries()) {
             if (entry.status !== 'running') continue;
+            if (!entry.child.connected) continue; // worker already exited; nothing to signal
             entry.child.send({ type: 'interrupt', reason });
             interrupted.push(sessionId);
         }
@@ -301,6 +315,14 @@ export function createBroker() {
             });
         }
 
+        // The worker may have exited during readBody/findPendingApproval; sending on
+        // a closed IPC channel is a silent no-op, so report honestly.
+        if (!entry.child.connected) {
+            return sendJson(res, 409, {
+                ok: false,
+                error: `Turn for session ${sessionId} already ended`
+            });
+        }
         entry.child.send({ type: 'resolve-approval', approvalId, approved });
         sendJson(res, 200, { ok: true, sessionId, approvalId, approved });
     }
@@ -395,14 +417,23 @@ export function createBroker() {
             cursor = from + initial.entries.length;
         }
 
-        const flushFrom = async () => {
-            const data = await readSessionLinesFrom(sessionId, cursor);
-            if (data && data.entries.length) {
-                for (const entry of data.entries) {
-                    res.write(`data: ${JSON.stringify(entry)}\n\n`);
-                }
-                cursor += data.entries.length;
-            }
+        // Serialize flushes: two rapid change events must not both read from the
+        // same cursor and double-emit. Each flush advances the cursor before the
+        // next runs. Callers can await the returned promise (worker-exit does).
+        let flushChain = Promise.resolve();
+        const flushFrom = () => {
+            flushChain = flushChain
+                .then(async () => {
+                    const data = await readSessionLinesFrom(sessionId, cursor);
+                    if (data && data.entries.length) {
+                        for (const entry of data.entries) {
+                            res.write(`data: ${JSON.stringify(entry)}\n\n`);
+                        }
+                        cursor += data.entries.length;
+                    }
+                })
+                .catch(() => {});
+            return flushChain;
         };
 
         const sub = subscribeToSession(
@@ -527,6 +558,13 @@ export function startBroker({ socketPath = resolveSocketPath() } = {}) {
         server.once('error', reject);
         server.listen(socketPath, () => {
             server.removeListener('error', reject);
+            // Keep a persistent error handler after startup — otherwise a
+            // post-listen socket error is an unhandled 'error' event and crashes
+            // the resident daemon.
+            server.on('error', (err) => {
+                // eslint-disable-next-line no-console
+                console.error('Broker server error:', err.message);
+            });
             // eslint-disable-next-line no-console
             console.log(`ThinkSuit broker listening on ${socketPath} (pid ${process.pid})`);
 

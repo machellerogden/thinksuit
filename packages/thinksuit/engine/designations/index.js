@@ -9,7 +9,7 @@
 
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from 'node:fs';
 
 const NAME_RE = /^[a-z0-9][a-z0-9_-]*$/i;
 
@@ -30,7 +30,28 @@ function readState() {
 function writeState(state) {
     const path = stateFilePath();
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, JSON.stringify(state, null, 4), 'utf-8');
+    // Write to a temp file then rename — an interrupted write can't truncate the
+    // real file (rename is atomic on POSIX) and readers never see a partial write.
+    const tmp = `${path}.${process.pid}.tmp`;
+    writeFileSync(tmp, JSON.stringify(state, null, 4), 'utf-8');
+    renameSync(tmp, path);
+}
+
+// Like readState, but for the write path: a present-but-unparseable file is an
+// error, not an empty object. Refuse to overwrite it — otherwise a single corrupt
+// read would silently wipe every existing designation.
+function readStateForWrite() {
+    const path = stateFilePath();
+    if (!existsSync(path)) return {};
+    const raw = readFileSync(path, 'utf-8');
+    try {
+        return JSON.parse(raw);
+    } catch (err) {
+        throw new Error(
+            `refusing to write: state file ${path} is corrupt (${err.message}); ` +
+                'fix or remove it to avoid losing designations'
+        );
+    }
 }
 
 function assertValidName(name) {
@@ -57,7 +78,7 @@ export function setDesignation(name, sessionId) {
     if (typeof sessionId !== 'string' || !sessionId) {
         throw new Error('setDesignation requires a non-empty sessionId');
     }
-    const state = readState();
+    const state = readStateForWrite();
     (state.designations ??= {})[name] = sessionId;
     writeState(state);
     return sessionId;
