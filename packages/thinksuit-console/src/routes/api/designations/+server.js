@@ -1,8 +1,11 @@
 import { json } from '@sveltejs/kit';
-import { listDesignations, setDesignation } from 'thinksuit';
+import { listDesignations } from 'thinksuit';
+import * as broker from 'thinksuit-broker';
 
 // The designations registry: named pointers to sessions (name -> sessionId).
-// GET returns the whole map; POST points a name at a session.
+// GET returns the whole map (direct read — atomic writes mean no torn reads);
+// POST points a name at a session through the broker, the single writer of
+// state.json.
 export async function GET() {
     try {
         return json({ designations: listDesignations() });
@@ -21,11 +24,11 @@ export async function POST({ request }) {
         if (typeof sessionId !== 'string' || !sessionId.trim()) {
             return json({ error: 'sessionId is required' }, { status: 400 });
         }
-        setDesignation(name.trim(), sessionId.trim());
+        await broker.setDesignation(name.trim(), sessionId.trim());
         return json({ success: true });
     } catch (error) {
-        // Invalid-name errors from the kernel are client errors.
-        const status = /invalid designation name/.test(error.message) ? 400 : 500;
+        // The broker maps invalid names to a 4xx; propagate its status when present.
+        const status = error.statusCode || (/invalid designation name/.test(error.message) ? 400 : 500);
         console.error('Error setting designation:', error);
         return json({ error: error.message }, { status });
     }

@@ -1,10 +1,12 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { derivePendingApproval, derivePendingApprovalDetail } from '../src/approvals.js';
 import { createBroker } from '../src/broker.js';
 import * as client from '../src/client.js';
+import { listDesignations } from 'thinksuit';
 
 function tmpSock() {
     return join(tmpdir(), `ts-broker-test-${randomBytes(5).toString('hex')}.sock`);
@@ -201,5 +203,67 @@ describe('broker HTTP surface', () => {
         await listen();
         const all = await client.sessions({ all: true, socketPath });
         expect(Array.isArray(all)).toBe(true);
+    });
+});
+
+// The broker is the single writer of ~/.thinksuit/state.json; surfaces route
+// designation writes through POST /designations.
+describe('broker designations (single writer)', () => {
+    let server;
+    let socketPath;
+    let dir;
+    let prevStateFile;
+
+    beforeEach(() => {
+        dir = mkdtempSync(join(tmpdir(), 'ts-broker-desig-'));
+        prevStateFile = process.env.THINKSUIT_STATE_FILE;
+        process.env.THINKSUIT_STATE_FILE = join(dir, 'state.json');
+    });
+
+    afterEach(async () => {
+        if (server) {
+            await new Promise((resolve) => server.close(resolve));
+            server = null;
+        }
+        if (prevStateFile === undefined) delete process.env.THINKSUIT_STATE_FILE;
+        else process.env.THINKSUIT_STATE_FILE = prevStateFile;
+        rmSync(dir, { recursive: true, force: true });
+    });
+
+    async function listen() {
+        socketPath = join(tmpdir(), `ts-broker-test-${randomBytes(5).toString('hex')}.sock`);
+        const broker = createBroker();
+        server = broker.server;
+        await new Promise((resolve, reject) => {
+            server.once('error', reject);
+            server.listen(socketPath, () => {
+                server.removeListener('error', reject);
+                resolve();
+            });
+        });
+    }
+
+    it('writes a designation and it lands in state.json', async () => {
+        await listen();
+        const res = await client.setDesignation('voice', 'S1', { socketPath });
+        expect(res).toMatchObject({ ok: true, name: 'voice', sessionId: 'S1' });
+        expect(listDesignations()).toEqual({ voice: 'S1' });
+    });
+
+    it('rejects an invalid designation name with a 400', async () => {
+        await listen();
+        await expect(client.setDesignation('bad name!', 'S1', { socketPath })).rejects.toThrow(
+            /invalid designation name/i
+        );
+        // Broker stays healthy after the bad request.
+        const h = await client.health({ socketPath });
+        expect(h.ok).toBe(true);
+    });
+
+    it('rejects a missing sessionId with a 400', async () => {
+        await listen();
+        await expect(client.setDesignation('voice', '', { socketPath })).rejects.toThrow(
+            /sessionId/i
+        );
     });
 });

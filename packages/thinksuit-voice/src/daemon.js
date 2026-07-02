@@ -6,8 +6,13 @@
 // via macOS `say`. A control socket (control/server.js) lets the CLI and console
 // steer a running daemon (mic on/off, interrupt) and read its status.
 
-import { run as brokerRun, tail as brokerTail, interrupt as brokerInterrupt } from 'thinksuit-broker';
-import { buildConfig, getDesignation, setDesignation } from 'thinksuit';
+import {
+    run as brokerRun,
+    tail as brokerTail,
+    interrupt as brokerInterrupt,
+    setDesignation as brokerSetDesignation
+} from 'thinksuit-broker';
+import { buildConfig, getDesignation } from 'thinksuit';
 import { createPipeline } from './wake/pipeline.js';
 import { createDetector } from './wake/detector.js';
 import { createCapture, listInputDevices } from './audio/capture.js';
@@ -146,8 +151,10 @@ export async function createVoiceDaemon(overrides = {}) {
         // Point the designation at this turn's session. Idempotent on `converse`
         // (same id), repoints on `new` (fresh id), and bootstraps on first use —
         // so the kernel's state.json always reflects the current voice thread.
+        // Routed through the broker (the single writer of state.json); the boot
+        // read above stays direct.
         try {
-            setDesignation(designationName, sessionId);
+            await brokerSetDesignation(designationName, sessionId);
         } catch (err) {
             console.error('could not persist designation:', err.message);
         }

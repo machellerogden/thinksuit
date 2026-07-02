@@ -10,7 +10,8 @@ import {
     getSessionMetadata,
     getSessionWorkspace,
     readSessionLinesFrom,
-    subscribeToSession
+    subscribeToSession,
+    setDesignation
 } from 'thinksuit';
 import { resolveSocketPath } from './paths.js';
 import { derivePendingApproval, derivePendingApprovalDetail } from './approvals.js';
@@ -378,6 +379,34 @@ export function createBroker() {
         sendJson(res, 200, { ok: true, queue });
     }
 
+    // The broker is the single writer of ~/.thinksuit/state.json. Surfaces
+    // (console, voice) route designation writes here instead of writing the file
+    // themselves, so there is never more than one process mutating it. Reads stay
+    // direct — an atomic rename means readers never see a torn write.
+    async function handleDesignations(req, res) {
+        let body;
+        try {
+            body = await readBody(req);
+        } catch (err) {
+            return sendJson(res, 400, { ok: false, error: err.message });
+        }
+        const { name, sessionId } = body;
+        if (typeof name !== 'string' || !name.trim()) {
+            return sendJson(res, 400, { ok: false, error: 'name (string) is required' });
+        }
+        if (typeof sessionId !== 'string' || !sessionId.trim()) {
+            return sendJson(res, 400, { ok: false, error: 'sessionId (string) is required' });
+        }
+        try {
+            setDesignation(name.trim(), sessionId.trim());
+        } catch (err) {
+            // Invalid-name errors from the kernel are client errors.
+            const status = /invalid designation name/.test(err.message) ? 400 : 500;
+            return sendJson(res, status, { ok: false, error: err.message });
+        }
+        sendJson(res, 200, { ok: true, name: name.trim(), sessionId: sessionId.trim() });
+    }
+
     async function handleStatus(req, res, sessionId) {
         // Errors (e.g. malformed id) propagate to the request boundary, which
         // maps them to a 4xx/5xx response without crashing the daemon.
@@ -480,6 +509,7 @@ export function createBroker() {
             return handleSessions(req, res, url.searchParams.get('all') === '1');
         }
         if (method === 'GET' && path === '/queue') return handleQueue(req, res);
+        if (method === 'POST' && path === '/designations') return handleDesignations(req, res);
 
         if (method === 'POST' && path === '/interrupt' && url.searchParams.get('all') === '1') {
             return handleInterruptAll(req, res);

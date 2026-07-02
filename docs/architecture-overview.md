@@ -338,3 +338,6 @@ sequenceDiagram
 3. **Tool Approval**: User approval required for tool execution (configurable)
 4. **Policy Override**: System can override module decisions based on user policy
 5. **Audit Trail**: Complete trace logging for security analysis
+6. **Secrets never enter facts/logs**: Provider credentials flow through config
+   in-process only. `aggregateFacts` does not flatten the `providerConfig` subtree
+   into `Config` facts, so resolved API keys never reach the session JSONL on disk.

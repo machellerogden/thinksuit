@@ -34,6 +34,15 @@ function flattenConfig(obj, prefix = '') {
             continue;
         }
 
+        // Never flatten the secret-bearing provider subtree into facts — a Config
+        // fact's value lands in the session log, so recursing here would write raw
+        // apiKeys to disk. The decision plane reads config.providerConfig directly
+        // (providers, detectSignals via listConfiguredProviders); it never consumes
+        // a providerConfig.* fact. provider/model are top-level; presence is in apiKeys.
+        if (key === 'providerConfig') {
+            continue;
+        }
+
         // Recursively flatten objects, but not arrays
         if (value && typeof value === 'object' && !Array.isArray(value)) {
             results.push(...flattenConfig(value, path));

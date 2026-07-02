@@ -32,6 +32,11 @@ See **../../CONTRIBUTING.md** for repo-wide commands, architecture, and style.
   an actionable "broker not running" error.
 - **Observation is filesystem-driven.** Tailing rides `subscribeToSession`
   (chokidar) + `readSessionLinesFrom`. Never poll for changes.
+- **Single writer of `state.json`.** The broker is the only process that writes
+  the designation registry (`~/.thinksuit/state.json`). Surfaces (console, voice)
+  route writes through `POST /designations`; the daemon calls the kernel's
+  `setDesignation`. Reads stay direct on the surfaces (atomic rename → no torn
+  reads). This closes a prior multi-writer race.
 
 ### File map
 
@@ -42,10 +47,11 @@ See **../../CONTRIBUTING.md** for repo-wide commands, architecture, and style.
   runs `schedule()`, handles `interrupt`/`resolve-approval` messages, flushes
   session streams, reports `started`/`done`/`error`/`failed`.
 - `src/client.js` — client library over the socket (`run`, `sessions`, `status`,
-  `log`, `tail`, `interrupt`, `interruptAll`, `approve`, `health`, plus `awaitTurn`
-  and the pure `classifyTurnOutcome`). `awaitTurn` is the single home for the turn
-  terminal contract (terminal set `turn.complete` / `session.interrupted` /
-  `broker.worker.exited`; outcomes `completed | interrupted | failed | exited`).
+  `log`, `tail`, `interrupt`, `interruptAll`, `approve`, `health`, `setDesignation`,
+  plus `awaitTurn` and the pure `classifyTurnOutcome`). `awaitTurn` is the single
+  home for the turn terminal contract (terminal set `turn.complete` /
+  `session.interrupted` / `broker.worker.exited`; outcomes
+  `completed | interrupted | failed | exited`).
 - `src/approvals.js` — `derivePendingApproval(entries)` (latest unresolved
   approvalId) and `derivePendingApprovalDetail(entries)` (`{approvalId, tool,
   args}`). Both pure. `queue` aggregates the latter across live sessions.

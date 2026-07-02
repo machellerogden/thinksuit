@@ -102,6 +102,33 @@ describe('aggregateFacts handler', () => {
         expect(result.facts[0].type).toBe('TurnContext');
     });
 
+    it('never emits providerConfig secrets as Config facts', async () => {
+        const SENTINEL = 'sk-test-SECRET-do-not-log';
+        const machineContext = {
+            execLogger: logger,
+            config: {
+                provider: 'openai',
+                model: 'gpt-4o-mini',
+                providerConfig: {
+                    openai: { apiKey: SENTINEL },
+                    anthropic: { apiKey: 'sk-ant-SECRET' }
+                }
+            }
+        };
+
+        const result = await aggregateFactsCore({ signals: [], context: {} }, machineContext);
+
+        const configFacts = result.facts.filter((f) => f.type === 'Config');
+        // No fact may be derived from the providerConfig subtree...
+        expect(configFacts.some((f) => f.name?.startsWith('providerConfig'))).toBe(false);
+        // ...and no fact value may carry a secret.
+        const serialized = JSON.stringify(result.facts);
+        expect(serialized).not.toContain(SENTINEL);
+        expect(serialized).not.toContain('sk-ant-SECRET');
+        // Top-level, non-secret config still flows through.
+        expect(configFacts.some((f) => f.name === 'provider')).toBe(true);
+    });
+
     it('should use fact name for deduplication key when signal is absent', async () => {
         const input = {
             signals: [

@@ -113,6 +113,24 @@ independently, not as a per-session attribute.
     designation to a different thread (the op from the designation side) is a
     follow-on, hosted on the pinned-section entry — not the first cut.
 
+## Single writer (refinement)
+
+The kernel still *owns* the mechanism and exports
+`getDesignation`/`setDesignation`/`listDesignations`, but **all writes to
+`state.json` now go through the broker** — the one resident process — via
+`POST /designations` (`thinksuit-broker` client `setDesignation`). This closes a
+multi-writer race: previously the console endpoint and the voice daemon each
+called `setDesignation` directly, so two processes mutated the same file.
+
+- **Writes:** console POST endpoint and voice daemon route through the broker
+  client. The broker calls the kernel's `setDesignation` (single writer). Writes
+  are atomic (temp file + `renameSync`).
+- **Reads stay direct.** `listDesignations`/`getDesignation` read `state.json`
+  straight from disk (console GET, voice boot-time seed). An atomic rename means
+  a reader never sees a torn write, and reads don't depend on the broker being up.
+- A write needs the broker running — both surfaces already require it to run
+  turns, so this adds no new practical dependency.
+
 ## Open
 
 - None pending.
@@ -138,13 +156,17 @@ independently, not as a per-session attribute.
   session-router, config read/patch (`readUserConfig`/`patchUserConfig`,
   `engine/config.js:464-479`), and the secrets keyring already live here.
 - **thinksuit-voice:** owns the `voice` designation's meaning; demotes from
-  *owner* of `mainSessionId` to *consumer* of a shared pointer. Reads/writes
-  `designations["voice"]` on converse/new.
-- **thinksuit-broker:** stays agnostic — executes whatever sessionId it is
-  handed. (Open, later: a designated "home"-like seat might want a stable
-  workspace rather than a per-turn one — not this pass.)
-- **thinksuit-console:** in scope this pass — a first-class *writer* of the
-  designations map, and where the representation lives:
+  *owner* of `mainSessionId` to *consumer* of a shared pointer. Reads
+  `designations["voice"]` directly at boot; *writes* it through the broker on
+  converse/new.
+- **thinksuit-broker:** the **single writer** of `state.json` — hosts
+  `POST /designations`, which calls the kernel's `setDesignation`. Still agnostic
+  about what a name *means*; it just owns the one write path. (Open, later: a
+  designated "home"-like seat might want a stable workspace rather than a per-turn
+  one — not this pass.)
+- **thinksuit-console:** in scope this pass — the logical *writer* of the
+  designations map (physically routed through the broker), and where the
+  representation lives:
   - Pinned "Designations" section above the session list (display).
   - Assign gesture from the per-row `⋮` menu and from the top of the open
     session (workbench).

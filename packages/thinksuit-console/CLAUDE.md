@@ -34,6 +34,9 @@ multiple UIs can share the same SDKs.
   `./recorder`, `./session`, `./devices`, `./control`) — the wakeword store owns
   `~/.thinksuit/voice/` (manifests, samples, run-logs).
 - **Turn execution** via `thinksuit-broker` (run/tail/interrupt/...).
+- **Designations:** *reads* direct via `thinksuit` (`listDesignations()`);
+  *writes* via `thinksuit-broker` (`setDesignation`). The broker is the single
+  writer of `~/.thinksuit/state.json` — the console never writes it directly.
 
 This keeps `~/.thinksuit/sessions/` and `~/.thinksuit/voice/` managed entirely by
 ThinkSuit/voice core, not the Console.

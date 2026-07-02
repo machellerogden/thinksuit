@@ -6,6 +6,11 @@
 // name *means*. Meaning lives at the surfaces (e.g. thinksuit-voice owns the
 // `voice` name). The map persists in ~/.thinksuit/state.json, the kernel's home
 // for system-authored state (distinct from the user-authored ~/.thinksuit.json).
+//
+// Single writer: surfaces (console, voice) route *writes* through the broker
+// (POST /designations → setDesignation here), so only one process ever mutates
+// state.json. Reads (getDesignation/listDesignations) stay direct — writeState's
+// atomic rename means a reader never sees a torn write.
 
 import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';

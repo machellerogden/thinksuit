@@ -120,6 +120,15 @@ export async function status(sessionId, opts) {
     return request('GET', `/status/${encodeURIComponent(sessionId)}`, null, opts);
 }
 
+/**
+ * Point a designation (named pointer) at a session. The broker is the single
+ * writer of the designation registry (~/.thinksuit/state.json); surfaces route
+ * writes here rather than writing the file directly. Reads stay direct.
+ */
+export async function setDesignation(name, sessionId, opts) {
+    return request('POST', '/designations', { name, sessionId }, opts);
+}
+
 /** Read all recorded entries for a session (non-tailing). */
 export async function log(sessionId, opts) {
     const res = await request('GET', `/log/${encodeURIComponent(sessionId)}`, null, opts);
