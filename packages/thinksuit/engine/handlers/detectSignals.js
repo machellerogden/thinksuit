@@ -6,6 +6,7 @@
 import { PIPELINE_EVENTS, SYSTEM_EVENTS, PROCESSING_EVENTS } from '../constants/events.js';
 import { DEFAULT_MODULE } from '../constants/defaults.js';
 import { callLLM } from '../providers/io.js';
+import { listConfiguredProviders } from '../providers/index.js';
 
 const MIN_CONFIDENCE = 0.6;
 
@@ -36,7 +37,8 @@ export async function detectSignalsCore(input, machineContext) {
     }
     const classifiers = module.classifiers;
 
-    const callLLMFn = config?.apiKey ? (params, toolSchemas) => callLLM(machineContext, params, toolSchemas) : null;
+    const providerConfigured = config ? listConfiguredProviders(config)[config.provider] : false;
+    const callLLMFn = providerConfigured ? (params, toolSchemas) => callLLM(machineContext, params, toolSchemas) : null;
     const classifierConfig = callLLMFn
         ? {
             ...config,

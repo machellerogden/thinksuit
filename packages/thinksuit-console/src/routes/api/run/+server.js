@@ -53,7 +53,9 @@ export async function POST({ request }) {
             modulesPackage: modulesPackage || baseConfig.modulesPackage,
             provider: provider || baseConfig.provider,
             model: model || baseConfig.model,
-            providerConfig: baseConfig.providerConfig,
+            // No providerConfig: the broker's per-turn worker resolves secrets
+            // fresh. Sending them here crosses a boundary and lets a stale,
+            // long-lived console cache win over the worker's current key.
             cwd: cwd || baseConfig.cwd,
             workdir: workdir || undefined, // optional: bind session to a dir (else provisioned)
             allowedDirectories: allowedDirectories || baseConfig.allowedDirectories,

@@ -415,6 +415,15 @@ function buildConfig(options = {}) {
         }
     };
 
+    // Presence-only view of key-bearing providers, derived from the already
+    // resolved providerConfig (so it honors secrets.env, not just process.env).
+    // Booleans only — safe to serialize across the config boundary.
+    config.apiKeys = {
+        openai: !!config.providerConfig.openai.apiKey,
+        anthropic: !!config.providerConfig.anthropic.apiKey,
+        huggingFace: !!config.providerConfig.huggingFace.apiKey
+    };
+
     // Add debug flag from environment
     config.debug = process.env.DEBUG === 'true' || process.env.DEBUG === '1';
 
