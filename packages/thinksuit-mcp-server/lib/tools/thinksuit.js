@@ -45,7 +45,7 @@ export function registerThinkSuitTool(server) {
                     modulesPackage: base.modulesPackage,
                     provider: base.provider,
                     model: base.model,
-                    providerConfig: base.providerConfig,
+                    // no providerConfig: per the note above, the worker resolves secrets itself; sending stale keys causes 401s after rotation.
                     cwd: base.cwd,
                     allowedDirectories: base.allowedDirectories,
                     mcpServers: base.mcpServers,

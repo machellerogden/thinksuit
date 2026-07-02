@@ -144,7 +144,7 @@ async function main() {
                 modulesPackage: baseConfig.modulesPackage,
                 provider: baseConfig.provider,
                 model: baseConfig.model,
-                providerConfig: baseConfig.providerConfig,
+                // no providerConfig cached: the broker worker resolves secrets itself; a long-lived REPL holding stale keys causes 401s after rotation.
                 tools: baseConfig.allowedTools || [],
                 allowedDirectories: baseConfig.allowedDirectories,
                 mcpServers: baseConfig.mcpServers,

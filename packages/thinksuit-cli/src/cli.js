@@ -38,7 +38,7 @@ function buildRunConfig(flagArgv) {
         modulesPackage: c.modulesPackage,
         provider: c.provider,
         model: c.model,
-        providerConfig: c.providerConfig,
+        // no providerConfig: the broker worker resolves secrets itself; sending stale client keys causes 401s after rotation.
         cwd: c.cwd || process.env.INIT_CWD || process.cwd(),
         workdir: c.workdir, // optional: bind session to an existing dir (else provisioned)
         allowedDirectories: c.allowedDirectories,

@@ -237,7 +237,7 @@ export async function* executeCommand(args, session) {
             modulesPackage: thinkSuit.config.modulesPackage,
             provider: thinkSuit.config.provider,
             model: thinkSuit.config.model,
-            providerConfig: thinkSuit.config.providerConfig,
+            // no providerConfig: the broker worker resolves secrets itself; sending stale client keys causes 401s after rotation.
             cwd: thinkSuit.config.cwd,
             allowedTools: thinkSuit.config.tools,
             allowedDirectories: thinkSuit.config.allowedDirectories,
