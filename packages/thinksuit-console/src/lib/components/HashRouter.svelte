@@ -1,7 +1,7 @@
 <script module>
     import { SvelteURL } from 'svelte/reactivity';
 
-    class RouteMatcher {
+    export class RouteMatcher {
         constructor(routeConfig) {
             if (typeof routeConfig === 'string') {
                 routeConfig = { path: routeConfig };
@@ -17,14 +17,26 @@
                 return;
             }
 
-            if (!this.path.includes(':')) {
-                this.testPath = path => path === this.path;
+            // Check if path ends with /* (wildcard for sub-paths)
+            const hasWildcard = this.path.endsWith('/*');
+            const pathWithoutWildcard = hasWildcard ? this.path.slice(0, -2) : this.path;
+
+            this._prefixSegmentCount = hasWildcard
+                ? pathWithoutWildcard.split('/').filter(Boolean).length
+                : 0;
+
+            if (!pathWithoutWildcard.includes(':')) {
+                if (hasWildcard) {
+                    this.testPath = path => path === pathWithoutWildcard || path.startsWith(pathWithoutWildcard + '/');
+                } else {
+                    this.testPath = path => path === this.path;
+                }
                 this.extractParams = () => ({});
                 return;
             }
 
             this.paramNames = [];
-            const regexPattern = this.path
+            const regexPattern = pathWithoutWildcard
                 .split('/')
                 .map(segment => {
                     if (segment.startsWith(':')) {
@@ -35,7 +47,9 @@
                 })
                 .join('\\/');
 
-            this.regex = new RegExp(`^${regexPattern}$`);
+            // If wildcard, allow anything after the pattern, otherwise require exact match
+            const regexSuffix = hasWildcard ? '(/.*)?$' : '$';
+            this.regex = new RegExp(`^${regexPattern}${regexSuffix}`);
             this.testPath = path => this.regex.test(path);
             this.extractParams = path => {
                 const matches = path.match(this.regex);
@@ -54,6 +68,12 @@
         extract(location) {
             return this.extractParams(location.pathname);
         }
+
+        matchedPrefix(pathname) {
+            if (!this._prefixSegmentCount) return null;
+            const segments = pathname.split('/').filter(Boolean);
+            return '/' + segments.slice(0, this._prefixSegmentCount).join('/');
+        }
     }
 
     class SvelteLocation extends SvelteURL {
@@ -61,20 +81,28 @@
             // Like window.location.assign, creates a new history entry
             const newHash = this.#buildHashFromPath(path);
             window.location.hash = newHash;
+            // Update the SvelteLocation object to reflect the new URL
             this.href = createVirtualURLString();
+            // Clear the hash property to prevent $effect from appending it
+            this.hash = '';
         }
 
         replace(path) {
             // Like window.location.replace, no new history entry
             const newHash = this.#buildHashFromPath(path);
             window.history.replaceState(null, '', newHash);
+            // Update the SvelteLocation object to reflect the new URL
             this.href = createVirtualURLString();
+            // Clear the hash property to prevent $effect from appending it
+            this.hash = '';
         }
 
         #buildHashFromPath(path) {
             return '#' + (path.startsWith('/') ? path : '/' + path);
         }
     }
+
+    export const ROUTER_CTX = {};
 
     export const location = $state(new SvelteLocation(createVirtualURLString()));
     export const state = $state({ loading: false, component: null, params: {} });
@@ -101,9 +129,12 @@
 </script>
 
 <script>
-    import { onMount } from 'svelte';
+    import { onMount, setContext } from 'svelte';
 
-    let { routes, onhashchange } = $props();
+    let { routes, onnavigate } = $props();
+
+    let routerContext = $state({ basePath: '', params: {} });
+    setContext(ROUTER_CTX, routerContext);
 
     onMount(() => {
         if (state.component) throw new Error('HashRouter can only be used once in a Svelte app');
@@ -115,12 +146,12 @@
             // Sync location object with the actual hash when user navigates
             // using back/forward buttons or external changes
             location.href = createVirtualURLString();
-            onhashchange && onhashchange(location);
         };
         window.addEventListener('hashchange', handleHashChange);
         return () => window.removeEventListener('hashchange', handleHashChange);
     });
 
+    // svelte-ignore state_referenced_locally — routes are static configuration, built once at mount
     const entries = [...routes].map(([routeConfig, component]) => ({
         matcher: new RouteMatcher(routeConfig),
         component
@@ -178,19 +209,27 @@
             state.component = entry.component;
             state.params = finalParams;
             match = entry;
+
+            routerContext.basePath = entry.matcher.matchedPrefix(location.pathname) || '';
+            routerContext.params = finalParams;
+            onnavigate?.({ path: location.pathname, relativePath: location.pathname, params: finalParams });
             break;
         }
 
         if (!match) {
             state.component = null;
             state.params = {};
+            routerContext.basePath = '';
+            routerContext.params = {};
         }
     });
 
     // Automatic synchronization when location properties are directly assigned
     $effect(() => {
         // Construct what the hash should be based on the current location state
-        const newHash = '#' + location.pathname + location.search + location.hash;
+        // Only append location.hash if it contains meaningful content (not empty or just '#')
+        const hashFragment = (location.hash && location.hash !== '#') ? location.hash : '';
+        const newHash = '#' + location.pathname + location.search + hashFragment;
         if (window.location.hash !== newHash) {
             // Update the browser location without creating a new history entry
             window.history.replaceState(null, '', newHash);
