@@ -50,13 +50,20 @@ CheckSelectedPlan (choice: deterministic execution path)
 → EvaluateRules (pure, returns multiple plans)
 → SelectPlan (pure, deterministic selection)
 → ComposeInstructions (pure)
-→ Guards & Approval (pure)
 → Route (choice)
-→ Execute (effectful: DoDirect/DoSequential/DoParallel/DoSingle)
+→ Execute (effectful: DoDirect/DoSequential/DoParallel/DoTask)
 → Response
 ```
 
 The state machine definition lives in `engine/machine.json` and is executed via Trajectory library.
+
+**Policy limits are enforced in the execution plane, not the machine.** `runCycle`
+bounds recursion depth via `enforcePolicyCore` before the machine runs (depth is a
+runtime value that grows across nested exec calls, so the once-per-turn decision
+plane can't see it); `execParallel`/`execSequential` bound fanout/children where
+branches are spawned; `applyToolPolicy` filters tools against `config.allowedTools`
+at MCP discovery. There is no rules-based enforcement step — the old no-op
+enforcement rules were removed.
 
 ### Primary API
 

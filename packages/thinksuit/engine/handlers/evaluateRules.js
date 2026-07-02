@@ -5,8 +5,6 @@
 
 import { RulesEngine } from 'the-rules-engine';
 import { PIPELINE_EVENTS, PROCESSING_EVENTS } from '../constants/events.js';
-import { generatePolicyRules } from '../policy/generatePolicyRules.js';
-import { systemEnforcementRules } from '../policy/systemEnforcementRules.js';
 import { systemPlanSelectionRule } from '../policy/systemPlanSelectionRule.js';
 import { systemValidationRules } from '../policy/systemValidationRules.js';
 
@@ -94,12 +92,11 @@ export async function evaluateRulesCore(input, machineContext) {
     // load rules from module
     const moduleRules = machineContext.module?.rules || [];
 
-    // Generate policy rules from config
-    const policy = context?.config?.policy || machineContext.config?.policy || {};
-    const policyRules = generatePolicyRules(policy);
-
-    // Combine all rules: module rules, then policy rules, then system enforcement, then validation, then plan selection
-    const rules = [...moduleRules, ...policyRules, ...systemEnforcementRules, ...systemValidationRules, systemPlanSelectionRule];
+    // Policy enforcement (depth/fanout/children) is re-homed to the execution
+    // plane — runCycle bounds depth, execParallel/execSequential bound width — so
+    // the old no-op enforcement rules and never-firing policy-constraint rules are
+    // gone. What's left here shapes plans, it does not enforce limits.
+    const rules = [...moduleRules, ...systemValidationRules, systemPlanSelectionRule];
 
     const { traceId, sessionId } = context;
     const startTime = Date.now();
@@ -123,8 +120,8 @@ export async function evaluateRulesCore(input, machineContext) {
                 signalCount: facts.length,
                 ruleCount: rules.length,
                 moduleRuleCount: moduleRules.length,
-                policyRuleCount: policyRules.length,
-                systemRuleCount: systemEnforcementRules.length
+                policyRuleCount: 0,
+                systemRuleCount: 0
             }
         },
         'Starting rule evaluation'
@@ -394,8 +391,8 @@ export async function evaluateRulesCore(input, machineContext) {
                             finalFactCount: loopFactCount,
                             ruleCount: rules.length,
                             moduleRuleCount: moduleRules.length,
-                            policyRuleCount: policyRules.length,
-                            systemRuleCount: systemEnforcementRules.length,
+                            policyRuleCount: 0,
+                            systemRuleCount: 0,
                             factTypes: Object.keys(factMap).filter(
                                 (k) =>
                                     factMap[k] &&
@@ -464,8 +461,8 @@ export async function evaluateRulesCore(input, machineContext) {
                             finalFactCount: errorFactCount,
                             ruleCount: rules.length,
                             moduleRuleCount: moduleRules.length,
-                            policyRuleCount: policyRules.length,
-                            systemRuleCount: systemEnforcementRules.length,
+                            policyRuleCount: 0,
+                            systemRuleCount: 0,
                             factTypes: Object.keys(factMap).filter(
                                 (k) =>
                                     factMap[k] &&
@@ -535,8 +532,8 @@ export async function evaluateRulesCore(input, machineContext) {
                     finalFactCount,
                     ruleCount: rules.length,
                     moduleRuleCount: moduleRules.length,
-                    policyRuleCount: policyRules.length,
-                    systemRuleCount: systemEnforcementRules.length,
+                    policyRuleCount: 0,
+                    systemRuleCount: 0,
                     factTypes: Object.keys(factMap).filter(
                         (k) =>
                             factMap[k] && (Array.isArray(factMap[k]) ? factMap[k].length > 0 : true)

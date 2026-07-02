@@ -316,10 +316,16 @@ sequenceDiagram
 - **Execution Plane**: Effectful handlers for LLM calls and tool execution
 
 ### 2. Policy Enforcement Points
-- Plan selection (system overrides module suggestions)
-- Resource limits (tokens, cycles, tool calls)
-- Tool access (filtering based on user allowlist)
-- Timeout enforcement
+Limits are enforced in the **execution plane**, where the runtime values they
+bound actually exist — not in the once-per-turn decision plane:
+- **Recursion depth** — bounded in `runCycle` (`enforcePolicyCore`), the single
+  point every nested descent funnels through. Depth grows across nested exec calls,
+  so it can only be seen at execution time, not at plan selection.
+- **Fanout / children** — bounded in `execParallel` / `execSequential` at the point
+  N branches or steps are actually spawned.
+- **Tool access** — `applyToolPolicy` filters discovered tools against the user
+  allowlist at MCP discovery (`config.allowedTools`).
+- **Token/cycle/tool-call budgets** — enforced inside `execTask`'s loop.
 
 ### 3. Module Isolation
 - Modules provide cognitive behavior but don't control execution

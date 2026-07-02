@@ -7,6 +7,7 @@ import { createSpanLogger } from '../logger.js';
 import { runCycle } from '../runCycle.js';
 import { EXECUTION_EVENTS, EVENT_ROLES, BOUNDARY_TYPES } from '../constants/events.js';
 import { InterruptError, isInterruptError } from '../errors/InterruptError.js';
+import { enforcePolicyCore } from './enforcePolicy.js';
 
 // Default sequential framing prompts (fallbacks when module doesn't provide them)
 const DEFAULT_SEQUENTIAL_PROMPTS = {
@@ -61,6 +62,25 @@ export async function execSequentialCore(input, machineContext) {
                 usage: { prompt: 0, completion: 0 },
                 model: 'error',
                 error: 'No sequence provided'
+            }
+        };
+    }
+
+    // Bound the step count before running: this is where N children actually get
+    // spawned, so it's the right home for the children limit (depth is bounded in
+    // runCycle).
+    const childrenGuard = await enforcePolicyCore(
+        { depth: context.depth || 0, plan, context: { config, traceId } },
+        machineContext
+    );
+    if (!childrenGuard.approved) {
+        return {
+            response: {
+                output: childrenGuard.reason,
+                usage: { prompt: 0, completion: 0 },
+                model: 'policy',
+                error: childrenGuard.code || 'E_POLICY',
+                policyBlocked: true
             }
         };
     }

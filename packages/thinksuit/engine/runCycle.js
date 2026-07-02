@@ -8,6 +8,7 @@ import { logStateEvent, generateSpanId } from './logger.js';
 import { ORCHESTRATION_EVENTS, EXECUTION_EVENTS } from './constants/events.js';
 import { generateId } from './utils/id.js';
 import { InterruptError, isInterruptError } from './errors/InterruptError.js';
+import { enforcePolicyCore } from './handlers/enforcePolicy.js';
 
 /**
  * Execute a single cycle through the state machine
@@ -103,6 +104,34 @@ export async function runCycle({
             }
         }
     };
+
+    // Bound recursion at the one place every descent funnels through. Depth is a
+    // runtime value that grows across nested exec calls (execTask/Sequential/
+    // Parallel re-enter here at depth+1), so this guard — not the once-per-turn
+    // decision plane — is where the depth limit can actually see live depth. On a
+    // policy block we short-circuit before the machine runs, returning a bounded
+    // result shaped like a normal cycle so callers (top-level formatFinalResult
+    // and the recursive handlers) read it as a failed response, not a crash.
+    const guard = await enforcePolicyCore(
+        { depth, plan: selectedPlan || {}, context: { config, traceId: finalTraceId } },
+        machineContext
+    );
+    if (!guard.approved) {
+        return [
+            'SUCCEEDED',
+            {
+                handlerResult: {
+                    response: {
+                        output: guard.reason,
+                        usage: { prompt: 0, completion: 0 },
+                        model: 'policy',
+                        error: guard.code || 'E_POLICY',
+                        policyBlocked: true
+                    }
+                }
+            }
+        ];
+    }
 
     // Generate unique boundary ID for this orchestration
     const orchestrationBoundaryId = `orchestration-${sessionId}-${branch}-${Date.now()}`;

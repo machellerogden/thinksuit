@@ -7,6 +7,7 @@ import { createSpanLogger } from '../logger.js';
 import { runCycle } from '../runCycle.js';
 import { EXECUTION_EVENTS, EVENT_ROLES, BOUNDARY_TYPES } from '../constants/events.js';
 import { InterruptError, isInterruptError } from '../errors/InterruptError.js';
+import { enforcePolicyCore } from './enforcePolicy.js';
 
 /**
  * Core parallel execution logic
@@ -41,6 +42,24 @@ export async function execParallelCore(input, machineContext) {
                 usage: { prompt: 0, completion: 0 },
                 model: 'error',
                 error: 'No roles provided'
+            }
+        };
+    }
+
+    // Bound the width before spawning: this is where N branches actually fan out,
+    // so it's the right home for the fanout limit (depth is bounded in runCycle).
+    const fanoutGuard = await enforcePolicyCore(
+        { depth: context.depth || 0, plan, context: { config, traceId } },
+        machineContext
+    );
+    if (!fanoutGuard.approved) {
+        return {
+            response: {
+                output: fanoutGuard.reason,
+                usage: { prompt: 0, completion: 0 },
+                model: 'policy',
+                error: fanoutGuard.code || 'E_POLICY',
+                policyBlocked: true
             }
         };
     }

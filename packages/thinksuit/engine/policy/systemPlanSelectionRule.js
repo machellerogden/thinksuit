@@ -25,10 +25,7 @@ export const systemPlanSelectionRule = {
         const [ precedenceFact ] = precedenceFacts;
         const precedence = precedenceFact?.data?.precedence || [];
 
-        // Filter out policy-blocked plans
-        const availablePlans = allPlans
-            .filter(f => !f.data?.policyBlocked)
-            .map(f => f.data);
+        const availablePlans = allPlans.map(f => f.data);
 
         if (availablePlans.length === 0) {
             // No plans available - emit a minimal fallback
@@ -37,7 +34,7 @@ export const systemPlanSelectionRule = {
                 plan: {
                     strategy: 'direct',
                     role: 'assistant',
-                    rationale: 'Fallback: No plans available after policy enforcement'
+                    rationale: 'Fallback: No plans available'
                 }
             });
             return;

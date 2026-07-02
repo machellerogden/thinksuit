@@ -295,4 +295,25 @@ describe('execParallel handler', () => {
         expect(result.response.usage.prompt).toBe(0);
         expect(result.response.usage.completion).toBe(0);
     });
+
+    it('blocks a plan that exceeds the fanout limit before spawning branches', async () => {
+        const input = {
+            plan: { strategy: 'parallel', roles: ['a', 'b', 'c', 'd'] }, // 4 > maxFanout 3
+            instructions: {},
+            thread: [],
+            context: { traceId: 'test', depth: 0 },
+            policy: {}
+        };
+        const machineContext = {
+            execLogger: logger,
+            config: { policy: { maxFanout: 3 } }
+        };
+
+        const result = await execParallelCore(input, machineContext);
+
+        expect(result.response.error).toBe('E_FANOUT');
+        expect(result.response.policyBlocked).toBe(true);
+        // No branch was ever spawned.
+        expect(runCycle).not.toHaveBeenCalled();
+    });
 });

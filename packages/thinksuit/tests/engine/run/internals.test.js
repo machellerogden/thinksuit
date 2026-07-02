@@ -158,6 +158,23 @@ describe('run/internals', () => {
             expect(result.autoApproveTools).toBe(true);
             expect(result.cwd).toBe('/test/dir');
         });
+
+        it('preserves allowedTools so the allowlist can bite (A5)', () => {
+            const config = {
+                input: 'test',
+                provider: 'openai',
+                providerConfig: { openai: { apiKey: 'test-key' } },
+                sessionId: 'test-session',
+                allowedTools: ['roll_dice'],
+                cwd: '/test/dir'
+            };
+
+            const result = normalizeConfig(config);
+
+            // Dropping this is what made applyToolPolicy always see undefined and
+            // never restrict — the --allow-tool flag was a no-op.
+            expect(result.allowedTools).toEqual(['roll_dice']);
+        });
     });
 
     describe('buildLogger', () => {

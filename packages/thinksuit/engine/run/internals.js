@@ -94,6 +94,7 @@ export function normalizeConfig(config) {
         allowedDirectories,
         mcpServers: config.mcpServers,
         tools: config.tools,
+        allowedTools: config.allowedTools, // the allowlist applyToolPolicy enforces at MCP discovery
         autoApproveTools: config.autoApproveTools,
         debug: config.debug || false
     };

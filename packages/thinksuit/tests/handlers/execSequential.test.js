@@ -235,4 +235,29 @@ describe('execSequential handler', () => {
         expect(runCycle.mock.calls[1][0].branch).toBe('parent.step-2');
         expect(runCycle.mock.calls[2][0].branch).toBe('parent.step-3');
     });
+
+    it('blocks a plan that exceeds the children limit before running steps', async () => {
+        const input = {
+            plan: {
+                strategy: 'sequential',
+                sequence: ['s1', 's2', 's3', 's4', 's5', 's6'] // 6 > maxChildren 5
+            },
+            instructions: {},
+            thread: [],
+            context: { traceId: 'test', depth: 0 },
+            policy: {},
+            module: {}
+        };
+        const machineContext = {
+            execLogger: logger,
+            config: { policy: { maxChildren: 5 } }
+        };
+
+        const result = await execSequentialCore(input, machineContext);
+
+        expect(result.response.error).toBe('E_CHILDREN');
+        expect(result.response.policyBlocked).toBe(true);
+        // No step was ever run.
+        expect(runCycle).not.toHaveBeenCalled();
+    });
 });
