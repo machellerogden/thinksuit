@@ -4,8 +4,11 @@
     let count = $state(0);
     let confirming = $state(false);
     let busy = $state(false);
+    let refreshing = false;
 
     async function refresh() {
+        if (refreshing) return; // don't stack polls if the broker is briefly slow
+        refreshing = true;
         try {
             const res = await fetch('/api/sessions/interrupt-all');
             if (!res.ok) return;
@@ -16,6 +19,8 @@
             // Broker down or unreachable: nothing to interrupt.
             count = 0;
             confirming = false;
+        } finally {
+            refreshing = false;
         }
     }
 
@@ -38,7 +43,13 @@
         refresh();
         const handleRefresh = () => refresh();
         window.addEventListener('sessions-refresh', handleRefresh);
-        return () => window.removeEventListener('sessions-refresh', handleRefresh);
+        // Poll so the count tracks turns that complete without a console action —
+        // including cross-client (voice) turns, which never fire sessions-refresh.
+        const interval = setInterval(refresh, 3000);
+        return () => {
+            window.removeEventListener('sessions-refresh', handleRefresh);
+            clearInterval(interval);
+        };
     });
 </script>
 
