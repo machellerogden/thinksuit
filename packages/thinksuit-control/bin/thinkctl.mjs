@@ -22,6 +22,7 @@ import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
+import meow from 'meow';
 import { readUserConfig, patchUserConfig } from 'thinksuit';
 import pkg from '../package.json' with { type: 'json' };
 
@@ -32,8 +33,45 @@ const NODE_DIR = dirname(NODE_BIN);
 const LAUNCH_AGENTS = join(HOME, 'Library', 'LaunchAgents');
 const LOGS = join(HOME, 'Library', 'Logs');
 
-const args = new Set(process.argv.slice(3));
-const YES = args.has('--yes') || args.has('-y');
+const HELP = `thinkctl — ThinkSuit operations control plane
+
+Usage
+  $ thinkctl <command> [service] [flags]
+
+Commands
+  up         <svc|-a>   install + load (sugar)
+  down       <svc|-a>   unload + uninstall (sugar)
+  install    <svc|-a>   onboard (config + token), generate plist, run hooks
+  uninstall  <svc|-a>   remove plist file
+  load       <svc|-a>   register with launchd
+  unload     <svc|-a>   unregister from launchd
+  start      <svc|-a>   (re)start
+  stop       <svc|-a>   signal stop (TERM)
+  status     [svc|-a]   show launchd state (all if omitted)
+  ls                    list services and their state
+  logs       <svc>      print recent stdout+stderr (--tail to follow)
+  clear-logs <svc|-a>   delete stdout + stderr logs
+
+Flags
+  --all,   -a   apply to all services
+  --yes,   -y   non-interactive onboarding (keep existing config, fill defaults)
+  --tail        logs: follow the log (like tail -f) instead of printing and exiting
+  --lines, -n   logs: number of lines to show (default: 200)
+
+Services resolve by short name (broker) or full name (thinksuit-broker).`;
+
+const cli = meow(HELP, {
+    importMeta: import.meta,
+    flags: {
+        yes: { type: 'boolean', shortFlag: 'y', default: false },
+        all: { type: 'boolean', shortFlag: 'a', default: false },
+        tail: { type: 'boolean', default: false },
+        lines: { type: 'number', shortFlag: 'n', default: 200 }
+    }
+});
+
+const [CMD, SERVICE] = cli.input;
+const { yes: YES, all: ALL, tail: TAIL, lines: LINES } = cli.flags;
 
 const DEFAULTS = {
     provider: 'anthropic',
@@ -95,13 +133,13 @@ function unit(def) {
     };
 }
 
-async function targets(arg) {
-    const all = await services();
-    if (arg === '--all' || arg === '-a') return all;
-    if (!arg || arg.startsWith('-')) throw new Error('expected a service name or -a/--all');
-    const svc = all.find((s) => s.name === arg || s.name === `thinksuit-${arg}`);
+async function targets(service, all = ALL) {
+    const list = await services();
+    if (all) return list;
+    if (!service) throw new Error('expected a service name or -a/--all');
+    const svc = list.find((s) => s.name === service || s.name === `thinksuit-${service}`);
     if (!svc) {
-        throw new Error(`unknown service: ${arg} (known: ${all.map((s) => s.name).join(', ') || 'none'})`);
+        throw new Error(`unknown service: ${service} (known: ${list.map((s) => s.name).join(', ') || 'none'})`);
     }
     return [svc];
 }
@@ -299,13 +337,13 @@ function ensureEnv() {
 
 const commands = {
     // up/down are pure sugar — transparent composition of the primitives.
-    async up(arg) {
-        await commands.install(arg);
-        await commands.load(arg);
+    async up(service) {
+        await commands.install(service);
+        await commands.load(service);
     },
-    async down(arg) {
-        await commands.unload(arg);
-        await commands.uninstall(arg);
+    async down(service) {
+        await commands.unload(service);
+        await commands.uninstall(service);
     },
 
     async ls() {
@@ -320,87 +358,65 @@ const commands = {
         }
     },
 
-    async install(arg) {
-        const svcs = await targets(arg);
+    async install(service) {
+        const svcs = await targets(service);
         const ctx = await onboard();
         for (const svc of svcs) await installOne(svc, ctx);
         secretsReminder();
     },
-    async uninstall(arg) {
-        for (const svc of await targets(arg)) uninstall(svc);
+    async uninstall(service) {
+        for (const svc of await targets(service)) uninstall(svc);
     },
-    async load(arg) {
-        for (const svc of await targets(arg)) load(svc);
+    async load(service) {
+        for (const svc of await targets(service)) load(svc);
     },
-    async unload(arg) {
-        for (const svc of await targets(arg)) unload(svc);
+    async unload(service) {
+        for (const svc of await targets(service)) unload(svc);
     },
-    async start(arg) {
-        for (const svc of await targets(arg)) start(svc);
+    async start(service) {
+        for (const svc of await targets(service)) start(svc);
     },
-    async stop(arg) {
-        for (const svc of await targets(arg)) stop(svc);
+    async stop(service) {
+        for (const svc of await targets(service)) stop(svc);
     },
 
-    async logs(arg) {
-        const [svc] = await targets(arg);
+    async logs(service) {
+        const [svc] = await targets(service);
         for (const f of [svc.stdout, svc.stderr]) if (!existsSync(f)) writeFileSync(f, '');
-        sh('tail', ['-q', '-n', '1000', '-f', svc.stdout, svc.stderr]);
+        // Default: print the last N lines and exit. --tail follows (like tail -f),
+        // starting from the last N lines.
+        const tailArgs = ['-q', '-n', String(LINES)];
+        if (TAIL) tailArgs.push('-f');
+        sh('tail', [...tailArgs, svc.stdout, svc.stderr]);
     },
 
-    async 'clear-logs'(arg) {
-        for (const svc of await targets(arg)) {
+    async 'clear-logs'(service) {
+        for (const svc of await targets(service)) {
             for (const f of [svc.stdout, svc.stderr]) if (existsSync(f)) rmSync(f);
             C.ok(`${svc.name} logs cleared`);
         }
     },
 
-    async status(arg) {
+    async status(service) {
         C.head('Status');
-        for (const svc of await targets(arg || '--all')) {
+        // status shows everything by default (no service and no -a → all).
+        for (const svc of await targets(service, ALL || !service)) {
             const { state, pid } = stateOf(svc);
             C.info(`${svc.name}: ${state}${pid ? ` (pid ${pid})` : ''}`);
         }
     }
 };
 
-function usage() {
-    console.log(`thinkctl — ThinkSuit operations control plane
-
-usage: thinkctl <command> [service|-a|--all] [--yes]
-
-  up         <svc|-a/--all>   install + load (sugar)
-  down       <svc|-a/--all>   unload + uninstall (sugar)
-  install    <svc|-a/--all>   onboard (config + token), generate plist, run hooks
-  uninstall  <svc|-a/--all>   remove plist file
-  load       <svc|-a/--all>   register with launchd
-  unload     <svc|-a/--all>   unregister from launchd
-  start      <svc|-a/--all>   (re)start
-  stop       <svc|-a/--all>   signal stop (TERM)
-  status     [svc|-a/--all]   show launchd state
-  ls                          list services and their state
-  logs       <svc>            tail stdout + stderr
-  clear-logs <svc|-a/--all>   delete stdout + stderr logs
-
-  --yes, -y   non-interactive onboarding (keep existing config, fill defaults)
-
-services are resolved by short name (broker) or full name (thinksuit-broker).`);
-}
-
 async function main() {
-    const cmd = process.argv[2];
-    const arg = process.argv[3];
-    if (!cmd || cmd === 'help' || cmd === '-h' || cmd === '--help') {
-        usage();
-        process.exit(cmd ? 0 : 1);
+    if (!CMD || CMD === 'help') {
+        cli.showHelp(CMD ? 0 : 1); // showHelp exits
     }
-    if (!commands[cmd]) {
-        console.error(`thinkctl: unknown command '${cmd}'\n`);
-        usage();
-        process.exit(1);
+    if (!commands[CMD]) {
+        console.error(`thinkctl: unknown command '${CMD}'\n`);
+        cli.showHelp(1); // exits
     }
     ensureEnv();
-    await commands[cmd](arg);
+    await commands[CMD](SERVICE);
 }
 
 main().catch((err) => {
