@@ -99,7 +99,7 @@ describe('execFallback handler', () => {
         const mockConfig = {
             provider: 'openai',
             model: 'gpt-4o-mini',
-            apiKey: 'test-key'
+            providerConfig: { openai: { apiKey: 'test-key' } }
         };
 
         // Mock callLLM to return a recovery response
@@ -164,7 +164,7 @@ describe('execFallback handler', () => {
         const mockConfig = {
             provider: 'openai',
             model: 'gpt-4o-mini',
-            apiKey: 'test-key'
+            providerConfig: { openai: { apiKey: 'test-key' } }
         };
 
         // Mock callLLM to fail
@@ -205,7 +205,7 @@ describe('execFallback handler', () => {
         const mockConfig = {
             provider: 'openai',
             model: 'gpt-4o-mini',
-            apiKey: 'test-key'
+            providerConfig: { openai: { apiKey: 'test-key' } }
         };
 
         const input = {

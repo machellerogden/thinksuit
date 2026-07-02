@@ -310,7 +310,7 @@ describe('execTask handler', () => {
                     role: 'analyzer',
                     resolution: {
                         maxCycles: 5,
-                        maxTokens: 300,
+                        maxTokens: 8000,
                         maxToolCalls: 10,
                         timeoutMs: 60000
                     }
@@ -320,21 +320,22 @@ describe('execTask handler', () => {
                 policy: {}
             };
 
-            // First cycle uses 200 tokens
+            // First cycle uses 7600 tokens — within budget but inside the 800-token
+            // synthesis reserve (0.1 * 8000, so 8000 - 800 = 7200), so the task stops.
             runCycle.mockResolvedValueOnce([
                 'SUCCEEDED',
                 {
                     handlerResult: {
                         response: {
                             output: 'First analysis',
-                            usage: { prompt: 150, completion: 50 },
+                            usage: { prompt: 7000, completion: 600 },
                             finishReason: 'tool_use'
                         }
                     }
                 }
             ]);
 
-            // Second cycle would exceed budget
+            // Synthesis cycle
             runCycle.mockResolvedValueOnce([
                 'SUCCEEDED',
                 {
@@ -351,12 +352,12 @@ describe('execTask handler', () => {
             const result = await execTaskCore(input, mockMachineContext);
 
             expect(runCycle).toHaveBeenCalledTimes(2);
-            expect(result.response.metadata.totalTokens).toBe(350);
+            expect(result.response.metadata.totalTokens).toBe(7750);
             expect(mockLogger.warn).toHaveBeenCalledWith(
-                expect.objectContaining({ 
+                expect.objectContaining({
                     event: 'execution.task.synthesis_budget_triggered',
-                    totalTokens: 200,
-                    tokensReserved: 500
+                    totalTokens: 7600,
+                    tokensReserved: 800
                 }),
                 'Stopping to preserve tokens for synthesis'
             );

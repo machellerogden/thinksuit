@@ -403,13 +403,17 @@ export function formatFinalResult(status, result, sessionId, logger, turnBoundar
             partialData: result?.partialData || null
         };
     } else {
-        const output = result?.handlerResult?.response?.output || result?.fallback?.output;
+        const response = result?.handlerResult?.response;
+        const output = response?.output || result?.fallback?.output;
+        const responseError = response?.error;
         finalResult = {
-            success: !!output,
+            // A response that carries an error is not a success, even when it also
+            // carries placeholder output (e.g. a sequential run whose step failed).
+            success: !!output && !responseError,
             response: output || 'No response generated',
             sessionId,
-            usage: result?.handlerResult?.response?.usage,
-            error: result?.error
+            usage: response?.usage,
+            error: result?.error || responseError
         };
     }
 

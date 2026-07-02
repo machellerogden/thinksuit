@@ -6,7 +6,7 @@
 import { callLLM } from '../providers/io.js';
 import { DEFAULT_ROLE } from '../constants/defaults.js';
 import { PROCESSING_EVENTS, EXECUTION_EVENTS, EVENT_ROLES, BOUNDARY_TYPES } from '../constants/events.js';
-import { InterruptError } from '../errors/InterruptError.js';
+import { InterruptError, isInterruptError } from '../errors/InterruptError.js';
 import { getDefaultRole, getRoleTemperature } from '../utils/module.js';
 
 /**
@@ -88,8 +88,10 @@ export async function execDirectCore(input, machineContext) {
             });
         }
 
-        // Use thread from instructions
-        const thread = instructions?.thread || [];
+        // Use thread from instructions. Named distinctly so it doesn't shadow the
+        // `thread` parameter that the pre-call interrupt check above references —
+        // shadowing put that reference in the temporal dead zone.
+        const llmThread = instructions?.thread || [];
 
         const systemInstructions = instructions?.systemInstructions || '';
 
@@ -101,7 +103,7 @@ export async function execDirectCore(input, machineContext) {
         const llmParams = {
             model: config?.model,
             systemInstructions,
-            thread,
+            thread: llmThread,
             maxTokens: instructions?.maxTokens || 400,
             temperature
         };
@@ -235,6 +237,12 @@ export async function execDirectCore(input, machineContext) {
 
         return { response };
     } catch (error) {
+        // Interrupts are a first-class outcome — propagate them instead of masking
+        // them as a generic error response.
+        if (isInterruptError(error)) {
+            throw error;
+        }
+
         logger.error(
             {
                 traceId,

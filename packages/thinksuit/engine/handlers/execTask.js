@@ -19,6 +19,16 @@ const DEFAULT_TASK_PROMPTS = {
     continue: 'Continue.'
 };
 
+// Tokens held back from task work for the final synthesis pass. The reserve scales
+// with the per-turn budget but never drops below the floor.
+//
+// KNOWN DEBT — NO BUENO: these are hardcoded magic numbers. A bare 500 sitting here
+// is not a real answer; the synthesis reserve should be a first-class resolution/
+// policy field, not a constant baked into the handler. Tweak these knobs for now,
+// but the mechanism deserves a proper fix.
+const SYNTHESIS_RESERVE_MIN = 500; // hard floor (tokens) — magic number, see note above
+const SYNTHESIS_RESERVE_RATIO = 0.1; // fraction of maxTokens, used when above the floor
+
 /**
  * Core task execution logic - enables multi-cycle execution with tools
  * @param {Object} input - { plan, instructions, thread, context, policy }
@@ -185,10 +195,16 @@ export async function execTaskCore(input, machineContext) {
                 // Get finish reason for logging
                 const finishReason = response.finishReason;
 
-                // Check if we need to stop to preserve synthesis budget
-                // Reserve at least 500 tokens for final synthesis
-                const SYNTHESIS_TOKEN_RESERVE = 500; // I HATE THIS BEING BURIED HERE
-                if (totalTokens >= resolution.maxTokens - SYNTHESIS_TOKEN_RESERVE) {
+                // Reserve tokens for the final synthesis pass — proportional to the
+                // budget, floored at SYNTHESIS_RESERVE_MIN (see top of file). Only apply
+                // this early stop when the budget exceeds the reserve, so a small
+                // maxTokens can't make the threshold negative and trip on cycle one.
+                const SYNTHESIS_TOKEN_RESERVE = Math.max(
+                    SYNTHESIS_RESERVE_MIN,
+                    Math.round(resolution.maxTokens * SYNTHESIS_RESERVE_RATIO)
+                );
+                if (resolution.maxTokens > SYNTHESIS_TOKEN_RESERVE &&
+                    totalTokens >= resolution.maxTokens - SYNTHESIS_TOKEN_RESERVE) {
                     logger.warn({
                         event: 'execution.task.synthesis_budget_triggered',
                         traceId,
@@ -271,6 +287,27 @@ export async function execTaskCore(input, machineContext) {
                                     },
                                     `Tool ${request.tool} not available in plan`
                                 );
+                                // Record a result even though we didn't run it: the pairing
+                                // loop below matches results to calls by position, and the
+                                // provider requires an output for every tool call it emitted.
+                                // Skipping would misalign every later result and orphan this call.
+                                toolResults.push({
+                                    tool: request.tool,
+                                    result: `Error: tool ${request.tool} not available in this plan`,
+                                    success: false
+                                });
+                                continue;
+                            }
+
+                            // Enforce the tool-call budget mid-cycle, not only at the
+                            // cycle boundary — one cycle can otherwise run past it. Emit
+                            // a result so the call stays paired (see pairing loop below).
+                            if (resolution.maxToolCalls > 0 && totalToolCalls >= resolution.maxToolCalls) {
+                                toolResults.push({
+                                    tool: request.tool,
+                                    result: 'Error: tool call budget exhausted',
+                                    success: false
+                                });
                                 continue;
                             }
 
@@ -534,6 +571,11 @@ export async function execTaskCore(input, machineContext) {
         }
     }
 
+    // Whether the loop stopped because it hit the cycle cap while still wanting to
+    // continue — as opposed to finishing naturally on the last allowed cycle. Read
+    // here, before the synthesis cycle below increments cycleCount.
+    const hitCycleLimit = continueTask && cycleCount >= resolution.maxCycles;
+
     // Do synthesis if:
     // - Last response was tool_use with no text output
     // - OR we stopped to preserve synthesis budget
@@ -634,7 +676,7 @@ export async function execTaskCore(input, machineContext) {
 
     // Determine final finish reason
     let finalFinishReason = 'complete';
-    if (cycleCount >= resolution.maxCycles) {
+    if (hitCycleLimit) {
         finalFinishReason = 'max_cycles';
     } else if (totalTokens >= resolution.maxTokens) {
         finalFinishReason = 'max_tokens';

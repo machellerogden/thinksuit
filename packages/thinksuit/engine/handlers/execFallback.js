@@ -4,6 +4,7 @@
  */
 
 import { callLLM } from '../providers/io.js';
+import { listConfiguredProviders } from '../providers/index.js';
 import { getTemperature } from './utils/temperature.js';
 
 /**
@@ -123,7 +124,11 @@ export async function execFallbackCore(input, machineContext) {
     // Try to provide a helpful recovery response
     let output;
 
-    if (config?.apiKey && errorCode !== 'E_PROVIDER') {
+    // The credential lives under providerConfig (resolved per provider), not a
+    // top-level config.apiKey — check the configured provider via the registry.
+    const providerConfigured = config ? listConfiguredProviders(config)[config.provider] : false;
+
+    if (providerConfigured && errorCode !== 'E_PROVIDER') {
         // If we have IO and the error isn't provider-related, try a simple recovery
         try {
             logger.debug({ traceId }, 'Attempting intelligent fallback recovery');

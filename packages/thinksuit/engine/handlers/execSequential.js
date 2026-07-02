@@ -6,7 +6,7 @@
 import { createSpanLogger } from '../logger.js';
 import { runCycle } from '../runCycle.js';
 import { EXECUTION_EVENTS, EVENT_ROLES, BOUNDARY_TYPES } from '../constants/events.js';
-import { InterruptError } from '../errors/InterruptError.js';
+import { InterruptError, isInterruptError } from '../errors/InterruptError.js';
 
 // Default sequential framing prompts (fallbacks when module doesn't provide them)
 const DEFAULT_SEQUENTIAL_PROMPTS = {
@@ -366,6 +366,12 @@ export async function execSequentialCore(input, machineContext) {
                 });
             }
         } catch (error) {
+            // An interrupt must abort the whole sequence — not be recorded as a
+            // step error and swallowed while the loop continues to the next step.
+            if (isInterruptError(error)) {
+                throw error;
+            }
+
             logger.error(
                 {
                     event: EXECUTION_EVENTS.SEQUENTIAL_STEP_ERROR,
@@ -436,17 +442,27 @@ export async function execSequentialCore(input, machineContext) {
         'Sequential execution completed'
     );
 
-    return {
-        response: {
-            output: combinedOutput,
-            usage: aggregateUsage,
-            model: config?.model || 'gpt-4o-mini',
-            metadata: {
-                strategy: 'sequential',
-                sequence,
-                steps: results.length,
-                depth: context.depth || 0
-            }
+    // A sequence whose representative output is an error must not report success.
+    // For 'last', the turn fails if the final step failed; for the aggregating
+    // strategies, only a total failure (no step succeeded) is a failed turn.
+    const failedTurn = resultStrategy === 'last'
+        ? !!results.at(-1)?.error
+        : results.length > 0 && results.every((r) => r.error);
+
+    const response = {
+        output: combinedOutput,
+        usage: aggregateUsage,
+        model: config?.model || 'gpt-4o-mini',
+        metadata: {
+            strategy: 'sequential',
+            sequence,
+            steps: results.length,
+            depth: context.depth || 0
         }
     };
+    if (failedTurn) {
+        response.error = 'Sequential execution failed: no step produced a successful result';
+    }
+
+    return { response };
 }

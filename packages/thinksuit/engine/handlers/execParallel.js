@@ -279,6 +279,15 @@ export async function execParallelCore(input, machineContext) {
     const results = await Promise.allSettled(rolePromises);
     const totalDuration = Date.now() - startTime;
 
+    // An interrupt in any branch must abort the whole turn — not be downgraded to
+    // a failed-branch result. allSettled never rejects, so surface it explicitly.
+    const interruptedBranch = results.find(
+        (r) => r.status === 'rejected' && isInterruptError(r.reason)
+    );
+    if (interruptedBranch) {
+        throw interruptedBranch.reason;
+    }
+
     // Get result strategy from plan
     // Default to 'formatted' if module has formatResponse, otherwise 'label'
     const resultStrategy =
