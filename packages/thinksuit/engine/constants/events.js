@@ -110,8 +110,8 @@ export const EXECUTION_EVENTS = {
 
     // Task execution (multi-cycle)
     TASK_START: 'execution.task.start',
-    TASK_CYCLE_START: 'execution.task.cycle_start',
-    TASK_CYCLE_COMPLETE: 'execution.task.cycle_complete',
+    TASK_ROUND_START: 'execution.task.round_start',
+    TASK_ROUND_COMPLETE: 'execution.task.round_complete',
     TASK_COMPLETE: 'execution.task.complete',
     TASK_BUDGET_EXCEEDED: 'execution.task.budget_exceeded',
     TASK_INTERRUPTED: 'execution.task.interrupted',
@@ -243,7 +243,7 @@ export const BOUNDARY_TYPES = {
     ORCHESTRATION: 'orchestration',
     PIPELINE: 'pipeline',
     EXECUTION: 'execution',
-    CYCLE: 'cycle',
+    ROUND: 'round',
     STEP: 'step',
     BRANCH: 'branch',
     TOOL: 'tool',

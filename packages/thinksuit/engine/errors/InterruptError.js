@@ -12,7 +12,7 @@ export class InterruptError extends Error {
         // Capture where the interrupt occurred
         this.interruptedAt = new Date().toISOString();
         this.stage = context.stage || 'unknown';
-        this.cycleCount = context.cycleCount || 0;
+        this.roundCount = context.roundCount || 0;
         this.tokensUsed = context.tokensUsed || 0;
         this.toolCallsExecuted = context.toolCallsExecuted || 0;
 
@@ -34,7 +34,7 @@ export class InterruptError extends Error {
     getSummary() {
         return {
             stage: this.stage,
-            cycleCount: this.cycleCount,
+            roundCount: this.roundCount,
             tokensUsed: this.tokensUsed,
             toolCallsExecuted: this.toolCallsExecuted,
             interruptedAt: this.interruptedAt,

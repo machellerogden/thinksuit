@@ -255,6 +255,53 @@ describe('Provider Abstraction', () => {
                     ]
                 });
             });
+
+            it('groups parallel tool results into one user message (all ids paired)', async () => {
+                mockCreate.mockResolvedValue({
+                    content: [{ type: 'text', text: 'Done' }],
+                    stop_reason: 'end_turn',
+                    usage: { input_tokens: 10, output_tokens: 5 },
+                    model: 'claude-opus-4-8'
+                });
+                mockSdk();
+
+                const { createAnthropicProvider } = await import(
+                    '../../../engine/providers/anthropic.js'
+                );
+                const provider = createAnthropicProvider({ apiKey: 'test-key' });
+
+                await provider.callLLM(mockMachineContext, {
+                    model: 'claude-opus-4-8',
+                    thread: [
+                        { role: 'user', content: 'ls two dirs' },
+                        {
+                            role: 'assistant',
+                            content: '',
+                            tool_calls: [
+                                { id: 'toolu_a', function: { name: 'list_directory', arguments: '{"path":"a"}' } },
+                                { id: 'toolu_b', function: { name: 'list_directory', arguments: '{"path":"b"}' } }
+                            ]
+                        },
+                        { role: 'tool', tool_call_id: 'toolu_a', content: 'contents of a' },
+                        { role: 'tool', tool_call_id: 'toolu_b', content: 'contents of b' }
+                    ],
+                    maxTokens: 500
+                });
+
+                const callArgs = mockCreate.mock.calls[0][0];
+                // The assistant's two tool_use blocks must be answered by a single next
+                // user message carrying both tool_result blocks — Anthropic rejects split
+                // or missing results.
+                expect(callArgs.messages).toHaveLength(3);
+                expect(callArgs.messages[1].content.filter((b) => b.type === 'tool_use')).toHaveLength(2);
+                expect(callArgs.messages[2]).toEqual({
+                    role: 'user',
+                    content: [
+                        { type: 'tool_result', tool_use_id: 'toolu_a', content: 'contents of a' },
+                        { type: 'tool_result', tool_use_id: 'toolu_b', content: 'contents of b' }
+                    ]
+                });
+            });
         });
 
         describe('getCapabilities', () => {

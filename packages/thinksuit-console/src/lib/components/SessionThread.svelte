@@ -2,11 +2,6 @@
     import { SvelteSet } from 'svelte/reactivity';
     import { EmptyState, Badge, Button, JSONView } from '$lib/components/ui/index.js';
     import { getSession } from '$lib/stores/session.svelte.js';
-    import SignalDetectionView from '$lib/components/session/boundary/SignalDetectionView.svelte';
-    import RuleEvaluationView from '$lib/components/session/boundary/RuleEvaluationView.svelte';
-    import FactAggregationView from '$lib/components/session/boundary/FactAggregationView.svelte';
-    import PlanSelectionView from '$lib/components/session/boundary/PlanSelectionView.svelte';
-    import InstructionCompositionView from '$lib/components/session/boundary/InstructionCompositionView.svelte';
     import ToolExecutionView from '$lib/components/session/boundary/ToolExecutionView.svelte';
     import LLMExchangeView from '$lib/components/session/boundary/LLMExchangeView.svelte';
     import GenericEventView from '$lib/components/session/boundary/GenericEventView.svelte';
@@ -36,7 +31,7 @@
         expanded.add(key);
         if (node.children) {
             node.children.forEach(child => {
-                if (['execution', 'cycle', 'step', 'branch', 'orchestration', 'pipeline', 'tool', 'llm_exchange'].includes(child.type)) {
+                if (['execution', 'round', 'step', 'branch', 'tool', 'llm_exchange'].includes(child.type)) {
                     expandAll(child);
                 }
             });
@@ -48,7 +43,7 @@
         expanded.delete(key);
         if (node.children) {
             node.children.forEach(child => {
-                if (['execution', 'cycle', 'step', 'branch', 'orchestration', 'pipeline', 'tool', 'llm_exchange'].includes(child.type)) {
+                if (['execution', 'round', 'step', 'branch', 'tool', 'llm_exchange'].includes(child.type)) {
                     collapseAll(child);
                 }
             });
@@ -207,13 +202,13 @@
                 badgeText: `execution.${metadata.strategy || 'unknown'}`,
                 label: metadata.role || ''
             },
-            cycle: {
+            round: {
                 borderColor: 'border-amber-300',
                 bgColor: 'bg-amber-100',
                 hoverColor: 'hover:bg-amber-200',
                 textColor: 'text-amber-700',
                 badgeVariant: 'warning',
-                badgeText: `cycle ${metadata.cycle || metadata.cycleNumber || '?'}`,
+                badgeText: `round ${metadata.round || metadata.roundNumber || '?'}`,
                 label: metadata.finishReason || ''
             },
             step: {
@@ -233,24 +228,6 @@
                 badgeVariant: 'success',
                 badgeText: 'branch',
                 label: metadata.role || ''
-            },
-            orchestration: {
-                borderColor: 'border-slate-300',
-                bgColor: 'bg-slate-200',
-                hoverColor: 'hover:bg-slate-300',
-                textColor: 'text-slate-700',
-                badgeVariant: 'secondary',
-                badgeText: 'orchestration',
-                label: metadata.branch || ''
-            },
-            pipeline: {
-                borderColor: 'border-indigo-300',
-                bgColor: 'bg-indigo-100',
-                hoverColor: 'hover:bg-indigo-200',
-                textColor: 'text-indigo-700',
-                badgeVariant: 'info',
-                badgeText: 'pipeline',
-                label: metadata.stage || ''
             },
             tool: {
                 borderColor: 'border-teal-300',
@@ -280,7 +257,6 @@
     {@const key = `${node.type}-${node.boundaryId}`}
     {@const isCollapsed = !expanded.has(key)}
     {@const showData = showRawData.has(key)}
-    {@const stage = node.metadata?.stage}
     {@const latestMsg = getLatestEventMsg(node)}
 
     <div class="max-w-6xl mx-auto">
@@ -355,35 +331,7 @@
                     </div>
                 {:else}
                     <!-- Normal view -->
-                    {#if node.type === 'pipeline' && stage}
-                        <!-- Stage-specific view -->
-                        {#if stage === 'signal_detection'}
-                            <div class="ml-2 mt-2 px-3 py-2 bg-white rounded border border-indigo-100">
-                                <SignalDetectionView {node} />
-                            </div>
-                        {:else if stage === 'fact_aggregation'}
-                            <div class="ml-2 mt-2 px-3 py-2 bg-white rounded border border-indigo-100">
-                                <FactAggregationView {node} />
-                            </div>
-                        {:else if stage === 'rule_evaluation'}
-                            <div class="ml-2 mt-2 px-3 py-2 bg-white rounded border border-indigo-100">
-                                <RuleEvaluationView {node} />
-                            </div>
-                        {:else if stage === 'plan_selection'}
-                            <div class="ml-2 mt-2 px-3 py-2 bg-white rounded border border-indigo-100">
-                                <PlanSelectionView {node} />
-                            </div>
-                        {:else if stage === 'instruction_composition'}
-                            <div class="ml-2 mt-2 px-3 py-2 bg-white rounded border border-indigo-100">
-                                <InstructionCompositionView {node} />
-                            </div>
-                        {/if}
-                    {:else if node.type === 'orchestration' && node.metadata?.selectedPlan}
-                        <!-- Selected plan view -->
-                        <div class="ml-2 mt-2 px-3 py-2 bg-white rounded border border-slate-100">
-                            <PlanSelectionView node={node} />
-                        </div>
-                    {:else if node.type === 'tool'}
+                    {#if node.type === 'tool'}
                         <!-- Tool execution view -->
                         <div class="ml-2 mt-2 px-3 py-2 bg-white rounded border border-teal-100">
                             <ToolExecutionView {node} />
@@ -518,7 +466,7 @@
             <!-- Other event types - show full data for debugging -->
             <GenericEventView {node} {depth} {toggleRawData} {showRawData} {sessionId} />
         {/if}
-    {:else if ['execution', 'cycle', 'step', 'branch', 'orchestration', 'pipeline', 'tool', 'llm_exchange'].includes(node.type)}
+    {:else if ['execution', 'round', 'step', 'branch', 'tool', 'llm_exchange'].includes(node.type)}
         <!-- Boundary nodes -->
         {@const config = getBoundaryConfig(node)}
         {@render renderBoundary(node, depth, config)}

@@ -41,31 +41,30 @@ Use thinksuit-inspect with action "list-traces"
 Each session contains entries showing:
 
 - 📝 **Input**: User messages
-- 🎯 **Execution**: How ThinkSuit processed (direct/sequential/parallel)
+- 🎯 **Execution**: the plan nodes that ran (task / sequence / parallel)
 - ✅ **Complete**: Final responses
 
 Entry details reveal:
 
-- Signals detected
-- Execution plans chosen
-- Roles selected
+- The plan node executed and its role
+- Tool calls and their results
 - Response generated
 
 ### Understanding Trace Inspection
 
 Traces show the complete execution tree:
 
-- Nested spans for each handler
+- Nested spans for each plan node, LLM exchange, and tool call
 - Timing information
-- Full decision chain
+- Parent/child boundary relationships
 - Error states if any
 
 ### When to Use
 
 **Session inspection** when you need to:
 
-- See what roles were selected
-- Understand execution strategy
+- See which roles ran
+- Understand how the plan was composed (task/sequence/parallel)
 - Review conversation flow
 - Debug unexpected responses
 

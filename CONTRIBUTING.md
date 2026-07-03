@@ -54,20 +54,27 @@ npm -w thinksuit-console install some-package
 
 ### ThinkSuit Engine (`packages/thinksuit/`)
 
-**Core Flow**: Signal Detection → Rules Evaluation → Execution Planning → Instruction Composition → LLM Orchestration
+**Core Flow**: Resolve the plan (explicit `selectedPlan` override, else the module's
+`defaultPlan`) → `executePlan` composes it → `executeTask` runs each `task` node (the agent
+loop) → response.
 
 **Key Components**:
-- **State Machine**: `engine/machine.json` - ASL-like definition executed via Trajectory library
-- **Signal Detection**: 16 signals across 5 dimensions using two-stage classifiers (regex + optional LLM)
-- **Rules Engine**: Forward-chaining rules for role selection and adaptation
-- **Handler Pattern**: Pure decision plane, effectful execution plane with explicit dependencies
-- **Module System**: First-class modules provide classifiers, rules, prompts, and configuration
+- **Composer**: `engine/handlers/executePlan.js` - dispatches a plan.v1 node by `type`
+  (`task`/`sequence`/`parallel`), recurses into composites, and threads results between
+  siblings via a shared context bag
+- **Agent loop**: `engine/handlers/executeTask.js` - the one effectful primitive; a
+  round-bounded loop over `callLLM`/`callMCPTool`/`requestToolApproval`
+- **Policy**: `engine/handlers/enforcePolicy.js` - a numeric guard checked at three composer
+  points (depth at `executePlan` entry, fanout in parallel, children in sequence);
+  `applyToolPolicy` filters tools at MCP discovery
+- **Module System**: first-class modules provide roles, prompts, `composeInstructions`,
+  `modalities`/`frames`, and a plan library — no classifiers/rules/facts
 
 **Entry Points**:
 - `engine/cli.js` - CLI interface
 - `engine/schedule.js` - Primary programmatic API (`schedule()` function)
 - `engine/sessions.js` - Session query API (`listSessions`, `getSession`, etc.)
-- `engine/runCycle.js` - Pure function for executing cycles (internal)
+- `engine/run/internals.js` - `executeOnce()` resolves the plan and drives `executePlan` (internal)
 
 **Turn contract**: the turn boundary is schema-declared and validated at the entry
 doors — `schemas/turnRequest.v1.json` (what a caller sends, validated via
@@ -109,89 +116,83 @@ npm run exec -- --trace "Your input" 2>&1 | tail -20  # Look for traceId in outp
 
 # Find and analyze the trace file
 find ~/.thinksuit -name '20250923T203121308Z-IiQUmQ5_.jsonl' | xargs cat | jq '.event' | sort -u  # List all events
-find ~/.thinksuit -name '{traceId}.jsonl' | xargs cat | jq 'select(.event == "processing.output.generated" and .data.handler == "detectSignals") | .data.facts'  # Signals detected
-find ~/.thinksuit -name '{traceId}.jsonl' | xargs cat | jq 'select(.event == "pipeline.rule_evaluation.trace") | .data.executionTrace[] | {rule: .ruleName, added: .factsAdded[].type}'  # Rules fired
-find ~/.thinksuit -name '{traceId}.jsonl' | xargs cat | jq 'select(.event == "pipeline.plan_selection.complete") | .data.plan'  # Selected plan
+find ~/.thinksuit -name '{traceId}.jsonl' | xargs cat | jq 'select(.event | test("^execution\\.(task|sequential|parallel)\\.start$")) | {event, role: .data.role, depth: .data.depth}'  # Plan nodes executed
+find ~/.thinksuit -name '{traceId}.jsonl' | xargs cat | jq 'select(.event == "processing.llm.response") | {role: .data.role, finishReason: .data.finishReason}'  # LLM exchanges
+find ~/.thinksuit -name '{traceId}.jsonl' | xargs cat | jq 'select(.event | startswith("execution.tool.")) | {event, tool: .data.request.tool}'  # Tool calls
 
 # Additional useful queries
-find ~/.thinksuit -name '{traceId}.jsonl' | xargs cat | jq 'select(.event | startswith("execution.sequential.step")) | {step: .data.step, role: .data.role}'  # Track sequential steps
-find ~/.thinksuit -name '{traceId}.jsonl' | xargs cat | jq 'select(.event == "pipeline.rule_evaluation.trace") | .data.executionTrace[] | .ruleName' | sort | uniq -c  # Count rule firings
-find ~/.thinksuit -name '{traceId}.jsonl' | xargs cat | jq 'select(.event == "processing.output.generated") | .data.facts[] | {type, confidence: .confidence?}'  # All facts with confidence
+find ~/.thinksuit -name '{traceId}.jsonl' | xargs cat | jq 'select(.event == "execution.task.complete") | {role: .data.role, rounds: .data.rounds, finishReason: .data.finishReason}'  # Per-task loop summary
+find ~/.thinksuit -name '{traceId}.jsonl' | xargs cat | jq 'select(.event == "session.response") | select(.data.success == false) | .data'  # Failed/policy-blocked turn
 ```
 
 ### Understanding Trace Data
 
 ThinkSuit's trace files provide detailed execution insights. Key events to examine:
 
-1. **Signal Detection**:
-   - Event: `processing.output.generated` (handler: detectSignals)
-   - Contains: Detected signals with confidence scores
+1. **Plan node boundaries**:
+   - Events: `execution.task.start/complete`, `execution.sequential.start/complete`,
+     `execution.parallel.start/complete`
+   - Contains: `role`, `depth`, step/branch counts, aggregated usage
 
-2. **Rule Evaluation**:
-   - Event: `pipeline.rule_evaluation.trace`
-   - Contains: Complete rule execution history, facts added by each rule
+2. **LLM exchanges**:
+   - Events: `processing.llm.request` / `processing.llm.response`
+   - Contains: role, thread, tools offered, output, `finishReason`
 
-3. **Plan Selection**:
-   - Event: `pipeline.plan_selection.complete`
-   - Contains: The selected execution plan
+3. **Tool execution**:
+   - Events: `execution.tool.start/requested/approved/executed/complete`
+   - Contains: the tool request and its result
 
-4. **Execution Details**:
-   - Events: `execution.{strategy}.start/complete`
-   - Contains: Role assignments, token usage, LLM responses
+4. **Turn result**:
+   - Event: `session.response`
+   - Contains: final output, usage, `success` (false when a node errored or a policy
+     limit blocked execution)
 
 ### Important Trace Patterns
 
 - **Data is usually in `.data` field**, not at top level
-- **Facts are logged at trace level** in `processing.output.generated` events
-- **Rules fire even if not selected** - check which plan actually gets chosen
-- **Tool enrichment happens late** - after initial plan creation
+- **Boundaries nest** - `parentBoundaryId` links task/tool/LLM spans to their composite
 - **Cross-reference with code** when event structure is unclear
-- **Signal competition** - When multiple signals in same dimension detected, highest confidence wins
-- **Rule duplication** - Rules may fire multiple times in one execution
-- **Hidden sequential steps** - `resultStrategy: 'last'` hides intermediate dialogue steps
-- **System rules** - Look for `system:` prefixed rules that manage internal selection logic
-- **All plans get enriched** - Tool enrichment applies to all created plans, not just selected one
+- **Hidden sequence steps** - `resultStrategy: 'last'` returns only the final step's output
+- **Policy blocks** surface as a `session.response` with `success:false` and an error code
+  (`E_DEPTH`/`E_FANOUT`/`E_CHILDREN`), not a crash
+- **Each task owns its history** - siblings exchange results (final text) via the context bag,
+  not transcripts
 
 ## Development Workflow
 
-### When Adding New Handlers (ThinkSuit)
+### When Extending Execution (ThinkSuit)
 
-1. Create handler core function in `engine/handlers/yourHandler.js`
-2. Export as `yourHandlerCore` with signature `(input, machineContext)`
-3. Add middleware wrapping in `engine/handlers/index.js`
-4. Update state machine in `engine/machine.json` if needed
+The execution path is two functions, not a handler registry:
+1. `engine/handlers/executePlan.js` - the composer; add/adjust node-type dispatch here
+   (`task`/`sequence`/`parallel`) and result-strategy handling
+2. `engine/handlers/executeTask.js` - the agent loop; adjust round/tool/timeout behavior here
+3. New plan-node shapes go in `schemas/plan.v1.json` (+ `schemas/validate.js`)
 
 ### When Working with Console UI
 
 1. Use existing UI components from `src/lib/components/ui/`
 2. Follow Svelte 5 patterns with runes (`$state`, `$derived`, `$props`)
 3. Use `SvelteSet`/`SvelteMap` for reactive collections
-4. Maintain module-agnostic design (no assumptions about specific signal values)
+4. Maintain module-agnostic design (no assumptions about specific role/plan values)
 
-## Handler Contracts
+## Execution Contracts
 
-### Pure Decision-Plane Handlers
+### The composer — `executePlan(node, ctx)`
 ```javascript
-async function handlerCore(input, machineContext) {
-    // input: { thread, context, facts? }
-    // machineContext: { handlers, config, module, execLogger }
-    const { module, config, execLogger } = machineContext;
-    // Use module.classifiers, module.rules, module.prompts
-    return { facts: Fact[] };
-}
+// node: a plan.v1 node { type:'task'|'sequence'|'parallel', ... }
+// ctx:  { machineContext, bag, thread, context, frame?, modality? }
+// returns: { response: { output, usage, model, error?, ... } }
 ```
 
-### Effectful Execution-Plane Handlers
+### The agent loop — `executeTask(input, machineContext)`
 ```javascript
 import { callLLM } from '../providers/io.js';
 
-async function execHandlerCore(input, machineContext) {
-    // input: { plan, instructions, thread, context, policy }
-    const response = await callLLM(machineContext.config, {
-        model, system, user, maxTokens, temperature
-    });
-    return { response: Response };
-}
+// input: { node, thread, userInput, context }
+// machineContext: { config, module, execLogger, abortSignal, discoveredTools }
+// Loops callLLM (+ callMCPTool/requestToolApproval for tool rounds) until the model
+// stops requesting tools or a bound (maxRounds/timeoutMs) is hit.
+// returns: { response: { output, usage, model, finishReason, metadata } }
 ```
 
 ## Configuration
@@ -223,10 +224,12 @@ THINKSUIT_CONFIG="~/config.json"  # Custom config path
 
 ## Testing Strategy
 
-Three-tier testing architecture:
-1. **Module Integration Tests**: Tests for module behavior with real components
-2. **Pipeline Data Flow Tests**: `tests/integration/pipeline.test.js`
-3. **Handler Unit Tests**: `tests/handlers/*.test.js`
+- **Composer/loop unit tests**: `tests/handlers/executePlan.test.js`,
+  `tests/handlers/executeTask.test.js`, `tests/handlers/enforcePolicy.test.js`
+- **Turn seam / contract (the bright line)**: `tests/engine/turn-execution.test.js`,
+  `tests/schemas/turn-contract.test.js`, `tests/engine/schedule.test.js`
+- **Module behavior**: `packages/thinksuit-modules/mu/tests/*`
+- Run with real API calls via `TEST_INTEGRATION=true npm test`
 
 ## Code Style
 
@@ -237,16 +240,18 @@ Three-tier testing architecture:
 
 ## Key Architectural Principles
 
-- **No Singletons**: Logger and config explicitly passed through `runCycle()`
-- **Module-First**: Modules passed through `machineContext` to all handlers
-- **Pure Functions**: Decision plane is side-effect free, execution uses `callLLM()` pure functions
+- **No Singletons**: Logger and config explicitly threaded through `executeOnce`/`executePlan`
+- **Module-First**: Modules passed through `machineContext` to the composer + loop
+- **Composition is structural**: the loop is the one effectful primitive; sequence/parallel
+  compose it
 - **Explicit Dependencies**: All dependencies passed explicitly for testability and parallel execution
 - **Session Continuity**: Conversations stored in `~/.thinksuit/sessions/`
 - **Span-Based Tracing**: Parent/child relationships tracked through execution
 
 ## Important Files
 
-- `engine/machine.json` - State machine definition
-- `engine/constants/defaults.js` - System defaults (DEFAULT_ROLE, token limits)
-- `schemas/facts.v1.json` - Fact type definitions
-- `schemas/plan.v1.json` - Execution plan schema
+- `engine/handlers/executePlan.js` - the plan composer (task/sequence/parallel)
+- `engine/handlers/executeTask.js` - the agent loop
+- `engine/handlers/enforcePolicy.js` - the numeric policy guard
+- `engine/constants/defaults.js` - System defaults (DEFAULT_ROLE, token limits, DEFAULT_POLICY)
+- `schemas/plan.v1.json` - Plan (node-tree) schema

@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
     normalizeConfig,
-    loadMachineDefinition,
     formatFinalResult,
     withMcpLifecycle,
     selectModule
@@ -14,6 +13,10 @@ import {
     DEFAULT_POLICY,
     DEFAULT_LOGGING
 } from '../../../engine/constants/defaults.js';
+
+// The turn seam (executeOnce) drives these; mock at top level so interception is reliable.
+vi.mock('../../../engine/handlers/executePlan.js', () => ({ executePlan: vi.fn() }));
+vi.mock('../../../plans.js', () => ({ getPlan: vi.fn() }));
 
 describe('run/internals', () => {
     describe('normalizeConfig', () => {
@@ -33,7 +36,6 @@ describe('run/internals', () => {
             expect(result.model).toBe(DEFAULT_MODEL);
             expect(result.policy.maxDepth).toBe(DEFAULT_POLICY.maxDepth);
             expect(result.policy.maxFanout).toBe(DEFAULT_POLICY.maxFanout);
-            expect(result.policy.perception.profile).toBe(DEFAULT_POLICY.perception.profile);
             expect(result.logging.level).toBe(DEFAULT_LOGGING.level);
 
             // Test that provided values are preserved
@@ -52,11 +54,7 @@ describe('run/internals', () => {
                 model: 'claude-3',
                 policy: {
                     maxDepth: 10,
-                    maxFanout: 7,
-                    perception: {
-                        profile: 'thorough',
-                        budgetMs: 500
-                    }
+                    maxFanout: 7
                 },
                 trace: true,
                 cwd: '/custom/dir',
@@ -73,8 +71,6 @@ describe('run/internals', () => {
             expect(result.model).toBe(providedConfig.model);
             expect(result.policy.maxDepth).toBe(providedConfig.policy.maxDepth);
             expect(result.policy.maxFanout).toBe(providedConfig.policy.maxFanout);
-            expect(result.policy.perception.profile).toBe(providedConfig.policy.perception.profile);
-            expect(result.policy.perception.budgetMs).toBe(providedConfig.policy.perception.budgetMs);
             expect(result.trace).toBe(providedConfig.trace);
             expect(result.cwd).toBe(providedConfig.cwd);
             expect(result.tools).toBe(providedConfig.tools);
@@ -89,7 +85,7 @@ describe('run/internals', () => {
                 sessionId: 'session',
                 policy: {
                     maxDepth: 10
-                    // maxFanout and perception should get defaults
+                    // maxFanout should get a default
                 }
             };
 
@@ -97,7 +93,6 @@ describe('run/internals', () => {
 
             expect(result.policy.maxDepth).toBe(10); // provided
             expect(result.policy.maxFanout).toBe(DEFAULT_POLICY.maxFanout); // default
-            expect(result.policy.perception.profile).toBe(DEFAULT_POLICY.perception.profile); // default
         });
 
         it('should throw error when input is missing', () => {
@@ -229,16 +224,6 @@ describe('run/internals', () => {
                 traceId: 'test-trace-id',
                 hasTrace: true
             });
-        });
-    });
-
-    describe('loadMachineDefinition', () => {
-        it('should load and parse machine.json', async () => {
-            const machineDefinition = await loadMachineDefinition();
-
-            expect(machineDefinition).toBeDefined();
-            expect(machineDefinition.States).toBeDefined();
-            expect(machineDefinition.StartAt).toBeDefined();
         });
     });
 
@@ -515,96 +500,131 @@ describe('run/internals', () => {
 
     describe('executeOnce', () => {
         beforeEach(() => {
-            vi.mock('../../../engine/handlers/index.js', () => ({
-                initializeHandlers: vi.fn()
-            }));
-
-            vi.mock('../../../engine/runCycle.js', () => ({
-                runCycle: vi.fn()
-            }));
+            vi.clearAllMocks();
         });
 
-        it('should initialize handlers and run cycle with correct parameters', async () => {
-            const { executeOnce } = await import('../../../engine/run/internals.js');
-            const { initializeHandlers } = await import('../../../engine/handlers/index.js');
-            const { runCycle } = await import('../../../engine/runCycle.js');
-
-            const mockHandlers = { detectSignals: vi.fn() };
-            initializeHandlers.mockReturnValue(mockHandlers);
-
-            runCycle.mockResolvedValue(['SUCCEEDED', { response: 'test' }]);
-
-            const mockLogger = {
+        const makeLogger = () => {
+            const logger = {
                 bindings: () => ({ traceId: 'test-trace-id' }),
                 error: vi.fn()
             };
+            logger.child = vi.fn(() => logger);
+            return logger;
+        };
 
+        it('uses an explicit selectedPlan node and drives executePlan', async () => {
+            const { executeOnce } = await import('../../../engine/run/internals.js');
+            const { executePlan } = await import('../../../engine/handlers/executePlan.js');
+            const { getPlan } = await import('../../../plans.js');
+
+            executePlan.mockResolvedValue({ response: { output: 'hi', usage: { prompt: 1, completion: 1 } } });
+
+            const explicitPlan = { type: 'task', role: 'chat', maxRounds: 1, params: { lengthLevel: 'brief' } };
+            const logger = makeLogger();
             const params = {
-                finalConfig: { sessionId: 'test-session', policy: {} },
-                logger: mockLogger,
-                module: { name: 'test-module' },
-                machineDefinition: { States: {} },
+                finalConfig: {
+                    sessionId: 'test-session',
+                    module: 'thinksuit/mu',
+                    selectedPlan: explicitPlan,
+                    frame: null,
+                    modality: null
+                },
+                logger,
+                module: { name: 'mu', defaultPlan: 'chat' },
                 discoveredTools: { tool1: {} },
-                thread: [{ role: 'user', content: 'test' }]
+                thread: [{ role: 'user', content: 'prev' }],
+                input: 'hello',
+                turnBoundaryId: 'turn-1'
             };
 
             const result = await executeOnce(params);
 
-            expect(initializeHandlers).toHaveBeenCalled();
-            expect(runCycle).toHaveBeenCalledWith({
-                abortSignal: undefined,
-                compositionType: 'default',
-                config: params.finalConfig,
-                currentTurnIndex: undefined,
-                discoveredTools: params.discoveredTools,
-                frame: undefined,
-                handlers: mockHandlers,
-                historicalSignals: undefined,
-                input: undefined,
-                logger: mockLogger,
-                machineDefinition: params.machineDefinition,
-                module: params.module,
-                parentBoundaryId: undefined,
-                selectedPlan: undefined,
-                sessionId: 'test-session',
-                thread: params.thread,
-                traceId: 'test-trace-id'
-            });
-            expect(result).toEqual(['SUCCEEDED', { response: 'test' }]);
+            // Explicit plan means the library is not consulted.
+            expect(getPlan).not.toHaveBeenCalled();
+
+            const [node, ctx] = executePlan.mock.calls[0];
+            // The node is passed straight through — no adapter.
+            expect(node).toBe(explicitPlan);
+            expect(ctx.bag).toEqual({ input: 'hello' });
+            expect(ctx.thread).toBe(params.thread);
+            expect(ctx.context).toMatchObject({ sessionId: 'test-session', depth: 0, branch: 'root', parentBoundaryId: 'turn-1' });
+            expect(ctx.machineContext.discoveredTools).toBe(params.discoveredTools);
+
+            expect(result).toEqual(['SUCCEEDED', { handlerResult: { response: { output: 'hi', usage: { prompt: 1, completion: 1 } } } }]);
         });
 
-        it('should log and re-throw execution errors', async () => {
+        it('falls back to the module default plan when none is selected', async () => {
             const { executeOnce } = await import('../../../engine/run/internals.js');
-            const { runCycle } = await import('../../../engine/runCycle.js');
+            const { executePlan } = await import('../../../engine/handlers/executePlan.js');
+            const { getPlan } = await import('../../../plans.js');
+
+            getPlan.mockResolvedValue({ id: 'chat', name: 'Chat', type: 'task', role: 'chat', maxRounds: 1 });
+            executePlan.mockResolvedValue({ response: { output: 'ok', usage: {} } });
+
+            const params = {
+                finalConfig: { sessionId: 's', module: 'thinksuit/mu' },
+                logger: makeLogger(),
+                module: { name: 'mu', defaultPlan: 'chat' },
+                discoveredTools: {},
+                thread: [],
+                input: 'hi',
+                turnBoundaryId: 'turn-1'
+            };
+
+            await executeOnce(params);
+
+            expect(getPlan).toHaveBeenCalledWith('chat', 'thinksuit/mu', params.module);
+            // The resolved library entry (inline node + metadata) is passed straight through.
+            expect(executePlan.mock.calls[0][0]).toEqual({ id: 'chat', name: 'Chat', type: 'task', role: 'chat', maxRounds: 1 });
+        });
+
+        it('translates an InterruptError into the interrupted status', async () => {
+            const { executeOnce } = await import('../../../engine/run/internals.js');
+            const { executePlan } = await import('../../../engine/handlers/executePlan.js');
+            const { InterruptError } = await import('../../../engine/errors/InterruptError.js');
+
+            const err = new InterruptError('stopped', { stage: 'test' });
+            err.gatheredData = { foo: 'bar' };
+            executePlan.mockRejectedValue(err);
+
+            const params = {
+                finalConfig: { sessionId: 's', module: 'thinksuit/mu', selectedPlan: { strategy: 'direct', role: 'chat' } },
+                logger: makeLogger(),
+                module: { name: 'mu', defaultPlan: 'chat' },
+                discoveredTools: {},
+                thread: [],
+                input: 'hi',
+                turnBoundaryId: 'turn-1'
+            };
+
+            const [status, result] = await executeOnce(params);
+            expect(status).toBe('interrupted');
+            expect(result).toMatchObject({ interrupted: true, message: 'stopped', partialData: { foo: 'bar' } });
+        });
+
+        it('logs and re-throws a non-interrupt error', async () => {
+            const { executeOnce } = await import('../../../engine/run/internals.js');
+            const { executePlan } = await import('../../../engine/handlers/executePlan.js');
 
             const error = new Error('Execution failed');
             error.stack = 'test stack';
-            runCycle.mockRejectedValue(error);
+            executePlan.mockRejectedValue(error);
 
-            const mockLogger = {
-                bindings: () => ({ traceId: 'test-trace-id' }),
-                error: vi.fn()
-            };
-
+            const logger = makeLogger();
             const params = {
-                finalConfig: { sessionId: 'test-session' },
-                logger: mockLogger,
-                module: {},
-                machineDefinition: {},
+                finalConfig: { sessionId: 's', module: 'thinksuit/mu', selectedPlan: { strategy: 'direct', role: 'chat' } },
+                logger,
+                module: { name: 'mu', defaultPlan: 'chat' },
                 discoveredTools: {},
-                thread: []
+                thread: [],
+                input: 'hi',
+                turnBoundaryId: 'turn-1'
             };
 
             await expect(executeOnce(params)).rejects.toThrow('Execution failed');
-
-            expect(mockLogger.error).toHaveBeenCalledWith(
-                {
-                    data: {
-                        error: 'Execution failed',
-                        stack: 'test stack'
-                    }
-                },
-                'State machine execution error'
+            expect(logger.error).toHaveBeenCalledWith(
+                { data: { error: 'Execution failed', stack: 'test stack' } },
+                'Turn execution error'
             );
         });
     });

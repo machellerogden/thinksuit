@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## Package Overview
 
-**ThinkSuit Engine** - The core orchestration engine that executes behavioral modules through a deterministic state machine, converting conversation context into execution plans.
+**ThinkSuit Engine** - The core orchestration engine that executes behavioral modules by resolving an authored plan (a plan.v1 node tree) and running it through the agent loop + composer.
 
-**Status**: Fully functional with complete orchestration pipeline. Module system, signal detection, and all execution strategies working.
+**Status**: Fully functional. Module system, plan composition (task/sequence/parallel), and the agent loop all working.
 
 ## For Development Details
 
@@ -23,9 +23,9 @@ See **../../CONTRIBUTING.md** for:
 
 ### Core Design Tenets
 
-- **Decision Plane is pure; Execution Plane is effectful**
-- **Everything explicit**: inputs, facts, plans, policies, events
-- **Data over code**: schemas, rules, declarative plans
+- **Composition is structural; the loop is the one effectful primitive**
+- **Everything explicit**: inputs, plans, policies, events
+- **Data over code**: schemas, declarative plans
 - **Provider-agnostic**: strict abstraction over model/tool backends
 
 ### Session Status Model
@@ -41,29 +41,29 @@ SESSION_STATUS = {
 };
 ```
 
-### State Machine Flow (ASL-like)
+### Turn Flow (loop + composer)
+
+A turn resolves a plan.v1 node tree and executes it — there is no state machine.
 
 ```
-CheckSelectedPlan (choice: deterministic execution path)
-→ DetectSignals (pure, policy-driven)
-→ AggregateFacts (pure, deduplication & filtering)
-→ EvaluateRules (pure, returns multiple plans)
-→ SelectPlan (pure, deterministic selection)
-→ ComposeInstructions (pure)
-→ Route (choice)
-→ Execute (effectful: DoDirect/DoSequential/DoParallel/DoTask)
-→ Response
+run() → executeOnce() (run/internals.js) → executePlan(rootNode, ctx)
 ```
 
-The state machine definition lives in `engine/machine.json` and is executed via Trajectory library.
+- **`executePlan`** (`engine/handlers/executePlan.js`) is the composer: it dispatches a
+  node by `type` — `task` (the agent loop), `sequence`, or `parallel`. Composites recurse
+  into `executePlan` per child; a shared context bag threads results (final text) between
+  siblings — sequence shares the bag, parallel clones it per branch.
+- **`executeTask`** (`engine/handlers/executeTask.js`) is the one execution primitive: a
+  round-bounded agent loop calling `callLLM`/`callMCPTool`/`requestToolApproval` directly.
+- The plan node is either an explicit `config.selectedPlan` override or the module's
+  `defaultPlan`, resolved in `executeOnce` and passed straight to `executePlan`.
 
-**Policy limits are enforced in the execution plane, not the machine.** `runCycle`
-bounds recursion depth via `enforcePolicyCore` before the machine runs (depth is a
-runtime value that grows across nested exec calls, so the once-per-turn decision
-plane can't see it); `execParallel`/`execSequential` bound fanout/children where
-branches are spawned; `applyToolPolicy` filters tools against `config.allowedTools`
-at MCP discovery. There is no rules-based enforcement step — the old no-op
-enforcement rules were removed.
+**Policy limits are enforced at three composer points** via the single numeric
+`enforcePolicyCore` (`engine/handlers/enforcePolicy.js`): depth at `executePlan` entry
+(bounds recursion — depth grows per descent, so it's checked at every node), fanout in
+`executeParallel` (branch count), children in `executeSequence` (step count). A block
+returns a normal error response (`policyBlocked`, code `E_DEPTH`/`E_FANOUT`/`E_CHILDREN`).
+`applyToolPolicy` filters tools against `config.allowedTools` at MCP discovery.
 
 ### Primary API
 
@@ -125,9 +125,8 @@ See `engine/sessions.js` for:
 
 ### Important Implementation Notes
 
-- **No Singletons**: Logger and config explicitly passed through `runCycle()`
-- **Module-First**: Modules passed through `machineContext` to all handlers
-- **Pure Functions**: Decision plane is side-effect free, execution uses `callLLM()` pure functions
+- **No Singletons**: Logger and config explicitly threaded through `executeOnce`/`executePlan`
+- **Module-First**: Modules passed through `machineContext` to the composer + loop
 - **Explicit Dependencies**: All dependencies passed explicitly for testability
 - **Session Continuity**: Conversations stored in `~/.thinksuit/sessions/`
 - **Span-Based Tracing**: Parent/child relationships tracked through execution

@@ -9,15 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **De-pipelining — new execution model**: a turn now resolves an authored plan (a
+  plan.v1 `task`/`sequence`/`parallel` node tree) and runs it via the composer
+  (`executePlan`) over a single agent-loop primitive (`executeTask`):
+  `schedule()` → `run()` → `executeOnce()` → `executePlan(rootNode, ctx)`.
+  - `task` is a round-bounded agent loop; `sequence`/`parallel` compose loops and thread
+    results via a shared context bag; `$`-templates chain node inputs
+    (`$input`/`$last_response`/`$<id>_response`).
+  - Policy (`maxDepth`/`maxFanout`/`maxChildren`) is enforced at three composer points via
+    a numeric `enforcePolicyCore`; a block yields an error response
+    (`E_DEPTH`/`E_FANOUT`/`E_CHILDREN`).
+  - The `plan.v1` schema keeps its name but now describes the node-tree shape.
 - **Module Schema Refactor**: Roles now reference prompt keys instead of duplicating prompt text
   - Roles store prompt keys (e.g., `'system.capture'`) which are resolved from `module.prompts` map
   - Eliminates prompt text duplication - single source of truth in prompts map
   - Enforces convention-based naming: `system.*`, `primary.*`, `adapt.*`, `length.*`
 - **Mu Module v0.3**: Updated role architecture
   - Replaced the earlier 14-role cognitive system with 7 roles: chat, capture, readback, analyze, investigate, synthesize, execute
-  - Simplified signal detection from 16 signals across 5 dimensions to single intent classifier with keyword patterns
-  - Introduced two-mode operation: explicit plans (programmatic control) and signal-driven (interactive convenience)
   - Rewritten prompts with simple, direct language focused on software engineering workflows
+  - Now ships a plan library (with `defaultPlan: 'chat'`) instead of classifiers/rules
+    (the interim single intent classifier and two-mode routing were removed by de-pipelining)
+
+### Removed
+
+- **The state machine and decision plane** (de-pipelining): removed the Trajectory/ASL
+  runtime and `engine/machine.json`, `runCycle`, and the exec strategy zoo
+  (`execDirect`/`execSequential`/`execParallel`/`execTask`/`execFallback`); removed signal
+  detection, facts, and the rules engine, along with the mu module's classifiers/rules.
+  The `thinksuit-signals` MCP tool (and `/signals` command) were removed with it.
 
 ### Fixed
 

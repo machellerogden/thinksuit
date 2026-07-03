@@ -1,11 +1,10 @@
 {
-  "name": "Chat",
-  "description": "Natural conversation and direct responses",
-  "plan": {
-    "name": "chat",
-    "rationale": "Single turn direct response for conversational interaction",
-    "strategy": "direct",
+    "name": "Chat",
+    "description": "Natural conversation and direct responses",
+    "type": "task",
     "role": "chat",
-    "lengthLevel": "brief"
-  }
+    "maxRounds": 1,
+    "params": {
+        "lengthLevel": "brief"
+    }
 }

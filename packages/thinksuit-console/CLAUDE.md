@@ -6,7 +6,7 @@ This file provides guidance to Claude Code when working with the ThinkSuit Conso
 
 **ThinkSuit Console** - A web-based development and debugging interface for the ThinkSuit AI orchestration system. Provides session inspection, timeline visualization, and debugging capabilities.
 
-**Purpose**: Enable developers to inspect, debug, and understand ThinkSuit's cognitive pipeline execution through visual tools.
+**Purpose**: Enable developers to inspect, debug, and understand ThinkSuit's turn execution through visual tools.
 
 **Status**: Initial implementation with session inspector functionality.
 
@@ -61,8 +61,8 @@ These touch the filesystem directly; domain data does not.
 
 #### Module-Agnostic Design
 The UI is intentionally generic and not tied to specific ThinkSuit module implementations:
-- Colors are based on data types (Signal, RoleSelection, etc.) not module-specific values
-- No assumptions about specific signal dimensions or values
+- Colors are based on event/data types (roles, plan nodes, tool calls, etc.) not module-specific values
+- No assumptions about specific role or plan values
 - Flexible enough to work with any ThinkSuit module
 
 #### UI Component Library

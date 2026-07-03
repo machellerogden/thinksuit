@@ -5,7 +5,6 @@
     import { Badge, Button } from '$lib/components/ui/index.js';
     import EventCard from './EventCard.svelte';
     import MessageSummary from './MessageSummary.svelte';
-    import PlanSummary from './PlanSummary.svelte';
     import LLMRequestSummary from './LLMRequestSummary.svelte';
     import LLMResponseSummary from './LLMResponseSummary.svelte';
     import ToolEventSummary from './ToolEventSummary.svelte';
@@ -276,10 +275,6 @@
     }
 
     // Helper to check event type categories
-    function isPlan(event) {
-        return event.event === ORCHESTRATION_EVENTS.START && event.data?.selectedPlan;
-    }
-
     function isLLMExchange(event) {
         return event.event === LLM_EXCHANGE;
     }
@@ -434,12 +429,6 @@
                                                     {:else if isProviderApiExchange(entry)}
                                                         <div class="w-full max-w-2xl mt-2">
                                                             <EventCard event={entry} />
-                                                        </div>
-                                                    {:else if isPlan(entry)}
-                                                        <div class="w-full max-w-2xl mt-2">
-                                                            <EventCard event={entry}>
-                                                                <PlanSummary event={entry} />
-                                                            </EventCard>
                                                         </div>
                                                     {:else if isBudgetExceeded(entry)}
                                                         <div class="w-full max-w-2xl mt-2">

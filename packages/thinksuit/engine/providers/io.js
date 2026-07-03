@@ -15,17 +15,24 @@ import { createProvider } from './index.js';
  * @param {Array} thread - Thread with semantic labels
  * @returns {Object} - { systemInstructions, thread } where systemInstructions is string or null
  */
-function cleanThreadForProvider(thread) {
+// A message may be merged with an adjacent same-role message only if it is plain
+// text. Tool results and tool-call carriers must stay distinct: each holds an id
+// (tool_call_id / tool_calls) that pairs it with a specific call, and concatenating
+// them would drop all but the first id — breaking tool_use/tool_result pairing when a
+// turn makes several parallel tool calls.
+function isMergeable(msg) {
+    return typeof msg.content === 'string' && msg.role !== 'tool' && !msg.tool_calls && !msg.tool_call_id;
+}
+
+export function cleanThreadForProvider(thread) {
     if (!thread || thread.length === 0) return { systemInstructions: null, thread: [] };
 
     // Extract the last system message (most recent)
     let systemInstructions = null;
-    let lastSystemIndex = -1;
 
     for (let i = thread.length - 1; i >= 0; i--) {
         if (thread[i].role === 'system') {
             systemInstructions = thread[i].content;
-            lastSystemIndex = i;
             break;
         }
     }
@@ -42,10 +49,11 @@ function cleanThreadForProvider(thread) {
             continue;
         }
 
-        const { semantic, ...cleanMsg } = msg; // Remove semantic property
+        const cleanMsg = { ...msg };
+        delete cleanMsg.semantic; // Remove semantic property
 
-        // If same role as previous, accumulate
-        if (cleanMsg.role === lastRole && typeof cleanMsg.content === 'string') {
+        // If same role as previous and both are plain text, accumulate
+        if (isMergeable(cleanMsg) && cleanMsg.role === lastRole) {
             accumulatedContent.push(cleanMsg.content);
         } else {
             // Flush accumulated content if any
@@ -58,14 +66,14 @@ function cleanThreadForProvider(thread) {
             }
 
             // Start new message
-            if (typeof cleanMsg.content === 'string') {
-                cleaned.push(cleanMsg);
+            cleaned.push(cleanMsg);
+            if (isMergeable(cleanMsg)) {
                 accumulatedContent = [cleanMsg.content];
                 lastRole = cleanMsg.role;
             } else {
-                // Non-string content (tool messages, etc.) - don't merge
-                cleaned.push(cleanMsg);
-                lastRole = cleanMsg.role;
+                // Non-mergeable (tool results, tool-call carriers, non-string content):
+                // keep distinct so ids survive. Reset the merge run.
+                lastRole = null;
                 accumulatedContent = [];
             }
         }

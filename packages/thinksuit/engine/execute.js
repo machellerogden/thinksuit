@@ -129,7 +129,9 @@ async function main() {
     const moduleName = config.module || 'thinksuit/mu';
     const currentModule = modules[moduleName];
 
-    // Resolve plan if specified (interface-level concern)
+    // Resolve plan if specified (interface-level concern). A plan file is an inline
+    // plan.v1 node ({ name, description?, ...Node }); pass it straight through — the
+    // extra name/description/id/source fields are inert to executePlan.
     let selectedPlan = config.selectedPlan; // May come from config file
     if (config.plan) {
         const plan = await getPlan(config.plan, moduleName, currentModule);
@@ -139,11 +141,7 @@ async function main() {
             process.exit(1);
         }
 
-        selectedPlan = plan.plan;
-        if (!selectedPlan) {
-            console.error(`Error: Plan "${config.plan}" has no execution plan defined`);
-            process.exit(1);
-        }
+        selectedPlan = plan;
     }
 
     // Resolve frame if specified (interface-level concern)

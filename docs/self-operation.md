@@ -24,7 +24,7 @@ outside.
   transient `new` threads it spawns. It is the natural place for self-operation to
   originate and for global (vs session-local) effects to be reasoned about.
 - **Self-operation (read and write).** The agent can introspect itself (sessions,
-  traces, signals, current config, available affordances) and *act on* itself
+  traces, current config, available affordances) and *act on* itself
   (change config, manage wakewords, enable/disable modules, adjust its own
   composition). Read-side largely exists; write-side does not.
 - **Frame decomposition into named aspects.** Today the frame is a single injected
@@ -41,11 +41,11 @@ outside.
 | Capability | Where | Notes |
 |---|---|---|
 | Durable home/main session | `thinksuit-voice/src/daemon.js` (`mainSessionId`), commit `ac9f03c` | Pinned in config via `patchUserConfig`, resumed across restarts; a `new` thread never overwrites it. The *seat* exists; elevated self-affordances do not. |
-| Self-introspection as tools | `thinksuit-mcp-server/lib/tools/{inspect,session,signals}.js` | Agent can read its own sessions, traces, and signal facts. |
+| Self-introspection as tools | `thinksuit-mcp-server/lib/tools/{inspect,session}.js` | Agent can read its own sessions and traces. |
 | Self-invocation as a tool | `thinksuit-mcp-server/lib/tools/thinksuit.js` | Agent can re-invoke ThinkSuit. |
 | Config read/patch primitives | `thinksuit/engine/config.js` (`readUserConfig`, `patchUserConfig`) | All-config-in-config; deep-merge write. The *mechanism* for self-config — **not yet exposed as an agent tool**. |
 | Act without HITL | `autoApproveTools` (engine + voice daemon) | Lets self-ops execute unattended when appropriate. |
-| Modality as a composition axis | engine `internals/runCycle/composeInstructions`, mu `modalities` | First addressable composition aspect (sibling to frame); caller asserts it, config is the default. |
+| Modality as a composition axis | engine `run/internals → executePlan → composeInstructions`, mu `modalities` | First addressable composition aspect (sibling to frame); caller asserts it, config is the default. |
 | Session host + control channel | `thinksuit-broker` (worker-per-turn; interrupt/approve/status/tail), `engine/transports/session-router.js` | Process host + control surface — substrate for hosting transient self-ops. |
 
 ## The work ahead (decomposition)

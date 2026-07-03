@@ -98,7 +98,7 @@ thinksuit-console/
 - Configure execution parameters (model, tools, depth, etc.)
 
 ### Data Visualization
-- Color-coded data types (Signals, Roles, Plans, etc.)
+- Color-coded data types (Roles, Plans, tool calls, etc.)
 - Expandable detail views
 - Two-column trace inspection
 - Conversation thread visualization

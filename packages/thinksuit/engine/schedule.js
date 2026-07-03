@@ -1,5 +1,5 @@
 import { generateId } from './utils/id.js';
-import { acquireSession, loadSessionThread, loadSessionSignals } from './transports/session-router.js';
+import { acquireSession, loadSessionThread } from './transports/session-router.js';
 import { forkSession } from './sessions/index.js';
 import { createInterruptController } from './errors/InterruptError.js';
 
@@ -70,9 +70,8 @@ export async function schedule(config) {
         };
     }
 
-    // Load thread and historical signals (will be empty arrays if new session)
+    // Load thread (empty array if new session)
     const thread = await loadSessionThread(sessionId);
-    const historicalSignals = await loadSessionSignals(sessionId);
 
     // Determine if new or resuming based on thread content
     const isNew = !isForked && thread.length === 0;
@@ -85,7 +84,6 @@ export async function schedule(config) {
         ...config,
         sessionId,
         _thread: thread, // Internal flag to avoid re-loading thread
-        _historicalSignals: historicalSignals, // Pass historical signals to run
         _abortSignal: interruptController.signal // Pass abort signal to run
     });
 

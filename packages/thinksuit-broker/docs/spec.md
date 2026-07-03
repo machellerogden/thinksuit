@@ -2,11 +2,18 @@
 
 **Status:** Implemented — this design has shipped as the `thinksuit-broker` package.
 Retained as design rationale; for current behavior see
-[`packages/thinksuit-broker/README.md`](packages/thinksuit-broker/README.md) and
-[`docs/architecture-overview.md`](docs/architecture-overview.md).
+[`../README.md`](../README.md) and
+[`../../../docs/architecture-overview.md`](../../../docs/architecture-overview.md).
 **Date:** 2026-06-18 (spec)
 **Scope:** The execution/process *backbone* of ThinkSuit. Not its control-flow
 orchestration (ASL/rules), not its module/cognition layer.
+
+> **Historical note.** This spec is accurate for what the broker shipped, but it
+> repeatedly frames "keep ThinkSuit's ASL state machine + rules engine" as a
+> deliberate non-goal. That core was **later removed** by the de-pipelining: there is
+> no state machine or rules engine anymore — a turn resolves an authored plan.v1 node
+> tree via `executePlan`/`executeTask`. The broker's own design (subprocess-per-turn,
+> socket API, workspaces) is unchanged and still current.
 
 ---
 

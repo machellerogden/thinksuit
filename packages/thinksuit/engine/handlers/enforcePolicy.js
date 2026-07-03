@@ -1,18 +1,23 @@
 /**
- * enforcePolicy handler - core logic only
- * Pure decision plane - validates execution against policy limits
+ * enforcePolicy - the single policy guard.
+ *
+ * Shape-agnostic: takes explicit numeric dimensions and checks whichever are
+ * provided against the configured limits. Called at the three composer points —
+ * depth (executePlan entry), fanout (executeParallel), children (executeSequence).
+ * One call checks one dimension.
  */
 
 import { PIPELINE_EVENTS } from '../constants/events.js';
 
 /**
- * Core policy enforcement logic
- * @param {Object} input - { depth, policy, plan }
- * @param {Object} ctx - Enhanced context from middleware
- * @returns {Object} - { approved: boolean, reason?: string, code?: string }
+ * Core policy enforcement logic.
+ *
+ * @param {Object} input - { depth?, fanout?, children?, policy?, context? }
+ * @param {Object} ctx - { execLogger, ... } (machine/composer context)
+ * @returns {Object} - { approved: boolean, reason?, code?, depth?, limits? }
  */
-export async function enforcePolicyCore(input, machineContext) {
-    // Handle null/undefined input
+export async function enforcePolicyCore(input, ctx) {
+    // Nothing to check.
     if (!input) {
         return {
             approved: true,
@@ -20,13 +25,12 @@ export async function enforcePolicyCore(input, machineContext) {
         };
     }
 
-    const { depth = 0, plan = {}, context = {} } = input;
+    const { depth, fanout, children, context = {} } = input;
 
     const traceId = context?.traceId;
-    const logger = machineContext.execLogger;
+    const logger = ctx.execLogger;
 
-    // Extract policy from context.config or use input.policy for backwards compatibility
-    const policy = context?.config?.policy || input.policy || {};
+    const policy = input.policy || context?.config?.policy || {};
     const maxDepth = policy.maxDepth ?? 5;
     const maxFanout = policy.maxFanout ?? 3;
     const maxChildren = policy.maxChildren ?? 5;
@@ -35,31 +39,14 @@ export async function enforcePolicyCore(input, machineContext) {
         {
             event: PIPELINE_EVENTS.POLICY_CHECK_START,
             traceId,
-
-            data: {
-                depth,
-                maxDepth,
-                strategy: plan.strategy,
-                policy
-            }
+            data: { depth, fanout, children, policy }
         },
         'Enforcing policy'
     );
 
-    // Check depth limit
-    if (depth >= maxDepth) {
-        logger.warn(
-            {
-                traceId,
-
-                data: {
-                    depth,
-                    maxDepth
-                }
-            },
-            'Max depth exceeded'
-        );
-
+    // Depth — bounds recursion. Checked at every node descent.
+    if (depth != null && depth >= maxDepth) {
+        logger.warn({ traceId, data: { depth, maxDepth } }, 'Max depth exceeded');
         return {
             approved: false,
             reason: `Maximum recursion depth (${maxDepth}) exceeded`,
@@ -67,73 +54,31 @@ export async function enforcePolicyCore(input, machineContext) {
         };
     }
 
-    // Check fanout for parallel execution
-    if (plan.strategy === 'parallel' && plan.roles) {
-        const fanout = plan.roles.length;
-        if (fanout > maxFanout) {
-            logger.warn(
-                {
-                    traceId,
-
-                    data: {
-                        fanout,
-                        maxFanout
-                    }
-                },
-                'Max fanout exceeded'
-            );
-
-            return {
-                approved: false,
-                reason: `Maximum parallel branches (${maxFanout}) exceeded`,
-                code: 'E_FANOUT'
-            };
-        }
+    // Fanout — bounds parallel branches.
+    if (fanout != null && fanout > maxFanout) {
+        logger.warn({ traceId, data: { fanout, maxFanout } }, 'Max fanout exceeded');
+        return {
+            approved: false,
+            reason: `Maximum parallel branches (${maxFanout}) exceeded`,
+            code: 'E_FANOUT'
+        };
     }
 
-    // Check children count for sequential execution
-    if (plan.strategy === 'sequential' && plan.sequence) {
-        const children = plan.sequence.length;
-        if (children > maxChildren) {
-            logger.warn(
-                {
-                    traceId,
-
-                    data: {
-                        children,
-                        maxChildren
-                    }
-                },
-                'Max children exceeded'
-            );
-
-            return {
-                approved: false,
-                reason: `Maximum child operations (${maxChildren}) exceeded`,
-                code: 'E_CHILDREN'
-            };
-        }
+    // Children — bounds sequential steps.
+    if (children != null && children > maxChildren) {
+        logger.warn({ traceId, data: { children, maxChildren } }, 'Max children exceeded');
+        return {
+            approved: false,
+            reason: `Maximum child operations (${maxChildren}) exceeded`,
+            code: 'E_CHILDREN'
+        };
     }
-
-    // Check for abort signals (future: could check context for abort flag)
-    // if (context?.abort) {
-    //     return {
-    //         approved: false,
-    //         reason: 'Execution aborted by user',
-    //         code: 'E_ABORT'
-    //     };
-    // }
 
     logger.info(
         {
             event: PIPELINE_EVENTS.POLICY_CHECK_COMPLETE,
             traceId,
-
-            data: {
-                depth,
-                strategy: plan.strategy,
-                approved: true
-            }
+            data: { depth, fanout, children, approved: true }
         },
         'Policy check passed'
     );

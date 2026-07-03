@@ -43,30 +43,6 @@ Execute ThinkSuit AI orchestration with full configuration options.
 }
 ```
 
-### `thinksuit-signals`
-
-Analyze conversation threads to detect cognitive signals.
-
-**Parameters:**
-- `conversation` (required): Array of message objects with `role` and `content`
-- `options` (optional):
-  - `module`: Module to use for detection
-  - `profile`: Detection profile (`fast`, `balanced`, `thorough`)
-  - `budgetMs`: Time budget in milliseconds
-
-**Example:**
-```json
-{
-  "conversation": [
-    {"role": "user", "content": "All swans are white"},
-    {"role": "assistant", "content": "That's not quite accurate..."}
-  ],
-  "options": {
-    "profile": "thorough"
-  }
-}
-```
-
 ### `thinksuit-session`
 
 Query and inspect ThinkSuit sessions.
@@ -185,7 +161,6 @@ npm run mcp
 This package includes slash commands for Claude Code integration. Commands are located in `support/claude-code/commands/thinksuit/`:
 
 - **`/thinksuit`** - Process input through ThinkSuit's AI orchestration
-- **`/signals`** - Analyze conversation patterns with signal detection
 - **`/session`** - Query and manage ThinkSuit sessions
 - **`/inspect`** - Deep inspection of sessions and execution traces
 
@@ -220,7 +195,6 @@ This package includes slash commands for Claude Code integration. Commands are l
 Once configured, slash commands are available:
 
 - `/thinksuit [input]` - Process through orchestrated AI
-- `/signals [conversation]` - Analyze patterns
 - `/session [action]` - Query sessions
 - `/inspect [action]` - Deep inspection
 

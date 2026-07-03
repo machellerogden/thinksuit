@@ -15,32 +15,17 @@ function resolvePrompt(key, context, module) {
 }
 
 /**
- * Helper to add resolved prompt to thread
- */
-function addPromptToThread(resolved, thread) {
-    if (!resolved) return;
-
-    if (typeof resolved === 'string') {
-        // String becomes assistant message
-        thread.push({ role: 'assistant', content: resolved });
-    } else if (Array.isArray(resolved)) {
-        // Array is spread into thread
-        thread.push(...resolved);
-    } else if (typeof resolved === 'object') {
-        // Object is added as-is (full message object)
-        thread.push(resolved);
-    }
-}
-
-/**
- * Compose instructions based on execution plan
- * Builds thread with system instructions embedded based on composition type
+ * Compose instructions for a plan.v1 task node.
+ * Builds the complete thread with system instructions embedded, in one default path:
+ * prelude (frame + modality) → system → conversation history → primary → user input.
  *
- * @param {Object} input - { plan, factMap, thread, input, frame, compositionType }
+ * @param {Object} input - { plan, thread, input, frame, modality, cwd, workdir }
+ *   plan - a plan.v1 node: { type, role, tools?, params? }; module knobs (lengthLevel,
+ *          adaptations, maxTokens) live in `params`.
  * @param {Object} module - The mu module
  * @returns {Object} - { thread, indices, adaptations, lengthGuidance, toolInstructions, maxTokens, metadata }
  */
-export async function composeInstructions({ plan = {}, factMap = {}, thread = [], input = '', frame = null, modality = null, compositionType = 'default', cwd = null, workdir = null }, module) {
+export async function composeInstructions({ plan = {}, thread = [], input = '', frame = null, modality = null, cwd = null, workdir = null }, module) {
     // Resolve the modality instruction text the module declares for the active
     // modality name (e.g. 'voice'). A discrete sibling to frame, composed into the
     // same synthetic prelude. Unknown/absent modality → nothing.
@@ -49,15 +34,20 @@ export async function composeInstructions({ plan = {}, factMap = {}, thread = []
     const roleConfig = module.roles.find(r => r.name === plan.role) || module.roles.find(r => r.isDefault) || module.roles[0];
     const role = roleConfig.name;
 
+    // Module knobs live in the plan node's open `params` bag.
+    const params = plan.params || {};
+    const planAdaptations = params.adaptations || [];
+    const lengthLevel = params.lengthLevel || 'standard';
+    const maxTokens = params.maxTokens || roleConfig.baseTokens || 500;
+
     // Build context for prompt functions
     const promptContext = {
         plan,
-        factMap,
         tools: plan.tools || [],
-        maxTokens: plan.maxTokens || roleConfig.baseTokens || 500,
+        maxTokens,
         role,
-        adaptations: plan.adaptations || [],
-        lengthLevel: plan.lengthLevel || 'standard',
+        adaptations: planAdaptations,
+        lengthLevel,
         cwd,
         workdir // session home base; available to prompts (unused in mu today)
     };
@@ -71,8 +61,8 @@ export async function composeInstructions({ plan = {}, factMap = {}, thread = []
     // Resolve primary prompt
     const primaryPrompt = resolvePrompt(roleConfig.prompts.primary, promptContext, module);
 
-    // Format adaptations from plan (if specified)
-    const adaptationList = (plan.adaptations || [])
+    // Format adaptations from the plan (if specified)
+    const adaptationList = planAdaptations
         .map(key => resolvePrompt(`adapt.${key}`, promptContext, module))
         .filter(Boolean);
 
@@ -81,7 +71,6 @@ export async function composeInstructions({ plan = {}, factMap = {}, thread = []
         : '';
 
     // Get length guidance
-    const lengthLevel = plan.lengthLevel || 'standard';
     const lengthGuidance = module.lengthGuidance[lengthLevel] || module.lengthGuidance.standard || '';
 
     // Build tool instructions if tools are available
@@ -96,7 +85,7 @@ export async function composeInstructions({ plan = {}, factMap = {}, thread = []
         toolInstructions = toolPrompts.join('\n\n');
     }
 
-    // Build complete thread based on composition type
+    // Build the complete thread: prelude → system → history → primary → user input.
     const completeThread = [];
     const indices = {
         systemInstruction: -1,
@@ -114,115 +103,53 @@ export async function composeInstructions({ plan = {}, factMap = {}, thread = []
         systemInstructions += '\n\n' + toolInstructions;
     }
 
-    if (compositionType === 'default') {
-        // Default composition: frame (if any) + system + primary + input
-
-        // Add the synthetic prelude first if present: the situational frame, then the
-        // modality as its own section after it. Both are established as an enacted,
-        // acknowledged exchange (not system directives).
-        const preludeText = [frame?.text, modalityText].filter(Boolean).join('\n\n');
-        if (preludeText) {
-            indices.frameSet = completeThread.length;
-            completeThread.push(
-                { role: 'user', content: preludeText, semantic: 'frame_set' }
-            );
-            indices.frameAck = completeThread.length;
-            completeThread.push(
-                { role: 'assistant', content: 'Understood. I will maintain this context throughout our session.', semantic: 'frame_ack' }
-            );
-        }
-
-        // Add system instructions
-        indices.systemInstruction = completeThread.length;
-        completeThread.push({
-            role: 'system',
-            content: systemInstructions,
-            semantic: 'system_instruction'
-        });
-
-        // Include conversation history from previous turns
-        if (thread && thread.length > 0) {
-            indices.conversationStart = completeThread.length;
-            completeThread.push(...thread);
-            indices.conversationEnd = completeThread.length - 1;
-        }
-
-        // Add task execution alignment if this is a task strategy execution
-        // (before primary prompt so primary is last instruction before user input)
-        if (plan.strategy === 'task') {
-            const alignmentScript = resolvePrompt('adapt.task-execution-alignment', promptContext, module);
-            addPromptToThread(alignmentScript, completeThread);
-        }
-
-        // Add primary prompt (last before user input)
-        indices.primaryPrompt = completeThread.length;
-        completeThread.push({
-            role: 'user',
-            content: primaryPrompt,
-            semantic: 'primary_instruction'
-        });
-
-        // Add user input
-        if (input && input.trim()) {
-            indices.userInput = completeThread.length;
-            completeThread.push({
-                role: 'user',
-                content: input,
-                semantic: 'input'
-            });
-        }
-
-    } else if (compositionType === 'continuation') {
-        // Continuation: preserve existing thread, minimal additions
-        // The thread already has system + primary from the first cycle
-
-        if (thread && thread.length > 0) {
-            indices.conversationStart = 0;
-            completeThread.push(...thread);
-            indices.conversationEnd = completeThread.length - 1;
-        }
-
-        // Optionally add new user input if provided (e.g., progress messages)
-        if (input && input.trim()) {
-            indices.userInput = completeThread.length;
-            completeThread.push({
-                role: 'user',
-                content: input,
-                semantic: 'input'
-            });
-        }
-
-    } else if (compositionType === 'accumulation') {
-        // Accumulation: accumulated history + new system + new primary (no input)
-
-        // Add all accumulated history first
-        if (thread && thread.length > 0) {
-            indices.conversationStart = 0;
-            completeThread.push(...thread);
-            indices.conversationEnd = completeThread.length - 1;
-        }
-
-        // Add new system instructions for this step
-        indices.systemInstruction = completeThread.length;
-        completeThread.push({
-            role: 'system',
-            content: systemInstructions,
-            semantic: 'system_instruction'
-        });
-
-        // Add new primary prompt for this step
-        indices.primaryPrompt = completeThread.length;
-        completeThread.push({
-            role: 'user',
-            content: primaryPrompt,
-            semantic: 'primary_instruction'
-        });
-
-        // No user input for accumulation - the input is in the first step only
+    // Add the synthetic prelude first if present: the situational frame, then the
+    // modality as its own section after it. Both are established as an enacted,
+    // acknowledged exchange (not system directives).
+    const preludeText = [frame?.text, modalityText].filter(Boolean).join('\n\n');
+    if (preludeText) {
+        indices.frameSet = completeThread.length;
+        completeThread.push(
+            { role: 'user', content: preludeText, semantic: 'frame_set' }
+        );
+        indices.frameAck = completeThread.length;
+        completeThread.push(
+            { role: 'assistant', content: 'Understood. I will maintain this context throughout our session.', semantic: 'frame_ack' }
+        );
     }
 
-    // Calculate max tokens
-    const maxTokens = plan.maxTokens || roleConfig.baseTokens || 500;
+    // Add system instructions
+    indices.systemInstruction = completeThread.length;
+    completeThread.push({
+        role: 'system',
+        content: systemInstructions,
+        semantic: 'system_instruction'
+    });
+
+    // Include conversation history from previous turns
+    if (thread && thread.length > 0) {
+        indices.conversationStart = completeThread.length;
+        completeThread.push(...thread);
+        indices.conversationEnd = completeThread.length - 1;
+    }
+
+    // Add primary prompt (last before user input)
+    indices.primaryPrompt = completeThread.length;
+    completeThread.push({
+        role: 'user',
+        content: primaryPrompt,
+        semantic: 'primary_instruction'
+    });
+
+    // Add user input
+    if (input && input.trim()) {
+        indices.userInput = completeThread.length;
+        completeThread.push({
+            role: 'user',
+            content: input,
+            semantic: 'input'
+        });
+    }
 
     return {
         thread: completeThread,
@@ -235,7 +162,7 @@ export async function composeInstructions({ plan = {}, factMap = {}, thread = []
             role,
             baseTokens: roleConfig.baseTokens,
             lengthLevel,
-            adaptations: plan.adaptations || []
+            adaptations: planAdaptations
         }
     };
 }

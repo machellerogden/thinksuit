@@ -6,7 +6,7 @@ import { modules as defaultModules } from 'thinksuit-modules';
 // Stage 1 Schema: High-level structure (strategy selection)
 const stage1Schema = {
     type: 'object',
-    required: ['strategy', 'name', 'roles', 'buildThread', 'resultStrategy', 'rationale'],
+    required: ['strategy', 'name', 'roles', 'resultStrategy', 'rationale'],
     properties: {
         strategy: {
             enum: ['direct', 'task', 'sequential', 'parallel'],
@@ -20,10 +20,6 @@ const stage1Schema = {
             type: 'array',
             items: { type: 'string' },
             description: 'Role names involved in this plan'
-        },
-        buildThread: {
-            type: 'boolean',
-            description: 'Whether to build conversation thread between sequential steps'
         },
         resultStrategy: {
             enum: ['last', 'concat'],
@@ -142,38 +138,71 @@ const parallelDetailsSchema = {
     additionalProperties: false
 };
 
-// Stitching function
+// Map an intermediate step/branch spec ({ role, strategy, tools, adaptations }) onto a
+// plan.v1 task node. The LLM still reasons in strategy terms ('direct' = no tools /
+// single round, 'task' = tools / a round budget); both collapse to a task node.
+function toTaskNode(spec) {
+    const node = { type: 'task', role: spec.role };
+    if (spec.tools?.length) {
+        node.tools = spec.tools;
+    }
+    // 'direct' is the loop bounded to one round; 'task' takes a working budget.
+    node.maxRounds = spec.strategy === 'task' ? 8 : 1;
+    if (spec.adaptations?.length) {
+        node.params = { adaptations: spec.adaptations };
+    }
+    return node;
+}
+
+// Stitch the two LLM stages into an inline plan.v1 root node
+// ({ name, description?, ...Node }). No v1 wrapper fields (strategy/sequence/roles/
+// rationale/buildThread) survive — those were the pre-de-pipelining shape.
 function stitchPlan(stage1Result, stage2Result) {
-    const plan = {
-        name: stage1Result.name,
-        strategy: stage1Result.strategy,
-        rationale: stage1Result.rationale || '',
-        buildThread: stage1Result.buildThread !== false, // default true for sequential
-        resultStrategy: stage1Result.resultStrategy || 'last'
-    };
+    const base = { name: stage1Result.name };
+    if (stage1Result.rationale) {
+        base.description = stage1Result.rationale;
+    }
 
     switch (stage1Result.strategy) {
         case 'direct':
-            plan.role = stage1Result.roles[0];
-            plan.adaptations = stage2Result.adaptations || [];
-            break;
+            return {
+                ...base,
+                ...toTaskNode({
+                    role: stage1Result.roles[0],
+                    strategy: 'direct',
+                    adaptations: stage2Result.adaptations
+                })
+            };
 
         case 'task':
-            plan.role = stage1Result.roles[0];
-            plan.tools = stage2Result.tools || [];
-            plan.adaptations = stage2Result.adaptations || [];
-            break;
+            return {
+                ...base,
+                ...toTaskNode({
+                    role: stage1Result.roles[0],
+                    strategy: 'task',
+                    tools: stage2Result.tools,
+                    adaptations: stage2Result.adaptations
+                })
+            };
 
         case 'sequential':
-            plan.sequence = stage2Result.steps || [];
-            break;
+            return {
+                ...base,
+                type: 'sequence',
+                resultStrategy: stage1Result.resultStrategy || 'last',
+                children: (stage2Result.steps || []).map(toTaskNode)
+            };
 
         case 'parallel':
-            plan.roles = stage2Result.branches || [];
-            break;
+            return {
+                ...base,
+                type: 'parallel',
+                resultStrategy: stage1Result.resultStrategy || 'concat',
+                children: (stage2Result.branches || []).map(toTaskNode)
+            };
     }
 
-    return plan;
+    return base;
 }
 
 export async function POST({ request }) {
@@ -252,8 +281,7 @@ ${roleDescriptions}
 Your task is to determine:
 1. Which strategy is most appropriate for the request
 2. Which role(s) are needed
-3. Whether sequential steps should build a conversation thread
-4. How results should be combined (for sequential/parallel)
+3. How results should be combined (for sequential/parallel)
 
 Return ONLY the JSON object. No explanation, no markdown code blocks.`;
 

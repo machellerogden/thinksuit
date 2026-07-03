@@ -1,4 +1,3 @@
-import factsSchema from './facts.v1.json' with { type: 'json' };
 import planSchema from './plan.v1.json' with { type: 'json' };
 import userConfigSchema from './userConfig.v1.json' with { type: 'json' };
 import turnRequestSchema from './turnRequest.v1.json' with { type: 'json' };
@@ -14,55 +13,6 @@ function toValidationResult(result) {
     if (result.valid) {
         return { valid: true };
     }
-    return {
-        valid: false,
-        errors: result.errors.map((err) => ({
-            message: err.message,
-            property: err.property,
-            stack: err.stack,
-            schema: err.schema,
-            instance: err.instance
-        }))
-    };
-}
-
-/**
- * Validates a fact or array of facts against the facts.v1 schema
- * @param {Object|Array} facts - Single fact object or array of facts
- * @returns {Object} Validation result with { valid: boolean, errors?: Array }
- */
-export function validateFacts(facts) {
-    // Handle array of facts
-    if (Array.isArray(facts)) {
-        const errors = [];
-
-        for (let i = 0; i < facts.length; i++) {
-            const result = validator.validate(facts[i], factsSchema);
-            if (!result.valid) {
-                errors.push({
-                    index: i,
-                    fact: facts[i],
-                    message: result.errors[0].message,
-                    property: result.errors[0].property,
-                    stack: result.errors[0].stack
-                });
-            }
-        }
-
-        if (errors.length > 0) {
-            return { valid: false, errors };
-        }
-
-        return { valid: true };
-    }
-
-    // Handle single fact
-    const result = validator.validate(facts, factsSchema);
-
-    if (result.valid) {
-        return { valid: true };
-    }
-
     return {
         valid: false,
         errors: result.errors.map((err) => ({
@@ -101,7 +51,7 @@ export function validatePlan(plan) {
 
 /**
  * Helper to format validation errors for logging
- * @param {Object} validationResult - Result from validateFacts or validatePlan
+ * @param {Object} validationResult - Result from validatePlan or another validator
  * @returns {string} Formatted error message
  */
 export function formatValidationErrors(validationResult) {
@@ -121,19 +71,6 @@ export function formatValidationErrors(validationResult) {
     }
 
     return lines.join('\n');
-}
-
-/**
- * Strict validation that throws on invalid data
- * @param {Object|Array} facts - Facts to validate
- * @throws {Error} If validation fails
- */
-export function assertValidFacts(facts) {
-    const result = validateFacts(facts);
-    if (!result.valid) {
-        throw new Error(`Invalid facts: ${formatValidationErrors(result)}`);
-    }
-    return facts;
 }
 
 /**

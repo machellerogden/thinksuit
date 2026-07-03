@@ -2,16 +2,19 @@
 
 ## System Purpose
 
-ThinkSuit's core is an AI orchestration engine that converts conversation context into execution plans via a deterministic state machine, then executes those plans through LLM orchestration using pluggable behavioral modules.
+ThinkSuit's core is an AI orchestration engine that runs **authored plans**: a turn resolves a
+plan (a tree of `task`/`sequence`/`parallel` nodes), and the composer executes it through LLM
+orchestration using pluggable behavioral modules. `task` is a round-bounded agent loop;
+`sequence`/`parallel` compose those loops and thread results between them.
 
-That engine is the **kernel** of a larger goal — ThinkSuit as a personal operating system (see [vision.md](./vision.md)). This document covers what exists today: the package constellation and its interfaces (below), then the engine internals (execution flow, state machine, facts/plans). The aspirational layer is tracked in [roadmap.md](./roadmap.md).
+That engine is the **kernel** of a larger goal — ThinkSuit as a personal operating system (see [vision.md](./vision.md)). This document covers what exists today: the package constellation and its interfaces (below), then the engine internals (turn flow, the composer + loop, plans). The aspirational layer is tracked in [roadmap.md](./roadmap.md).
 
 ## Core Architectural Principles
 
 1. **Trust Boundaries**: System enforces user policy between untrusted modules and execution
-2. **Two-Plane Architecture**: Pure decision plane, effectful execution plane
+2. **Composition is structural**: the agent loop is the one effectful primitive; `sequence`/`parallel` compose it
 3. **Module-First Design**: Cognitive behavior defined by pluggable modules
-4. **Policy Enforcement**: User constraints flow through system to bound module behavior
+4. **Policy Enforcement**: User constraints flow through the composer to bound module behavior
 
 ## Package Constellation & Interfaces
 
@@ -31,26 +34,26 @@ device it talks to. (OS metaphor is a lens — see [vision.md](./vision.md).)
                              │ forks a worker per turn
                              ▼
                   thinksuit  (engine = kernel)   ──reads──►  ~/.thinksuit.json   (registry)
-            signals → rules → plans → compose → execute      engine/secrets       (keyring)
+           resolve plan → executePlan → executeTask         engine/secrets       (keyring)
                              │
               ┌──────────────┴───────────────┐
               ▼                               ▼
      thinksuit-modules                 thinksuit-mcp-tools
      (installed behaviors: mu)         (tools consumed INWARD by the agent)
 
-     thinksuit-mcp-server ── exposes engine / sessions / signals OUTWARD ──► external MCP clients
+     thinksuit-mcp-server ── exposes engine / sessions / inspect OUTWARD ──► external MCP clients
 ```
 
 | Package | Role (OS lens) | Responsibility | Key interface |
 |---|---|---|---|
-| `thinksuit` | kernel | Cognition pipeline + orchestration; config registry; secrets keyring; session routing | `schedule()`; `buildConfig`/`readUserConfig`/`patchUserConfig`; `resolveSecret`; `loadModules`; `subscribeToSession`/`getSessionStatus`/`getTrace`; `callLLM`. bin: `thinksuit-exec` |
-| `thinksuit-modules` | installed behaviors | Cognitive roles, classifiers, rules, prompts; the `mu` module owns its `modalities`/`frames` | default export (the module map) |
+| `thinksuit` | kernel | Plan composer + agent loop; config registry; secrets keyring; session routing | `schedule()`; `buildConfig`/`readUserConfig`/`patchUserConfig`; `resolveSecret`; `loadModules`; `subscribeToSession`/`getSessionStatus`/`getTrace`; `callLLM`. bin: `thinksuit-exec` |
+| `thinksuit-modules` | installed behaviors | Cognitive roles, prompts, `composeInstructions`, and a plan library; the `mu` module owns its `modalities`/`frames` | default export (the module map) |
 | `thinksuit-broker` | process host / scheduler | Resident daemon; forks a worker per turn (`src/worker.js`); control channel; queue; per-session workspace provisioning | client export: `run`/`tail`/`interrupt`/`approve`/`status`/`log`/`awaitTurn`; `./broker` daemon; `./service` definition (managed by thinkctl) |
 | `thinksuit-cli` | shell | Terminal REPL + one-shot runner | bin: `thinksuit` |
 | `thinksuit-console` | shell (web) | SvelteKit UI: session inspection, run interface, wakeword studio, services control | `./service` definition (managed by thinkctl); no library export |
 | `thinksuit-voice` | shell (voice front door) | Wake → capture → STT → turn → TTS; wakeword studio backend | exports `./devices` `./control` `./wakewords` `./session` `./recorder` `./training-worker` `./service`; bin `thinksuit-voice`; managed by thinkctl |
 | `thinksuit-tty` | shell component | Terminal Svelte component + TTY WebSocket server | exports `./Terminal.svelte` `./server` `./service`; managed by thinkctl |
-| `thinksuit-mcp-server` | devices (outward) | Exposes ThinkSuit to external MCP clients (Claude Desktop/IDEs) via tools `thinksuit`/`inspect`/`session`/`signals` | bin: `thinksuit-mcp-server` (stdio MCP) |
+| `thinksuit-mcp-server` | devices (outward) | Exposes ThinkSuit to external MCP clients (Claude Desktop/IDEs) via tools `thinksuit`/`inspect`/`session` | bin: `thinksuit-mcp-server` (stdio MCP) |
 | `thinksuit-mcp-tools` | devices (inward) | Custom MCP tools consumed BY ThinkSuit (e.g. `roll_dice`) | bin: `thinksuit-mcp-tools` (stdio MCP) |
 | `thinksuit-control` | operations control plane | Manages the LaunchAgent services (broker/console/tty/voice): discovers them from its own deps via each package's `./service` definition, generates plists in code, owns `launchctl` | bin: `thinkctl` (`up`/`down`/`start`/`stop`/`status`/`ls`/`logs`) |
 
@@ -77,7 +80,7 @@ device it talks to. (OS metaphor is a lens — see [vision.md](./vision.md).)
   are sync, deep-merge helpers honoring a `THINKSUIT_CONFIG` override; `buildConfig`
   produces the layered (global ← project) run config.
 - **Modality** (composition axis, sibling to frame): a turn param threaded
-  `run/internals.js → runCycle.js → handlers/composeInstructions.js`; the module
+  `run/internals.js → executePlan → module.composeInstructions`; the module
   renders per-modality instruction text; `config.modality` is the default, `--modality`
   overrides, and the voice daemon asserts `'voice'`.
 - **Service model**: every long-running package ships a `bin/service.mjs` and a
@@ -92,35 +95,37 @@ sequenceDiagram
     participant User
     participant CLI
     participant Schedule
-    participant RunCycle
-    participant StateMachine
+    participant ExecuteOnce
+    participant ExecutePlan
+    participant ExecuteTask
     participant Module
-    participant Handlers
     participant LLM
 
     User->>CLI: Input message
-    CLI->>Schedule: schedule(config, input)
-    Schedule->>RunCycle: runCycle(params)
+    CLI->>Schedule: schedule(turnRequest)
+    Schedule->>ExecuteOnce: run() → executeOnce()
+    Note over ExecuteOnce: Resolve plan<br/>(selectedPlan ?? module.defaultPlan)
+    ExecuteOnce->>ExecutePlan: executePlan(rootNode, ctx)
 
-    Note over RunCycle,Module: Decision Plane (Pure)
-    RunCycle->>StateMachine: Execute ASL
-    StateMachine->>Handlers: detectSignals
-    Handlers->>Module: Use classifiers
-    Module-->>Handlers: Return signals
-    StateMachine->>Handlers: evaluateRules
-    Handlers->>Module: Use rules
-    Module-->>Handlers: Return plans
-    StateMachine->>Handlers: selectPlan
-    Note over Handlers: System enforces policy
-    Handlers-->>StateMachine: Selected plan
+    Note over ExecutePlan: Enforce policy (depth); dispatch by node.type
+    alt node is sequence/parallel
+        ExecutePlan->>ExecutePlan: recurse per child<br/>(thread results via context bag)
+    end
 
-    Note over RunCycle,LLM: Execution Plane (Effectful)
-    StateMachine->>Handlers: execTask/Direct/Sequential
-    Handlers->>Module: Get prompts
-    Module-->>Handlers: Return prompts
-    Handlers->>LLM: callLLM(params)
-    LLM-->>Handlers: Response
-    Handlers-->>User: Final response
+    ExecutePlan->>Module: composeInstructions(node, ...)
+    Module-->>ExecutePlan: composed thread
+    ExecutePlan->>ExecuteTask: run the task node (agent loop)
+
+    loop until no tool calls or bound hit
+        ExecuteTask->>LLM: callLLM(thread, tools?)
+        LLM-->>ExecuteTask: response (text or tool calls)
+        opt tool calls
+            ExecuteTask->>User: request approval (unless auto)
+            ExecuteTask->>ExecuteTask: run tool, feed result back
+        end
+    end
+    ExecuteTask-->>ExecutePlan: { response }
+    ExecutePlan-->>User: Final response
 ```
 
 ## Trust Boundaries and Component Architecture
@@ -136,27 +141,25 @@ graph TB
     subgraph "System Space (Trusted)"
         CLI[CLI Interface]
         Schedule[Schedule API]
-        SM[State Machine<br/>ASL/Trajectory]
+        Plan[executePlan<br/>composer]
 
-        subgraph "Policy Enforcement Layer"
-            PS[Plan Selection]
-            RE[Resource Enforcement]
+        subgraph "Policy Enforcement"
+            PE[enforcePolicyCore<br/>depth / fanout / children]
             TA[Tool Access Control]
         end
 
-        subgraph "Execution Control"
-            Task[Task Executor]
-            Direct[Direct Executor]
-            Seq[Sequential Executor]
-            Para[Parallel Executor]
+        subgraph "Composition"
+            Seq[sequence node]
+            Para[parallel node]
+            Task[executeTask<br/>agent loop]
         end
     end
 
     subgraph "Module Space (Untrusted)"
         Module[Behavioral Module]
-        Class[Classifiers]
-        Rules[Rules Engine]
-        Prompts[Role Prompts]
+        Roles[Roles]
+        Prompts[Prompts / composeInstructions]
+        Plans[Plan Library]
     end
 
     subgraph "External Services"
@@ -166,166 +169,126 @@ graph TB
 
     User -->|sets| Policy
     User -->|input| CLI
-    Policy -->|constrains| RE
+    Policy -->|constrains| PE
     Policy -->|filters| TA
 
     CLI --> Schedule
-    Schedule --> SM
-    SM -->|queries| Module
-    Module --> Class
-    Module --> Rules
+    Schedule --> Plan
+    Plan -->|composeInstructions| Module
+    Module --> Roles
     Module --> Prompts
+    Module --> Plans
 
-    SM -->|enforces| PS
-    PS -->|selects| Task
-    PS -->|selects| Direct
-    PS -->|selects| Seq
-    PS -->|selects| Para
+    Plan -->|enforces| PE
+    Plan --> Seq
+    Plan --> Para
+    Plan --> Task
+    Seq -->|recurse| Plan
+    Para -->|recurse| Plan
 
-    Task -->|bounded by| RE
     Task -->|filtered by| TA
     Task --> LLM
     Task --> Tools
 
-    Direct --> LLM
-    Seq --> LLM
-    Para --> LLM
-
     style Module fill:#ffe6e6
-    style Class fill:#ffe6e6
-    style Rules fill:#ffe6e6
+    style Roles fill:#ffe6e6
     style Prompts fill:#ffe6e6
-    style PS fill:#e6f3ff
-    style RE fill:#e6f3ff
+    style Plans fill:#ffe6e6
+    style PE fill:#e6f3ff
     style TA fill:#e6f3ff
 ```
 
-## State Machine Flow
+## Plan Shape (plan.v1 node tree)
+
+A plan is an authored tree of nodes (schema: `packages/thinksuit/schemas/plan.v1.json`).
+The file *is* the root node, with `name`/`description` inline:
+
+```
+Plan = { name, description?, ...Node }
+Node =
+  | { type:"task",     role, tools?, input?, id?, maxRounds?, timeoutMs?, params? }
+  | { type:"sequence", children: Node[], resultStrategy?, id? }
+  | { type:"parallel", children: Node[], resultStrategy?, id? }
+```
+
+- `params` is an open module-knob bag (`lengthLevel`, `adaptations`, `maxTokens`).
+- `input` is a `$`-template (`$input`, `$last_response`, `$<id>_response`); omitted ⇒ prior
+  result, else the turn input.
+- `resultStrategy` (`last`/`concat`/`label`/`formatted`) combines child results.
+
+## Plan Composition Flow
 
 ```mermaid
 stateDiagram-v2
-    [*] --> CheckSelectedPlan
+    [*] --> ResolvePlan
+    ResolvePlan --> ExecutePlan: selectedPlan ?? module.defaultPlan
 
-    CheckSelectedPlan --> UseSelectedPlan: Has selected plan<br/>(deterministic execution)
-    CheckSelectedPlan --> DetectSignals: No selected plan
+    ExecutePlan --> DepthGuard: enforcePolicyCore(depth)
+    DepthGuard --> Dispatch: approved
+    DepthGuard --> Blocked: E_DEPTH
 
-    UseSelectedPlan --> ComposeInstructions
+    Dispatch --> Task: type=task
+    Dispatch --> Sequence: type=sequence
+    Dispatch --> Parallel: type=parallel
 
-    DetectSignals --> AggregateFacts
-    AggregateFacts --> EvaluateRules
-    EvaluateRules --> SelectPlan
-    SelectPlan --> ComposeInstructions
+    Sequence --> FanGuardS: enforcePolicyCore(children)
+    Parallel --> FanGuardP: enforcePolicyCore(fanout)
+    FanGuardS --> ExecutePlan: recurse per child (shared bag)
+    FanGuardP --> ExecutePlan: recurse per branch (cloned bag)
 
-    ComposeInstructions --> Route
-
-    Route --> DoTask: strategy=task
-    Route --> DoDirect: strategy=direct
-    Route --> DoSequential: strategy=sequential
-    Route --> DoParallel: strategy=parallel
-
-    DoTask --> [*]: Success
-    DoDirect --> [*]: Success
-    DoSequential --> [*]: Success
-    DoParallel --> [*]: Success
-
-    DoTask --> Fallback: Error
-    DoDirect --> Fallback: Error
-    DoSequential --> Fallback: Error
-    DoParallel --> Fallback: Error
-
-    Fallback --> [*]
+    Task --> [*]: response
+    Blocked --> [*]: error response
 ```
 
-## Data Flow: Facts and Plans
-
-```mermaid
-graph LR
-    subgraph "Signal Detection"
-        Thread[Thread] --> Classifiers
-        Classifiers --> Signals[Signal Facts]
-    end
-
-    subgraph "Rule Evaluation"
-        Signals --> Rules[Rule Engine]
-        Rules --> Plans[Execution Plans]
-        Rules --> Adaptations[Adaptations]
-        Rules --> Constraints[Constraints]
-    end
-
-    subgraph "Plan Selection"
-        Plans --> Selector[System Selector]
-        Constraints --> Selector
-        Policy[User Policy] --> Selector
-        Selector --> Selected[Selected Plan]
-    end
-
-    subgraph "Instruction Composition"
-        Selected --> Composer[Composer]
-        Adaptations --> Composer
-        Prompts[Module Prompts] --> Composer
-        Composer --> Instructions[Instructions]
-    end
-
-    subgraph "Execution"
-        Instructions --> Executor
-        Selected --> Executor
-        Executor --> Response
-    end
-```
-
-## Task Execution Strategy (Meta-Orchestration)
+## Task Node (the agent loop)
 
 ```mermaid
 sequenceDiagram
-    participant TaskExecutor
-    participant RunCycle
-    participant StateMachine
+    participant ExecutePlan
+    participant Module
+    participant ExecuteTask
     participant LLM
     participant Tools
     participant User
 
-    Note over TaskExecutor: Initialize with resource limits
-    TaskExecutor->>TaskExecutor: Check limits<br/>(cycles, tokens, tools)
+    ExecutePlan->>Module: composeInstructions(node, thread, input, frame, modality)
+    Module-->>ExecutePlan: composed thread
+    ExecutePlan->>ExecuteTask: executeTask(node, thread)
 
-    loop Until complete or limits reached
-        TaskExecutor->>RunCycle: runCycle(selectedPlan)
-        Note over RunCycle: Skip signal detection<br/>(deterministic path)
-        RunCycle->>StateMachine: Execute with plan
-        StateMachine->>LLM: Execute role
-        LLM-->>StateMachine: Response
-
-        alt Response requests tools
-            StateMachine->>User: Request approval
-            User-->>StateMachine: Approve/Deny
-            StateMachine->>Tools: Execute if approved
-            Tools-->>StateMachine: Tool results
-            TaskExecutor->>TaskExecutor: Update context
-        else Response complete
-            StateMachine-->>TaskExecutor: Final response
-            TaskExecutor-->>User: Return response
+    loop until no tool calls, or maxRounds / timeoutMs hit
+        ExecuteTask->>LLM: callLLM(thread, node.tools?)
+        LLM-->>ExecuteTask: response (text and/or tool calls)
+        alt tool calls
+            ExecuteTask->>User: request approval (unless autoApproveTools)
+            User-->>ExecuteTask: approve / deny
+            ExecuteTask->>Tools: run approved tools (allowlisted)
+            Tools-->>ExecuteTask: results (fed back into thread)
+        else final text
+            ExecuteTask-->>ExecutePlan: { response }
         end
-
-        TaskExecutor->>TaskExecutor: Update resource usage
     end
 ```
 
 ## Key Architectural Patterns
 
-### 1. Two-Plane Architecture
-- **Decision Plane**: Pure functions for signal detection, rule evaluation, plan selection
-- **Execution Plane**: Effectful handlers for LLM calls and tool execution
+### 1. Composer + Loop
+- **Composer** (`executePlan`): structural — dispatches nodes by `type`, recurses into
+  composites, threads results between siblings via a context bag. No LLM calls of its own.
+- **Agent loop** (`executeTask`): the one effectful primitive — LLM calls + tool execution.
 
 ### 2. Policy Enforcement Points
-Limits are enforced in the **execution plane**, where the runtime values they
-bound actually exist — not in the once-per-turn decision plane:
-- **Recursion depth** — bounded in `runCycle` (`enforcePolicyCore`), the single
-  point every nested descent funnels through. Depth grows across nested exec calls,
-  so it can only be seen at execution time, not at plan selection.
-- **Fanout / children** — bounded in `execParallel` / `execSequential` at the point
-  N branches or steps are actually spawned.
+Limits are enforced by the numeric `enforcePolicyCore` at the three points in the composer
+where the bounded runtime value actually exists:
+- **Recursion depth** — checked at `executePlan` entry. Depth grows per descent
+  (`childContext` increments it), so every node dispatch re-checks it.
+- **Fanout** — checked in the `parallel` branch before spawning N branches.
+- **Children** — checked in the `sequence` branch before running N steps.
 - **Tool access** — `applyToolPolicy` filters discovered tools against the user
-  allowlist at MCP discovery (`config.allowedTools`).
-- **Token/cycle/tool-call budgets** — enforced inside `execTask`'s loop.
+  allowlist at MCP discovery (`config.allowedTools`); `executeTask` also enforces the
+  node's own `tools` allowlist per call.
+- **Round/timeout budgets** — enforced inside `executeTask`'s loop (`maxRounds`/`timeoutMs`).
+
+A block produces a normal error response (`policyBlocked`, code `E_DEPTH`/`E_FANOUT`/`E_CHILDREN`).
 
 ### 3. Module Isolation
 - Modules provide cognitive behavior but don't control execution
@@ -344,6 +307,6 @@ bound actually exist — not in the once-per-turn decision plane:
 3. **Tool Approval**: User approval required for tool execution (configurable)
 4. **Policy Override**: System can override module decisions based on user policy
 5. **Audit Trail**: Complete trace logging for security analysis
-6. **Secrets never enter facts/logs**: Provider credentials flow through config
-   in-process only. `aggregateFacts` does not flatten the `providerConfig` subtree
-   into `Config` facts, so resolved API keys never reach the session JSONL on disk.
+6. **Secrets never enter logs**: Provider credentials flow through config in-process
+   only; the worker resolves them by name (`resolveSecret`) and they are never
+   serialized into the session JSONL on disk.

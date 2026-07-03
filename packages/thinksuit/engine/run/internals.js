@@ -3,13 +3,11 @@
  * Each helper has a single, well-defined responsibility
  */
 
-import { readFile } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { createLogger } from '../logger.js';
 import { generateId } from '../utils/id.js';
-import { initializeHandlers } from '../handlers/index.js';
-import { runCycle } from '../runCycle.js';
+import { executePlan } from '../handlers/executePlan.js';
+import { isInterruptError } from '../errors/InterruptError.js';
+import { getPlan } from '../../plans.js';
 import { startMCPServers, stopAllMCPServers } from '../mcp/client.js';
 import { discoverTools } from '../mcp/discovery.js';
 import { applyToolPolicy, getFilteredToolNames } from '../mcp/policy.js';
@@ -23,8 +21,6 @@ import {
     DEFAULT_POLICY,
     DEFAULT_LOGGING
 } from '../constants/defaults.js';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /**
  * Normalize configuration with defaults and validation
@@ -68,16 +64,7 @@ export function normalizeConfig(config) {
         policy: {
             maxDepth: config.policy?.maxDepth ?? DEFAULT_POLICY.maxDepth,
             maxFanout: config.policy?.maxFanout ?? DEFAULT_POLICY.maxFanout,
-            maxChildren: config.policy?.maxChildren ?? DEFAULT_POLICY.maxChildren,
-            perception: {
-                profile: config.policy?.perception?.profile || DEFAULT_POLICY.perception.profile,
-                budgetMs: config.policy?.perception?.budgetMs ?? DEFAULT_POLICY.perception.budgetMs,
-                dimensions: config.policy?.perception?.dimensions || DEFAULT_POLICY.perception.dimensions
-            },
-            selection: {
-                preferLowCost: config.policy?.selection?.preferLowCost ?? DEFAULT_POLICY.selection.preferLowCost,
-                riskTolerance: config.policy?.selection?.riskTolerance || DEFAULT_POLICY.selection.riskTolerance
-            }
+            maxChildren: config.policy?.maxChildren ?? DEFAULT_POLICY.maxChildren
         },
         logging: {
             level: config.logging?.level || DEFAULT_LOGGING.level,
@@ -184,14 +171,6 @@ export function selectModule(modules, modulePath) {
         }
 
         // Validate expected module components
-        if (module.classifiers && typeof module.classifiers !== 'object') {
-            throw new Error(`Module '${modulePath}' has invalid classifiers (must be object)`);
-        }
-
-        if (module.rules && !Array.isArray(module.rules)) {
-            throw new Error(`Module '${modulePath}' has invalid rules (must be array)`);
-        }
-
         if (module.prompts && typeof module.prompts !== 'object') {
             throw new Error(`Module '${modulePath}' has invalid prompts (must be object)`);
         }
@@ -221,15 +200,6 @@ export function selectModule(modules, modulePath) {
         console.error(`[MODULE] ${error.message}`);
         throw error;
     }
-}
-
-/**
- * Load state machine definition
- * @returns {Promise<Object>} Parsed machine definition
- */
-export async function loadMachineDefinition() {
-    const machineJson = await readFile(join(__dirname, '..', 'machine.json'), 'utf8');
-    return JSON.parse(machineJson);
 }
 
 /**
@@ -332,35 +302,65 @@ export async function withMcpLifecycle(module, config, logger) {
 }
 
 /**
- * Execute a single ThinkSuit cycle
+ * Execute a single ThinkSuit turn through the plan composer.
+ *
+ * Resolves the plan.v1 node (explicit override, else the module's default), runs it via
+ * executePlan, and translates the outcome into the [status, result] shape formatFinalResult
+ * expects.
+ *
  * @param {Object} params - Execution parameters
  * @returns {Promise<Array>} [status, result] tuple
  */
-export async function executeOnce({ finalConfig, logger, module, machineDefinition, discoveredTools, thread, input, abortSignal, turnBoundaryId, historicalSignals, currentTurnIndex }) {
-    const handlers = initializeHandlers();
+export async function executeOnce({ finalConfig, logger, module, discoveredTools, thread, input, abortSignal, turnBoundaryId }) {
+    // Resolve the plan.v1 node: explicit override, else the module's stated default.
+    const rootNode =
+        finalConfig.selectedPlan ?? (await getPlan(module.defaultPlan, finalConfig.module, module));
+    if (!rootNode) {
+        throw new Error(
+            `No plan to execute: no selectedPlan and module '${finalConfig.module}' has no resolvable defaultPlan`
+        );
+    }
 
-    try {
-        return await runCycle({
-            logger,
-            thread,
-            input,
-            module,
+    const machineContext = {
+        config: finalConfig,
+        module,
+        execLogger: logger.child({ branch: 'root', depth: 0 }),
+        abortSignal,
+        discoveredTools
+    };
+
+    const ctx = {
+        machineContext,
+        bag: { input },
+        thread,
+        context: {
             sessionId: finalConfig.sessionId,
             traceId: logger.bindings().traceId,
-            parentBoundaryId: turnBoundaryId, // Turn boundary as parent
-            machineDefinition,
-            handlers,
-            config: finalConfig,
-            discoveredTools,
-            abortSignal,
-            historicalSignals, // Pass historical signals to runCycle
-            currentTurnIndex, // Pass current turn index to runCycle
-            selectedPlan: finalConfig.selectedPlan, // Pass selected plan to runCycle
-            frame: finalConfig.frame, // Pass frame to runCycle
-            modality: finalConfig.modality, // Pass modality to runCycle
-            compositionType: 'default' // Default composition from run.js
-        });
+            depth: 0,
+            branch: 'root',
+            parentBoundaryId: turnBoundaryId
+        },
+        frame: finalConfig.frame,
+        modality: finalConfig.modality
+    };
+
+    try {
+        const result = await executePlan(rootNode, ctx);
+        return ['SUCCEEDED', { handlerResult: { response: result.response } }];
     } catch (error) {
+        // Interrupt is a first-class outcome — surface it as the interrupted status rather
+        // than a thrown error, so the turn closes cleanly with session.interrupted.
+        if (isInterruptError(error)) {
+            return [
+                'interrupted',
+                {
+                    interrupted: true,
+                    message: error.message,
+                    partialData: error.gatheredData ?? null
+                }
+            ];
+        }
+
         logger.error(
             {
                 data: {
@@ -368,7 +368,7 @@ export async function executeOnce({ finalConfig, logger, module, machineDefiniti
                     stack: error.stack
                 }
             },
-            'State machine execution error'
+            'Turn execution error'
         );
         throw error;
     }

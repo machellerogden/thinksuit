@@ -1,6 +1,6 @@
 # ThinkSuit
 
-> An AI orchestration engine that converts conversation context into execution plans via a deterministic state machine, then executes those plans through LLM orchestration using pluggable modules.
+> An AI orchestration engine that runs authored plans — composing an agent loop into sequences and parallels — through LLM orchestration using pluggable modules.
 
 ```txt
 • • • • • • • • • • • • • • • • • • • • •
@@ -18,11 +18,11 @@
 
 ThinkSuit is an orchestration engine that:
 
-- Executes behavioral modules through a deterministic state machine
-- Detects conversation signals and evaluates rules defined by modules
+- Resolves an authored plan (a `task`/`sequence`/`parallel` node tree) and runs it
+- Executes each `task` node as a round-bounded agent loop, composing loops into sequences and parallels
+- Applies pluggable behavioral modules (roles, prompts, plan library) to shape responses
 - Manages sessions with conversation continuity
 - Provides provider abstraction for LLMs and tools
-- Executes via Trajectory runtime with ASL state machine definition
 
 ## Installation
 
@@ -140,45 +140,43 @@ Sessions are stored as JSONL files in `~/.thinksuit/sessions/streams/` with meta
 
 ## Architecture
 
-### State Machine Flow
+### Turn Flow
 
 ```
-CheckStaticPlan (optimization) → DetectSignals → AggregateFacts → EvaluateRules → SelectPlan
-    → ComposeInstructions → Guards → Route → Execute (Direct/Sequential/Parallel/Single)
+schedule() → run() → executeOnce()          # resolve plan: selectedPlan ?? module.defaultPlan
+    → executePlan(rootNode, ctx)            # composer: dispatch by node.type, enforce policy
+        → executeTask (task node)           # the agent loop: callLLM (+ tools) until done
+        → recurse (sequence / parallel)     # compose loops; thread results via a context bag
 ```
 
-The state machine is defined in `engine/machine.json` using Amazon States Language (ASL) syntax and executed via the Trajectory library. Modules are passed as first-class context through the state machine, providing classifiers, rules, prompts, and configuration to all handlers.
-
-### Signal Detection
-
-ThinkSuit provides a signal detection framework that modules use to analyze conversation context. Modules define their own signal taxonomies and classification strategies. The engine orchestrates the detection process and makes detected signals available to the rules evaluation system.
-
-For details on the default module's signal taxonomy and classification approach, see the [thinksuit-modules documentation](../thinksuit-modules/README.md).
+There is no state machine. The composer (`executePlan`) dispatches a plan node by `type`,
+recurses into composites, and threads each child's result to the next; `executeTask` is the
+single effectful primitive. Modules are passed as first-class context, providing roles,
+prompts, `composeInstructions`, and a plan library.
 
 ### Project Structure
 
 ```
 engine/
-  machine.json          # State machine definition
-  runCycle.js           # Pure function for executing ThinkSuit cycles
-  run.js                # Programmatic entry point
+  run.js                # Programmatic entry point (run())
+  run/internals.js      # executeOnce(): resolves the plan, drives the composer
   execute.js            # One-shot CLI entry point (thinksuit-exec bin)
   config.js             # Configuration management with meow
   logger.js             # Structured logging with pino
   constants/
-    defaults.js         # System defaults (DEFAULT_ROLE, DEFAULT_INSTRUCTIONS)
+    defaults.js         # System defaults (DEFAULT_ROLE, token limits, DEFAULT_POLICY)
   handlers/
-    detectSignals.js    # Signal detection orchestrator (policy-driven)
-    aggregateFacts.js   # Fact deduplication and filtering
-    evaluateRules.js    # Rules evaluation (returns multiple plans)
-    selectPlan.js       # Plan selection from candidates
+    executePlan.js      # The plan composer (task / sequence / parallel)
+    executeTask.js      # The agent loop (one round-bounded task node)
+    enforcePolicy.js    # Numeric policy guard (depth / fanout / children)
+  plan/
+    template.js         # $-template input expansion
   providers/            # LLM provider abstraction
     openai.js           # OpenAI-specific implementation
     index.js            # Provider factory
     io.js               # Pure functions for effectful operations
 schemas/
-  facts.v1.json         # Fact type definitions
-  plan.v1.json          # Execution plan schema
+  plan.v1.json          # Plan (node-tree) schema
   validate.js           # Schema validation functions
 tests/                  # Comprehensive test suite
 docs/
@@ -190,16 +188,17 @@ config.example.json     # Example configuration file
 
 Modules define the behavior executed by the engine. Each module provides:
 
-- **Classifiers**: Signal detection logic for analyzing conversation context
-- **Rules**: Forward-chaining rules that map signals to execution plans
-- **Prompts**: System and primary prompts for cognitive roles
-- **Configuration**: Temperature settings, token limits, and other parameters
+- **Roles**: cognitive roles with temperature/token settings
+- **Prompts**: system, primary, adaptation, and length prompts for those roles
+- **`composeInstructions`**: builds the instruction thread for a plan node
+- **Plan library**: the plans the module ships (including its `defaultPlan`)
+- **Modalities / frames** (optional): per-modality instruction text and built-in frames
 
-Modules are passed through the state machine context, making them available to all handlers for consistent behavior configuration.
+Modules are passed through `machineContext`, making them available to the composer and loop.
 
 ### Default Module
 
-The system uses the `thinksuit/mu` module by default, which provides a structured cognitive architecture for conversational AI. For details on `mu`'s signal taxonomy, rules, and cognitive roles, see the [thinksuit-modules package](../thinksuit-modules/README.md).
+The system uses the `thinksuit/mu` module by default, which provides a structured cognitive architecture for conversational AI. For details on `mu`'s roles, prompts, and plan library, see the [thinksuit-modules package](../thinksuit-modules/README.md).
 
 ### Using Custom Modules
 
@@ -239,37 +238,29 @@ This approach provides:
 
 For information on creating custom modules, see the [thinksuit-modules documentation](../thinksuit-modules/README.md).
 
-## Execution Strategies
+## Plan Node Types
 
-ThinkSuit supports multiple execution strategies that determine how the system orchestrates responses:
+A plan is a tree of three node types, executed by the composer:
 
-### Direct
-Single-pass execution with a specific role. The simplest strategy for straightforward responses.
+### `task`
+The one execution primitive: a round-bounded **agent loop**. Submits the composed thread to
+the LLM; if the model requests tools, they are approved (unless `autoApproveTools`), executed
+against the node's `tools` allowlist, and fed back; repeat until the model stops requesting
+tools or a bound (`maxRounds` / `timeoutMs`) is hit. A single-pass response is just a `task`
+with `maxRounds: 1`.
 
-### Sequential
-Multi-step execution where roles execute in order, optionally building a conversation thread between steps. Useful for complex reasoning that requires multiple perspectives in sequence.
+### `sequence`
+Runs its `children` in order, threading each child's result into the next (via the shared
+context bag and `$`-templates). Stops on a child error. `resultStrategy` selects what the
+sequence returns (`last` by default).
 
-### Parallel
-Multiple roles execute simultaneously and results are combined. Efficient for gathering diverse perspectives on the same input.
+### `parallel`
+Runs its `children` concurrently, each with an isolated (cloned) context bag, then combines
+results via `resultStrategy` (`label`/`formatted`/`concat`). Tolerates failed branches; errors
+only if no branch succeeds.
 
-### Single
-Executes a single role without the full pipeline. Lightweight execution for simple tasks.
-
-### Task
-**Multi-cycle execution with tool usage and intelligent convergence.** This strategy enables the system to:
-- Execute multiple cycles to complete complex tasks
-- Use tools (file reading, searches, etc.) with results incorporated into context
-- Automatically manage resource budgets (cycles, tokens, tool calls)
-- Provide structured progress reports between cycles
-- Naturally converge from exploration to synthesis as resources diminish
-
-The task strategy uses a built-in thread reducer that provides:
-- **Budget Status**: Clear indicators of remaining cycles, tokens, and tool calls
-- **Recent Discoveries**: Summarized findings from tool usage
-- **Detailed Results**: Full tool outputs for context
-- **Philosophy-based guidance**: Module-defined principles for task execution rather than scripted warnings
-
-This approach enables emergent convergence behavior where the LLM naturally transitions from investigation to conclusion based on context and remaining resources.
+Composites nest arbitrarily. Policy bounds them: `maxDepth` (recursion), `maxFanout` (parallel
+branches), `maxChildren` (sequence steps).
 
 ## Configuration
 
@@ -361,21 +352,33 @@ its address:
 
 ```json
 // ~/.thinksuit/plans/my-custom-plan.json
+// The file IS the root node — name/description inline, node fields at the root.
 {
     "name": "My Custom Plan",
     "description": "A plan for common tasks with specific tools",
-    "plan": {
-        "name": "my-custom-plan",
-        "strategy": "task",
-        "role": "execute",
-        "tools": ["read_text_file", "read_media_file", "read_multiple_files", "write_file", "edit_file"],
-        "resolution": {
-            "maxCycles": 8,
-            "maxTokens": 12000,
-            "maxToolCalls": 20
-        },
-        "lengthLevel": "standard"
-    }
+    "type": "task",
+    "role": "execute",
+    "tools": ["read_text_file", "read_media_file", "read_multiple_files", "write_file", "edit_file"],
+    "maxRounds": 8,
+    "timeoutMs": 60000,
+    "params": { "lengthLevel": "standard", "maxTokens": 12000 }
+}
+```
+
+A composite plan nests children:
+
+```json
+// ~/.thinksuit/plans/deep-analysis.json
+{
+    "name": "Deep Analysis",
+    "description": "Investigate, then analyze, then synthesize",
+    "type": "sequence",
+    "resultStrategy": "last",
+    "children": [
+        { "type": "task", "role": "investigate", "tools": ["list_directory", "read_text_file"], "maxRounds": 5 },
+        { "type": "task", "role": "analyze", "maxRounds": 3 },
+        { "type": "task", "role": "synthesize", "maxRounds": 1 }
+    ]
 }
 ```
 
@@ -445,7 +448,7 @@ npm test -- --run
 npm run test:coverage
 
 # Run specific test files
-npm test engine/handlers/detectSignals
+npm test tests/handlers/executePlan.test.js
 
 # Run integration tests (requires API key)
 TEST_INTEGRATION=true npm test
@@ -643,10 +646,10 @@ For complete API documentation with detailed examples, see [docs/API.md](docs/AP
 
 ✅ **Fully Working**
 
-- Complete orchestration pipeline end-to-end
+- Authored-plan orchestration end-to-end (composer + agent loop)
 - Module system with pluggable behaviors
-- Signal detection and rules evaluation
-- All execution strategies (direct/sequential/parallel/single/task)
+- Plan node types (task/sequence/parallel) with result strategies
+- Policy enforcement (depth/fanout/children) and tool policy
 - Session support with conversation continuity
 - Span-based tracing for debugging
 - Provider abstraction for LLMs
@@ -659,19 +662,15 @@ For complete API documentation with detailed examples, see [docs/API.md](docs/AP
 
 ## Architecture Notes
 
-- **Runtime**: Trajectory library executing ASL state machine
-- **Core Execution**: `runCycle()` pure function - no side effects, explicit dependencies
-- **Handlers**: Pure decision plane, effectful execution plane
-- **Signals**: Framework for signal detection (implementation defined by modules)
-- **Rules**: The Rules Engine with forward-chaining inference
+- **Composer**: `executePlan` dispatches nodes by `type`, recurses into composites, threads results
+- **Agent loop**: `executeTask` is the one effectful primitive (LLM calls + tool execution)
+- **Policy**: numeric `enforcePolicyCore` at three composer points; `applyToolPolicy` at MCP discovery
 - **Providers**: Pure functions with config as data
-- **Middleware**: Cross-cutting concerns (logging, metrics, budgets)
 - **Sessions**: JSONL streams in `~/.thinksuit/sessions/streams/`, metadata in `/metadata/`
-- **Tracing**: Span-based tracing with parent/child relationships
-- **Logger**: No singleton - explicitly passed through runCycle
-- **Config**: Direct passing to handlers (no nested ioConfig)
-- **Modules**: Passed through machineContext to all handlers
-- **Optimization**: CheckStaticPlan bypasses signal detection for recursive calls
+- **Tracing**: Span-based tracing with parent/child boundary relationships
+- **Logger**: No singleton - explicitly threaded through `executeOnce`/`executePlan`
+- **Config**: Direct passing (no nested ioConfig)
+- **Modules**: Passed through `machineContext` to the composer + loop
 
 ## License
 

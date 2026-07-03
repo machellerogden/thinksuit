@@ -298,7 +298,8 @@ async function main() {
             } else {
                 const planInfo = planCycling.planList[planCycling.currentIndex];
                 const plan = planCycling.plans[planInfo.id];
-                planCycling.selectedPlan = plan?.plan;
+                // A plan is an inline plan.v1 node ({ name, description?, ...Node }).
+                planCycling.selectedPlan = plan;
                 controlDock.updatePlan(planInfo.name);
             }
         } else {

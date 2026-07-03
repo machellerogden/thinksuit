@@ -36,13 +36,6 @@ Primary entry point for executing ThinkSuit. Handles session creation, resumptio
 | `config.policy.maxDepth`                | `number`  | No       | Max recursion depth (default: 5)                                    |
 | `config.policy.maxFanout`               | `number`  | No       | Max parallel branches (default: 3)                                  |
 | `config.policy.maxChildren`             | `number`  | No       | Max child executions (default: 5)                                   |
-| `config.policy.perception`              | `Object`  | No       | Signal detection policy                                             |
-| `config.policy.perception.profile`      | `string`  | No       | Detection profile: 'fast', 'balanced', 'thorough' (default: 'fast') |
-| `config.policy.perception.budgetMs`     | `number`  | No       | Time budget for signal detection in ms (default: 150)               |
-| `config.policy.perception.dimensions`   | `Object`  | No       | Per-dimension filtering configuration                               |
-| `config.policy.selection`               | `Object`  | No       | Plan selection policy                                               |
-| `config.policy.selection.preferLowCost` | `boolean` | No       | Prefer simpler plans (default: false)                               |
-| `config.policy.selection.riskTolerance` | `string`  | No       | Risk tolerance: 'low', 'medium', 'high' (default: 'medium')         |
 
 #### Returns
 
@@ -99,17 +92,9 @@ const { sessionId, execution } = await schedule({
     input: 'Analyze this complex claim',
     apiKey: process.env.OPENAI_API_KEY,
     policy: {
-        perception: {
-            profile: 'thorough', // More detailed analysis
-            budgetMs: 500, // Allow more time
-            dimensions: {
-                claim: { minConfidence: 0.7 }, // Higher confidence threshold
-                support: { minConfidence: 0.8 }
-            }
-        },
-        selection: {
-            riskTolerance: 'low' // Prefer simpler, safer plans
-        }
+        maxDepth: 8,     // Allow deeper composite nesting
+        maxFanout: 5,    // Allow more parallel branches
+        maxChildren: 8   // Allow longer sequences
     }
 });
 ```
@@ -535,7 +520,7 @@ const logger = createLogger({
 });
 
 logger.info('Processing input', { input: 'Hello' });
-logger.debug('Signal detected', { signal: 'greeting' });
+logger.debug('Task complete', { role: 'chat', rounds: 1 });
 logger.error('Failed to process', { error: err });
 ```
 
@@ -579,21 +564,16 @@ interface Message {
 }
 ```
 
-### Signal
+### PlanNode
 
 ```typescript
-interface Signal {
-    dimension: 'claim' | 'support' | 'calibration' | 'temporal' | 'contract';
-    signal: string;
-    confidence: number;
-    evidence?: string;
-}
-```
+type PlanNode =
+    | { type: 'task'; role: string; tools?: string[]; input?: string; id?: string;
+        maxRounds?: number; timeoutMs?: number; params?: Record<string, unknown> }
+    | { type: 'sequence'; children: PlanNode[]; resultStrategy?: ResultStrategy; id?: string }
+    | { type: 'parallel'; children: PlanNode[]; resultStrategy?: ResultStrategy; id?: string };
 
-### ExecutionStrategy
-
-```typescript
-type ExecutionStrategy = 'direct' | 'sequential' | 'parallel' | 'single';
+type ResultStrategy = 'last' | 'concat' | 'label' | 'formatted';
 ```
 
 ## Performance Characteristics

@@ -1,51 +1,44 @@
 {
-  "name": "Deep Analysis",
-  "description": "Multi-stage investigation, analysis, and synthesis",
-  "plan": {
-    "name": "investigate-analyze-synthesize-fs",
-    "rationale": "We must first gather file information using tools (investigate), then reason about structure and patterns (analyze), and finally present a coherent report (synthesize). Thread accumulation preserves findings across steps; only the final synthesized report should be returned.",
-    "strategy": "sequential",
+    "name": "Deep Analysis",
+    "description": "Multi-stage investigation, analysis, and synthesis. Gather file information (investigate), reason about structure and patterns (analyze), then present a coherent report (synthesize); only the final synthesized report is returned.",
+    "type": "sequence",
     "resultStrategy": "last",
-    "sequence": [
-      {
-        "role": "investigate",
-        "strategy": "task",
-        "tools": [
-          "list_directory",
-          "read_text_file",
-          "read_media_file",
-          "read_multiple_files"
-        ],
-        "resolution": {
-          "maxCycles": 5,
-          "maxTokens": 10000,
-          "maxToolCalls": 15,
-          "timeoutMs": 43200000
+    "children": [
+        {
+            "type": "task",
+            "role": "investigate",
+            "tools": [
+                "list_directory",
+                "read_text_file",
+                "read_media_file",
+                "read_multiple_files"
+            ],
+            "maxRounds": 5,
+            "timeoutMs": 43200000,
+            "params": {
+                "lengthLevel": "standard",
+                "maxTokens": 10000
+            }
         },
-        "lengthLevel": "standard"
-      },
-      {
-        "role": "analyze",
-        "strategy": "task",
-        "tools": [],
-        "resolution": {
-          "maxCycles": 3,
-          "maxTokens": 10000,
-          "maxToolCalls": 0,
-          "timeoutMs": 43200000
+        {
+            "type": "task",
+            "role": "analyze",
+            "tools": [],
+            "maxRounds": 3,
+            "timeoutMs": 43200000,
+            "params": {
+                "lengthLevel": "standard",
+                "maxTokens": 10000
+            }
         },
-        "lengthLevel": "standard"
-      },
-      {
-        "role": "synthesize",
-        "strategy": "direct",
-        "resolution": {
-          "maxTokens": 10000
-        },
-        "tools": [],
-        "adaptations": [],
-        "lengthLevel": "comprehensive"
-      }
+        {
+            "type": "task",
+            "role": "synthesize",
+            "maxRounds": 1,
+            "params": {
+                "lengthLevel": "comprehensive",
+                "maxTokens": 10000
+            }
+        }
     ]
-  }
 }

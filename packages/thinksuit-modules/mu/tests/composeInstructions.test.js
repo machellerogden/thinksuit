@@ -46,9 +46,9 @@ describe('composeInstructions', () => {
         it('should format adaptations with markdown when specified in plan', async () => {
             const plan = {
                 role: 'investigate',
-                adaptations: ['tools-available', 'task-execution']
+                params: { adaptations: ['tools-available', 'task-execution'] }
             };
-            const result = await composeInstructions({ plan, factMap: {} }, mu);
+            const result = await composeInstructions({ plan }, mu);
 
             expect(result.adaptations).toContain('## Adaptations');
             expect(result.adaptations).toContain('The following adjustments apply based on the current context:');
@@ -65,9 +65,9 @@ describe('composeInstructions', () => {
         it('should filter out invalid adaptation keys', async () => {
             const plan = {
                 role: 'analyze',
-                adaptations: ['tools-available', 'nonexistent-key']
+                params: { adaptations: ['tools-available', 'nonexistent-key'] }
             };
-            const result = await composeInstructions({ plan, factMap: {} }, mu);
+            const result = await composeInstructions({ plan }, mu);
 
             expect(result.adaptations).toContain('Tools are available');
             expect(result.adaptations).not.toContain('nonexistent');
@@ -76,8 +76,8 @@ describe('composeInstructions', () => {
 
     describe('length guidance', () => {
         it('should use brief length level', async () => {
-            const plan = { role: 'capture', lengthLevel: 'brief' };
-            const result = await composeInstructions({ plan, factMap: {} }, mu);
+            const plan = { role: 'capture', params: { lengthLevel: 'brief' } };
+            const result = await composeInstructions({ plan }, mu);
 
             expect(result.lengthGuidance).toBe(mu.prompts['length.brief']);
         });
@@ -90,8 +90,8 @@ describe('composeInstructions', () => {
         });
 
         it('should use comprehensive length level', async () => {
-            const plan = { role: 'synthesize', lengthLevel: 'comprehensive' };
-            const result = await composeInstructions({ plan, factMap: {} }, mu);
+            const plan = { role: 'synthesize', params: { lengthLevel: 'comprehensive' } };
+            const result = await composeInstructions({ plan }, mu);
 
             expect(result.lengthGuidance).toBe(mu.prompts['length.comprehensive']);
         });
@@ -126,9 +126,9 @@ describe('composeInstructions', () => {
             expect(result.maxTokens).toBe(roleConfig.baseTokens);
         });
 
-        it('should use plan.maxTokens when specified', async () => {
-            const plan = { role: 'analyze', maxTokens: 1500 };
-            const result = await composeInstructions({ plan, factMap: {} }, mu);
+        it('should use params.maxTokens when specified', async () => {
+            const plan = { role: 'analyze', params: { maxTokens: 1500 } };
+            const result = await composeInstructions({ plan }, mu);
 
             expect(result.maxTokens).toBe(1500);
         });
@@ -149,10 +149,9 @@ describe('composeInstructions', () => {
         it('should return complete metadata', async () => {
             const plan = {
                 role: 'investigate',
-                adaptations: ['tools-available'],
-                lengthLevel: 'standard'
+                params: { adaptations: ['tools-available'], lengthLevel: 'standard' }
             };
-            const result = await composeInstructions({ plan, factMap: {} }, mu);
+            const result = await composeInstructions({ plan }, mu);
 
             expect(result.metadata).toBeDefined();
             expect(result.metadata.role).toBe('investigate');

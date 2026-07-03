@@ -44,16 +44,7 @@ export const DEFAULT_MODEL = 'gpt-5';
 export const DEFAULT_POLICY = {
     maxDepth: 5,
     maxFanout: 3,
-    maxChildren: 5,
-    perception: {
-        profile: 'fast',
-        budgetMs: 150,
-        dimensions: {}
-    },
-    selection: {
-        preferLowCost: false,
-        riskTolerance: 'medium'
-    }
+    maxChildren: 5
 };
 
 // Logging defaults

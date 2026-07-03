@@ -1,11 +1,10 @@
 {
-  "name": "Capture",
-  "description": "Record information verbatim without commentary",
-  "plan": {
-    "name": "capture",
-    "rationale": "Direct recording preserves exact content without analysis or transformation",
-    "strategy": "direct",
+    "name": "Capture",
+    "description": "Record information verbatim without commentary",
+    "type": "task",
     "role": "capture",
-    "lengthLevel": "brief"
-  }
+    "maxRounds": 1,
+    "params": {
+        "lengthLevel": "brief"
+    }
 }

@@ -1,411 +1,164 @@
-import { describe, it, expect, beforeAll } from 'vitest';
-import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { describe, it, expect } from 'vitest';
 import { buildSessionTree } from '../../../engine/sessions/tree.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+// Fixtures are authored inline in the CURRENT session vocabulary (post de-pipelining):
+// a turn contains an `execution` boundary per plan node; task/sequence/parallel all use
+// boundaryType 'execution' and are told apart by metadata (task=role, sequence=steps,
+// parallel=branches). LLM work nests under a task as an `llm_exchange` boundary. Composite
+// children nest under the composite boundary (executePlan threads parentBoundaryId).
 
-// Helper to load and parse JSONL test fixtures
-function loadSessionFixture(filename) {
-    const path = join(__dirname, 'test-fixtures', filename);
-    const content = readFileSync(path, 'utf-8');
-    return content
-        .trim()
-        .split('\n')
-        .map(line => JSON.parse(line));
-}
+// Stamp increasing timestamps so array order == chronological order.
+const stamp = (events) =>
+    events.map((e, i) => ({ ...e, time: `2025-01-01T00:00:${String(i).padStart(2, '0')}Z` }));
+
+const llm = (id, parent) => [
+    { event: 'processing.llm.request', eventRole: 'boundary_start', boundaryType: 'llm_exchange', boundaryId: id, parentBoundaryId: parent, data: {} },
+    { event: 'processing.llm.response', eventRole: 'boundary_end', boundaryType: 'llm_exchange', boundaryId: id, parentBoundaryId: parent, data: {} }
+];
+
+const task = (id, parent, role) => [
+    { event: 'execution.task.start', eventRole: 'boundary_start', boundaryType: 'execution', boundaryId: id, parentBoundaryId: parent, data: { role, maxRounds: 1 } },
+    ...llm(`${id}-llm`, id),
+    { event: 'execution.task.complete', eventRole: 'boundary_end', boundaryType: 'execution', boundaryId: id, parentBoundaryId: parent, data: { role } }
+];
+
+const pending = { event: 'session.pending' };
+const turnStart = { event: 'session.turn.start', eventRole: 'boundary_start', boundaryType: 'turn', boundaryId: 'turn-1', parentBoundaryId: 'session-1' };
+const input = { event: 'session.input', parentBoundaryId: 'turn-1', data: { input: 'hi' } };
+const response = { event: 'session.response', parentBoundaryId: 'turn-1', data: { response: 'ok' } };
+const turnComplete = { event: 'session.turn.complete', eventRole: 'boundary_end', boundaryType: 'turn', boundaryId: 'turn-1', parentBoundaryId: 'session-1' };
+
+const taskSession = stamp([
+    pending, turnStart, input,
+    ...task('task-1', 'turn-1', 'chat'),
+    response, turnComplete
+]);
+
+const sequenceSession = stamp([
+    pending, turnStart, input,
+    { event: 'execution.sequential.start', eventRole: 'boundary_start', boundaryType: 'execution', boundaryId: 'seq-1', parentBoundaryId: 'turn-1', data: { steps: 2 } },
+    ...task('task-1', 'seq-1', 'investigate'),
+    ...task('task-2', 'seq-1', 'synthesize'),
+    { event: 'execution.sequential.complete', eventRole: 'boundary_end', boundaryType: 'execution', boundaryId: 'seq-1', parentBoundaryId: 'turn-1', data: { steps: 2 } },
+    response, turnComplete
+]);
+
+const parallelSession = stamp([
+    pending, turnStart, input,
+    { event: 'execution.parallel.start', eventRole: 'boundary_start', boundaryType: 'execution', boundaryId: 'par-1', parentBoundaryId: 'turn-1', data: { branches: 2 } },
+    ...task('task-1', 'par-1', 'analyze'),
+    ...task('task-2', 'par-1', 'critic'),
+    { event: 'execution.parallel.complete', eventRole: 'boundary_end', boundaryType: 'execution', boundaryId: 'par-1', parentBoundaryId: 'turn-1', data: { branches: 2 } },
+    response, turnComplete
+]);
+
+// A turn's plan-node boundaries (execution) are its execution children.
+const executionsOf = (turn) => turn.children.filter((c) => c.type === 'execution');
+const turnOf = (tree) => tree.children.find((c) => c.type === 'turn');
 
 describe('buildSessionTree', () => {
-    let taskSession;
-    let sequentialSession;
-    let parallelSession;
-
-    beforeAll(() => {
-        taskSession = loadSessionFixture('task-session.jsonl');
-        sequentialSession = loadSessionFixture('sequential-session.jsonl');
-        parallelSession = loadSessionFixture('parallel-session.jsonl');
-    });
-
     describe('Expected structure', () => {
-        it('should produce this exact structure for task execution', () => {
-            const result = buildSessionTree(taskSession);
+        it('nests a task under the turn, with its llm_exchange inside', () => {
+            const tree = buildSessionTree(taskSession);
+            expect(tree.type).toBe('root');
 
-            // Expected structure (simplified for clarity):
-            const expectedStructure = {
-                type: 'root',
-                children: expect.arrayContaining([
-                    expect.objectContaining({
-                        type: 'session',
-                        boundaryType: 'session',
-                        children: expect.arrayContaining([
-                            expect.objectContaining({
-                                type: 'execution',
-                                metadata: expect.objectContaining({
-                                    strategy: 'task'
-                                }),
-                                children: expect.arrayContaining([
-                                    expect.objectContaining({
-                                        type: 'cycle',
-                                        metadata: expect.objectContaining({
-                                            cycle: 1
-                                        })
-                                    })
-                                ])
-                            })
-                        ])
-                    })
-                ])
-            };
+            const turn = turnOf(tree);
+            expect(turn).toBeDefined();
 
-            expect(result).toMatchObject(expectedStructure);
+            const [taskNode] = executionsOf(turn);
+            expect(taskNode.metadata.role).toBe('chat');
 
-            // Additional detailed checks
-            const turn = result.children[0];
-            expect(turn.type).toBe('session');
-            expect(turn.boundaryType).toBe('session');
-
-            const execution = turn.children.find(e => e.type === 'execution');
-            expect(execution).toBeDefined();
-            expect(execution.metadata.strategy).toBe('task');
-
-            const cycles = execution.children.filter(c => c.type === 'cycle');
-            expect(cycles.length).toBeGreaterThan(0);
-            expect(cycles[0].metadata.cycle).toBe(1);
+            const llmExchanges = taskNode.children.filter((c) => c.type === 'llm_exchange');
+            expect(llmExchanges.length).toBe(1);
         });
 
-        it('should produce this exact structure for sequential execution', () => {
-            const result = buildSessionTree(sequentialSession);
+        it('nests sequence steps (tasks) under the sequence boundary', () => {
+            const tree = buildSessionTree(sequenceSession);
+            const turn = turnOf(tree);
 
-            // Expected structure:
-            const expectedStructure = {
-                type: 'root',
-                children: expect.arrayContaining([
-                    expect.objectContaining({
-                        type: 'session',
-                        children: expect.arrayContaining([
-                            expect.objectContaining({
-                                type: 'execution',
-                                metadata: expect.objectContaining({
-                                    strategy: 'sequential'
-                                }),
-                                children: expect.arrayContaining([
-                                    expect.objectContaining({
-                                        type: 'step',
-                                        metadata: expect.objectContaining({
-                                            step: 1
-                                        })
-                                    })
-                                ])
-                            })
-                        ])
-                    })
-                ])
-            };
+            const sequence = executionsOf(turn).find((e) => e.metadata.steps === 2);
+            expect(sequence).toBeDefined();
 
-            expect(result).toMatchObject(expectedStructure);
-
-            // Additional detailed checks
-            const turn = result.children[0];
-            const execution = turn.children.find(e => e.type === 'execution');
-            expect(execution).toBeDefined();
-            expect(execution.metadata.strategy).toBe('sequential');
-
-            const steps = execution.children.filter(e => e.type === 'step');
-            expect(steps.length).toBeGreaterThan(0);
-            expect(steps[0].metadata.step).toBe(1);
+            const steps = sequence.children.filter((c) => c.type === 'execution');
+            expect(steps.map((s) => s.metadata.role)).toEqual(['investigate', 'synthesize']);
+            // each step carries its own llm exchange
+            steps.forEach((s) => {
+                expect(s.children.some((c) => c.type === 'llm_exchange')).toBe(true);
+            });
         });
 
-        it('should produce this exact structure for parallel execution', () => {
-            const result = buildSessionTree(parallelSession);
+        it('nests parallel branches (tasks) under the parallel boundary', () => {
+            const tree = buildSessionTree(parallelSession);
+            const turn = turnOf(tree);
 
-            // Expected structure:
-            const expectedStructure = {
-                type: 'root',
-                children: expect.arrayContaining([
-                    expect.objectContaining({
-                        type: 'session',
-                        children: expect.arrayContaining([
-                            expect.objectContaining({
-                                type: 'execution',
-                                metadata: expect.objectContaining({
-                                    strategy: 'parallel'
-                                }),
-                                children: expect.arrayContaining([
-                                    expect.objectContaining({
-                                        type: 'branch'
-                                    })
-                                ])
-                            })
-                        ])
-                    })
-                ])
-            };
+            const parallel = executionsOf(turn).find((e) => e.metadata.branches === 2);
+            expect(parallel).toBeDefined();
 
-            expect(result).toMatchObject(expectedStructure);
-
-            // Additional detailed checks
-            const turn = result.children[0];
-            const execution = turn.children.find(e => e.type === 'execution');
-            expect(execution).toBeDefined();
-            expect(execution.metadata.strategy).toBe('parallel');
-
-            const branches = execution.children.filter(e => e.type === 'branch');
-            expect(branches.length).toBeGreaterThan(0);
+            const branches = parallel.children.filter((c) => c.type === 'execution');
+            expect(branches.map((b) => b.metadata.role).sort()).toEqual(['analyze', 'critic']);
         });
     });
 
-    describe('Detailed validations', () => {
-        it('should transform sequential session events into proper tree', () => {
-            const result = buildSessionTree(sequentialSession);
-
-            // Should return a root node with children
-            expect(result).toHaveProperty('type');
-            expect(result).toHaveProperty('children');
-            expect(Array.isArray(result.children)).toBe(true);
-            expect(result.children.length).toBe(1);
-
-            const turn = result.children[0];
-            expect(turn).toHaveProperty('type');
-            expect(turn).toHaveProperty('children');
-
-            // Should have events and boundaries within the turn
-            const eventChildren = turn.children.filter(e => e.type === 'event');
-            expect(eventChildren.length).toBeGreaterThan(0);
-
-            // Should have execution boundary nested within the turn
-            const execution = turn.children.find(e => e.type === 'execution');
-            expect(execution).toBeDefined();
-            expect(execution.metadata.strategy).toBe('sequential');
-            expect(execution.children).toBeDefined();
-
-            // Execution steps should be nested within execution
-            const execSteps = execution.children.filter(e => e.type === 'step');
-            expect(execSteps.length).toBeGreaterThan(0);
-
-            // Each step should have proper structure
-            execSteps.forEach(step => {
-                expect(step).toHaveProperty('metadata');
-                expect(step.metadata).toHaveProperty('step');
-                expect(step.metadata).toHaveProperty('totalSteps');
-                expect(step.metadata).toHaveProperty('role');
-                expect(step).toHaveProperty('children');
-            });
-        });
-
-        it('should maintain step order and numbering', () => {
-            const result = buildSessionTree(sequentialSession);
-            const turn = result.children[0];
-            const execution = turn.children.find(e => e.type === 'execution');
-            const execSteps = execution.children.filter(e => e.type === 'step');
-
-            // Steps should be in order
-            execSteps.forEach((step, index) => {
-                expect(step.metadata.step).toBe(index + 1);
-            });
-
-            // All steps should have same totalSteps value
-            if (execSteps.length > 0) {
-                const totalSteps = execSteps[0].metadata.totalSteps;
-                execSteps.forEach(step => {
-                    expect(step.metadata.totalSteps).toBe(totalSteps);
-                });
-            }
-        });
-    });
-
-    describe('Tree navigation', () => {
-        it('should transform parallel session events into proper tree', () => {
-            const result = buildSessionTree(parallelSession);
-
-            // Should return a root node with children
-            expect(result).toHaveProperty('type');
-            expect(result).toHaveProperty('children');
-            expect(Array.isArray(result.children)).toBe(true);
-            expect(result.children.length).toBe(1);
-
-            const turn = result.children[0];
-
-            // Should have execution boundary nested within the turn
-            const execution = turn.children.find(e => e.type === 'execution');
-            expect(execution).toBeDefined();
-            expect(execution.metadata.strategy).toBe('parallel');
-            expect(execution.children).toBeDefined();
-
-            // Parallel branches should be nested within execution
-            const branches = execution.children.filter(e => e.type === 'branch');
-            expect(branches.length).toBeGreaterThan(0);
-
-            // Each branch should have proper structure
-            branches.forEach(branch => {
-                expect(branch).toHaveProperty('metadata');
-                expect(branch.metadata).toHaveProperty('branch');
-                expect(branch.metadata).toHaveProperty('role');
-                expect(branch).toHaveProperty('children');
-            });
-        });
-
-        it('should properly track parallel branch relationships', () => {
-            const result = buildSessionTree(parallelSession);
-            const turn = result.children[0];
-            const execution = turn.children.find(e => e.type === 'execution');
-            const branches = execution.children.filter(e => e.type === 'branch');
-
-            // All branches should have unique branch identifiers
-            const branchIds = branches.map(b => b.metadata.branch);
-            const uniqueBranchIds = [...new Set(branchIds)];
-            expect(uniqueBranchIds.length).toBe(branchIds.length);
-
-            // Each branch should contain children (boundaries or events)
-            branches.forEach(branch => {
-                expect(branch.children.length).toBeGreaterThan(0);
-
-                // LLM exchanges are nested deeper - look for execution boundaries
-                // In parallel, we may have nested task or direct executions
-                const nestedExecutions = branch.children.filter(e =>
-                    e.type === 'execution' || e.boundaryType === 'execution'
-                );
-
-                // At least one branch should have nested execution
-                // (The test doesn't require both branches to have LLM calls)
-                if (nestedExecutions.length > 0) {
-                    // Look for llm_exchange boundaries
-                    nestedExecutions.forEach(exec => {
-                        const llmBoundaries = exec.children?.filter(c =>
-                            c.type === 'llm_exchange' || c.boundaryType === 'llm_exchange'
-                        ) || [];
-                        // If this execution has LLM exchanges, verify they exist
-                        if (llmBoundaries.length > 0) {
-                            expect(llmBoundaries.length).toBeGreaterThan(0);
-                        }
-                    });
-                }
-            });
-        });
-    });
-
-    describe('Common event structures', () => {
-        it('should preserve all LLM request/response pairs', () => {
-            [taskSession, sequentialSession, parallelSession].forEach(session => {
-                const result = buildSessionTree(session);
-
-                // Flatten to get all events including nested ones
-                const allEvents = [];
-                const flatten = (node) => {
-                    if (node) {
-                        allEvents.push(node);
-                        if (node.children) {
-                            node.children.forEach(child => flatten(child));
-                        }
-                    }
+    describe('Common structure', () => {
+        it('preserves llm_exchange boundaries across all shapes', () => {
+            [taskSession, sequenceSession, parallelSession].forEach((session) => {
+                const tree = buildSessionTree(session);
+                const all = [];
+                const flatten = (n) => {
+                    all.push(n);
+                    (n.children || []).forEach(flatten);
                 };
-                flatten(result);
-
-                // LLM exchanges are boundaries, not events
-                const llmExchanges = allEvents.filter(e =>
-                    e.type === 'llm_exchange' || e.boundaryType === 'llm_exchange'
-                );
-
-                // Should have LLM exchanges
-                expect(llmExchanges.length).toBeGreaterThan(0);
+                flatten(tree);
+                expect(all.filter((n) => n.type === 'llm_exchange').length).toBeGreaterThan(0);
             });
         });
 
-        it('should maintain chronological order at each level', () => {
-            [taskSession, sequentialSession, parallelSession].forEach(session => {
-                const result = buildSessionTree(session);
-
-                // Check ordering within children at each level
+        it('maintains chronological order at each level', () => {
+            [taskSession, sequenceSession, parallelSession].forEach((session) => {
+                const tree = buildSessionTree(session);
                 const checkOrder = (node) => {
-                    if (node.children && node.children.length > 1) {
-                        for (let i = 1; i < node.children.length; i++) {
-                            const prev = node.children[i-1];
-                            const curr = node.children[i];
-                            const prevTime = new Date(prev.time || prev.startTime || 0);
-                            const currTime = new Date(curr.time || curr.startTime || 0);
-                            expect(currTime.getTime()).toBeGreaterThanOrEqual(prevTime.getTime());
-                        }
-                        // Recursively check children
-                        node.children.forEach(child => checkOrder(child));
+                    const kids = node.children || [];
+                    for (let i = 1; i < kids.length; i++) {
+                        const prev = new Date(kids[i - 1].time || kids[i - 1].startTime || 0).getTime();
+                        const curr = new Date(kids[i].time || kids[i].startTime || 0).getTime();
+                        expect(curr).toBeGreaterThanOrEqual(prev);
                     }
+                    kids.forEach(checkOrder);
                 };
-
-                checkOrder(result);
+                checkOrder(tree);
             });
         });
     });
 
     describe('Edge cases', () => {
-        it('should handle events without boundary metadata gracefully', () => {
-            const mixedEvents = [
-                { event: 'session.pending', time: '2025-01-01T00:00:00Z' },
-                { event: 'processing.signals.detected', time: '2025-01-01T00:00:01Z' },
-                {
-                    event: 'execution.task.start',
-                    eventRole: 'boundary_start',
-                    boundaryType: 'execution',
-                    boundaryId: 'exec-1',
-                    time: '2025-01-01T00:00:02Z'
-                },
-                { event: 'processing.llm.request', time: '2025-01-01T00:00:03Z' },
-                {
-                    event: 'execution.task.complete',
-                    eventRole: 'boundary_end',
-                    boundaryType: 'execution',
-                    boundaryId: 'exec-1',
-                    time: '2025-01-01T00:00:04Z'
-                },
-                { event: 'session.response', time: '2025-01-01T00:00:05Z' }
-            ];
-
-            const result = buildSessionTree(mixedEvents);
-            expect(result).toBeDefined();
-            expect(result.type).toBe('root');
-            expect(Array.isArray(result.children)).toBe(true);
-
-            // Should still process boundaries that have metadata
-            const execBoundaries = result.children.filter(c => c.type === 'execution');
-            expect(execBoundaries.length).toBeGreaterThan(0);
+        it('handles events without boundary metadata gracefully', () => {
+            const tree = buildSessionTree(stamp([
+                pending,
+                { event: 'system.mcp.tools_discovered', parentBoundaryId: 'turn-1' },
+                turnStart,
+                input,
+                ...task('task-1', 'turn-1', 'chat'),
+                response,
+                turnComplete
+            ]));
+            expect(tree.type).toBe('root');
+            const turn = turnOf(tree);
+            expect(executionsOf(turn).length).toBe(1);
         });
 
-        it('should handle unclosed boundaries', () => {
-            const unclosedEvents = [
-                { event: 'session.pending', time: '2025-01-01T00:00:00Z' },
-                {
-                    event: 'execution.task.start',
-                    eventRole: 'boundary_start',
-                    boundaryType: 'execution',
-                    boundaryId: 'exec-1',
-                    time: '2025-01-01T00:00:01Z',
-                    data: { strategy: 'task' }
-                },
-                {
-                    event: 'execution.task.cycle_start',
-                    eventRole: 'boundary_start',
-                    boundaryType: 'cycle',
-                    boundaryId: 'cycle-1',
-                    parentBoundaryId: 'exec-1',
-                    time: '2025-01-01T00:00:02Z',
-                    data: { cycleNumber: 1 }
-                },
-                { event: 'processing.llm.request', time: '2025-01-01T00:00:03Z' }
-                // Note: Missing cycle_complete and task.complete
-            ];
+        it('marks unclosed boundaries as incomplete', () => {
+            const tree = buildSessionTree(stamp([
+                pending,
+                turnStart,
+                { event: 'execution.task.start', eventRole: 'boundary_start', boundaryType: 'execution', boundaryId: 'task-1', parentBoundaryId: 'turn-1', data: { role: 'chat' } },
+                { event: 'processing.llm.request', eventRole: 'boundary_start', boundaryType: 'llm_exchange', boundaryId: 'llm-1', parentBoundaryId: 'task-1', data: {} }
+                // Note: missing llm.response, task.complete, turn.complete
+            ]));
+            expect(tree).toBeDefined();
 
-            const result = buildSessionTree(unclosedEvents);
-            expect(result).toBeDefined();
-
-            // Should find unclosed boundaries
-            const execBoundaries = result.children.filter(c => c.type === 'execution');
-            expect(execBoundaries.length).toBe(1);
-            expect(execBoundaries[0].status).toBe('incomplete');
-
-            // Should mark nested unclosed boundaries appropriately
-            const cycles = execBoundaries[0].children.filter(c => c.type === 'cycle');
-            if (cycles.length > 0) {
-                expect(cycles[0].status).toBe('incomplete');
-            }
+            const turn = tree.children.find((c) => c.type === 'turn');
+            const taskNode = turn.children.find((c) => c.type === 'execution');
+            expect(taskNode.status).toBe('incomplete');
         });
     });
 });

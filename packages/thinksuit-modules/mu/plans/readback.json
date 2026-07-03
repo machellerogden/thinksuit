@@ -1,11 +1,10 @@
 {
-  "name": "Readback",
-  "description": "Retrieve and restate previously mentioned information",
-  "plan": {
-    "name": "readback",
-    "rationale": "Direct recall and presentation of information from conversation history",
-    "strategy": "direct",
+    "name": "Readback",
+    "description": "Retrieve and restate previously mentioned information",
+    "type": "task",
     "role": "readback",
-    "lengthLevel": "standard"
-  }
+    "maxRounds": 1,
+    "params": {
+        "lengthLevel": "standard"
+    }
 }

@@ -44,7 +44,7 @@ export async function GET({ url }) {
 /**
  * POST /api/plans
  * Save a user plan (module-agnostic)
- * Body: { plan: { id, name, description, plan } }
+ * Body: { plan: { id, name, description?, ...Node } }  // inline plan.v1 node
  */
 export async function POST({ request }) {
     try {
@@ -54,8 +54,8 @@ export async function POST({ request }) {
             return json({ error: 'Plan required' }, { status: 400 });
         }
 
-        if (!plan.id || !plan.name || !plan.plan) {
-            return json({ error: 'Plan must have id, name, and plan' }, { status: 400 });
+        if (!plan.id || !plan.name || !plan.type) {
+            return json({ error: 'Plan must have id, name, and type' }, { status: 400 });
         }
 
         const result = await savePlan(plan);

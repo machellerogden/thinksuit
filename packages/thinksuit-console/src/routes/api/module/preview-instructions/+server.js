@@ -2,6 +2,32 @@ import { json } from '@sveltejs/kit';
 import { buildConfig, loadModules } from 'thinksuit';
 import { modules as defaultModules } from 'thinksuit-modules';
 
+/**
+ * Walk a plan.v1 node tree, composing instructions for every task node encountered.
+ * Composites (sequence/parallel) recurse into their children; the flat result list
+ * carries a path label so the UI can show where each composition sits in the tree.
+ */
+async function walkNode(node, module, results, path = 'root') {
+    if (!node || typeof node !== 'object') return;
+
+    if (node.type === 'sequence' || node.type === 'parallel') {
+        const children = node.children || [];
+        for (let i = 0; i < children.length; i++) {
+            await walkNode(children[i], module, results, `${path}.${node.type}[${i + 1}]`);
+        }
+        return;
+    }
+
+    // Default: a task node.
+    const instructions = await module.composeInstructions({ plan: node }, module);
+    results.push({
+        type: 'task',
+        path,
+        role: node.role,
+        instructions
+    });
+}
+
 export async function POST({ request, url }) {
     try {
         const { plan } = await request.json();
@@ -30,68 +56,13 @@ export async function POST({ request, url }) {
             }, { status: 404 });
         }
 
-        // Compose instructions based on plan strategy
         const results = [];
-
-        if (plan.strategy === 'direct' || plan.strategy === 'task') {
-            // Single instruction composition
-            const instructions = await module.composeInstructions(
-                { plan, factMap: { Signal: [] } },
-                module
-            );
-            results.push({
-                type: plan.strategy,
-                role: plan.role,
-                instructions
-            });
-        } else if (plan.strategy === 'sequential') {
-            // Compose for each step in sequence
-            for (let i = 0; i < (plan.sequence || []).length; i++) {
-                const step = plan.sequence[i];
-                const stepPlan = typeof step === 'string'
-                    ? { role: step, strategy: 'direct' }
-                    : step;
-
-                const instructions = await module.composeInstructions(
-                    { plan: stepPlan, factMap: { Signal: [] } },
-                    module
-                );
-
-                results.push({
-                    type: 'step',
-                    index: i + 1,
-                    role: stepPlan.role,
-                    strategy: stepPlan.strategy,
-                    instructions
-                });
-            }
-        } else if (plan.strategy === 'parallel') {
-            // Compose for each branch
-            for (let i = 0; i < (plan.roles || []).length; i++) {
-                const branch = plan.roles[i];
-                const branchPlan = typeof branch === 'string'
-                    ? { role: branch, strategy: 'direct' }
-                    : branch;
-
-                const instructions = await module.composeInstructions(
-                    { plan: branchPlan, factMap: { Signal: [] } },
-                    module
-                );
-
-                results.push({
-                    type: 'branch',
-                    index: i + 1,
-                    role: branchPlan.role,
-                    strategy: branchPlan.strategy,
-                    instructions
-                });
-            }
-        }
+        await walkNode(plan, module, results);
 
         return json({
             plan: {
                 name: plan.name,
-                strategy: plan.strategy
+                type: plan.type
             },
             results
         });

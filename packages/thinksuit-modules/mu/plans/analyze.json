@@ -1,18 +1,13 @@
 {
-  "name": "Analyze",
-  "description": "Examine structure, identify patterns, and reason about information",
-  "plan": {
-    "name": "analyze",
-    "rationale": "Task strategy with multiple cycles allows iterative thinking and refinement. No tools needed as analysis works on already-gathered information",
-    "strategy": "task",
+    "name": "Analyze",
+    "description": "Examine structure, identify patterns, and reason about information",
+    "type": "task",
     "role": "analyze",
     "tools": [],
-    "resolution": {
-      "maxCycles": 3,
-      "maxTokens": 10000,
-      "maxToolCalls": 0,
-      "timeoutMs": 43200000
-    },
-    "lengthLevel": "standard"
-  }
+    "maxRounds": 3,
+    "timeoutMs": 43200000,
+    "params": {
+        "lengthLevel": "standard",
+        "maxTokens": 10000
+    }
 }

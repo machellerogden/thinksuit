@@ -3,7 +3,13 @@ import { getSession } from 'thinksuit';
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
-import { SESSION_EVENTS, ORCHESTRATION_EVENTS } from 'thinksuit/constants/events';
+import { SESSION_EVENTS, EXECUTION_EVENTS } from 'thinksuit/constants/events';
+
+const NODE_COMPLETE_EVENTS = [
+    EXECUTION_EVENTS.TASK_COMPLETE,
+    EXECUTION_EVENTS.SEQUENTIAL_COMPLETE,
+    EXECUTION_EVENTS.PARALLEL_COMPLETE
+];
 
 export function registerInspectTool(server) {
     server.tool(
@@ -55,37 +61,22 @@ export function registerInspectTool(server) {
                             }
 
                             output += `### Entry ${options.entryIndex}\n\n`;
+                            output += `**Event:** ${entry.event}\n\n`;
 
-                            if (entry.event === ORCHESTRATION_EVENTS.COMPLETE) {
-                                if (entry.signals) {
-                                    output += '**Signals Detected:**\n';
-                                    Object.entries(entry.signals).forEach(([signal, value]) => {
-                                        if (value) output += `- ✓ ${signal}\n`;
-                                    });
-                                    output += '\n';
-                                }
-
-                                if (entry.plan) {
-                                    output += '**Execution Plan:**\n';
-                                    output += `- Type: ${entry.plan.type}\n`;
-                                    output += `- Strategy: ${entry.plan.strategy || 'direct'}\n`;
-                                    if (entry.plan.role) {
-                                        output += `- Role: ${entry.plan.role}\n`;
-                                    } else if (entry.plan.roles) {
-                                        output += `- Roles: ${entry.plan.roles.join(', ')}\n`;
-                                    } else if (entry.plan.sequence) {
-                                        const roles = entry.plan.sequence.map((s) =>
-                                            typeof s === 'string' ? s : s.role
-                                        );
-                                        output += `- Sequence: ${roles.join(' → ')}\n`;
-                                    }
-                                    output += '\n';
-                                }
-
-                                if (entry.response) {
+                            if (NODE_COMPLETE_EVENTS.includes(entry.event)) {
+                                const d = entry.data || {};
+                                output += '**Execution:**\n';
+                                if (d.role) output += `- Role: ${d.role}\n`;
+                                if (d.rounds !== undefined) output += `- Rounds: ${d.rounds}\n`;
+                                if (d.finishReason) output += `- Finish: ${d.finishReason}\n`;
+                                if (d.usage) output += `- Usage: ${JSON.stringify(d.usage)}\n`;
+                                output += '\n';
+                            } else if (entry.event === SESSION_EVENTS.RESPONSE) {
+                                const resp = entry.data?.response;
+                                if (resp) {
                                     output += '**Response:**\n';
-                                    output += entry.response.substring(0, 500);
-                                    if (entry.response.length > 500) {
+                                    output += resp.substring(0, 500);
+                                    if (resp.length > 500) {
                                         output += '...\n\n(truncated)';
                                     }
                                     output += '\n\n';
@@ -109,16 +100,13 @@ export function registerInspectTool(server) {
                                     if (input) {
                                         output += `${i}. 📝 **Input**: "${input.substring(0, 50)}${input.length > 50 ? '...' : ''}"\n`;
                                     }
-                                } else if (entry.event === ORCHESTRATION_EVENTS.COMPLETE) {
-                                    if (entry.plan?.strategy) {
-                                        output += `${i}. 🎯 **Execution**: ${entry.plan.strategy}`;
-                                        if (entry.plan.role) {
-                                            output += ` (${entry.plan.role})`;
-                                        } else if (entry.plan.roles) {
-                                            output += ` (${entry.plan.roles.join(', ')})`;
-                                        }
-                                        output += '\n';
+                                } else if (NODE_COMPLETE_EVENTS.includes(entry.event)) {
+                                    const kind = entry.event.split('.')[1]; // task | sequential | parallel
+                                    output += `${i}. 🎯 **${kind}**`;
+                                    if (entry.data?.role) {
+                                        output += ` (${entry.data.role})`;
                                     }
+                                    output += '\n';
                                 } else if (entry.event === SESSION_EVENTS.RESPONSE) {
                                     output += `${i}. ✅ **Response**\n`;
                                 }

@@ -83,7 +83,6 @@
 
     // Plan loading state
     let allPlans = $state([]);
-    let userPlans = $state([]);
     let isLoadingPlans = $state(false);
 
     // Available tools for plan generation
@@ -169,7 +168,6 @@
                 if (plansResponse.ok) {
                     const { plans } = await plansResponse.json();
                     allPlans = plans;
-                    userPlans = plans.filter(p => p.source === 'user');
                 }
 
                 // Load frames (merges module frames with user frames)
@@ -554,7 +552,12 @@
         const plan = allPlans.find(p => p.id === planId);
         if (plan) {
             selectedPlanId = planId;
-            selectedPlan = JSON.stringify(plan.plan, null, 2);
+            // A plan entry is the inline plan.v1 node plus store-managed fields; strip
+            // id/source so the editor shows only the authorable node.
+            const node = { ...plan };
+            delete node.id;
+            delete node.source;
+            selectedPlan = JSON.stringify(node, null, 2);
             lastLoadedPlan = selectedPlan;
             isDirty = false;
         }
@@ -599,14 +602,15 @@
         saveError = null;
 
         try {
-            const plan = JSON.parse(selectedPlan);
+            const node = JSON.parse(selectedPlan);
             const planId = slugify(newPlanName) || `plan-${Date.now()}`;
 
+            // Inline plan.v1 root: node fields plus name/description/id metadata.
             const newPlan = {
+                ...node,
                 id: planId,
                 name: newPlanName.trim(),
-                description: newPlanDescription.trim(),
-                plan
+                description: newPlanDescription.trim()
             };
 
             const currentModule = `${moduleMetadata.namespace}/${moduleMetadata.name}`;
@@ -628,7 +632,6 @@
             if (plansResponse.ok) {
                 const { plans } = await plansResponse.json();
                 allPlans = plans;
-                userPlans = plans.filter(p => p.source === 'user');
             }
 
             showSaveDialog = false;
@@ -669,7 +672,6 @@
             if (plansResponse.ok) {
                 const { plans } = await plansResponse.json();
                 allPlans = plans;
-                userPlans = plans.filter(p => p.source === 'user');
             }
 
             if (selectedPlanId === planId) {
@@ -725,9 +727,9 @@
         if (!selectedPlan) return null;
         try {
             const plan = JSON.parse(selectedPlan);
-            return { name: plan.name || 'unnamed', strategy: plan.strategy || 'unknown' };
+            return { name: plan.name || 'unnamed', type: plan.type || 'unknown' };
         } catch {
-            return { name: 'custom', strategy: 'configured' };
+            return { name: 'custom', type: 'configured' };
         }
     });
 
@@ -930,7 +932,7 @@
             <!-- Plan Status -->
             <div class="text-xs text-gray-600 font-mono p-2 bg-white/50 rounded border border-gray-200/50">
                 {#if planStatus}
-                    Plan: {planStatus.name} ({planStatus.strategy})
+                    Plan: {planStatus.name} ({planStatus.type})
                 {:else}
                     No plan configured
                 {/if}
@@ -1068,109 +1070,109 @@
             <div class="space-y-6">
                 <!-- LLM Description -->
                 <div class="space-y-3">
-                    <label class="text-sm font-medium text-gray-700">Describe the plan you want:</label>
-                <Textarea
-                    bind:value={llmDescription}
-                    rows={4}
-                    placeholder="e.g., Investigate files, then analyze and create a summary..."
-                    disabled={isGeneratingPlan}
-                />
+                    <div class="text-sm font-medium text-gray-700">Describe the plan you want:</div>
+                    <Textarea
+                        bind:value={llmDescription}
+                        rows={4}
+                        placeholder="e.g., Investigate files, then analyze and create a summary..."
+                        disabled={isGeneratingPlan}
+                    />
 
-                <!-- Quick reference toggle -->
-                {#if moduleMetadata}
-                    <button
-                        type="button"
-                        onclick={() => showHelp = !showHelp}
-                        class="text-xs text-indigo-600 hover:text-indigo-700 underline"
-                    >
-                        {showHelp ? '- Hide' : '+ Show'} quick reference
-                    </button>
-                    {#if showHelp}
-                        <div class="p-3 bg-gray-50 rounded border text-xs space-y-1">
-                            <div><span class="font-semibold">Roles:</span> {moduleMetadata.roles.map(r => r.name || r).join(', ')}</div>
-                            <div><span class="font-semibold">Strategies:</span> {moduleMetadata.strategies.map(s => s.name || s).join(', ')}</div>
-                            <div><span class="font-semibold">Adaptations:</span> {moduleMetadata.adaptations.map(a => a.name || a).join(', ')}</div>
-                        </div>
-                    {/if}
-                {/if}
-
-                <div class="flex items-center gap-3">
-                    <Button
-                        size="sm"
-                        onclick={generatePlanFromDescription}
-                        disabled={isGeneratingPlan || !llmDescription.trim()}
-                    >
-                        {#if isGeneratingPlan}
-                            Generating...
-                        {:else if selectedPlan}
-                            Revise Plan
-                        {:else}
-                            Generate Plan
+                    <!-- Quick reference toggle -->
+                    {#if moduleMetadata}
+                        <button
+                            type="button"
+                            onclick={() => showHelp = !showHelp}
+                            class="text-xs text-indigo-600 hover:text-indigo-700 underline"
+                        >
+                            {showHelp ? '- Hide' : '+ Show'} quick reference
+                        </button>
+                        {#if showHelp}
+                            <div class="p-3 bg-gray-50 rounded border text-xs space-y-1">
+                                <div><span class="font-semibold">Roles:</span> {moduleMetadata.roles.map(r => r.name || r).join(', ')}</div>
+                                <div><span class="font-semibold">Strategies:</span> {moduleMetadata.strategies.map(s => s.name || s).join(', ')}</div>
+                                <div><span class="font-semibold">Adaptations:</span> {moduleMetadata.adaptations.map(a => a.name || a).join(', ')}</div>
+                            </div>
                         {/if}
-                    </Button>
-                    {#if isGeneratingPlan}
-                        <span class="text-xs text-gray-500">Using LLM to generate plan...</span>
+                    {/if}
+
+                    <div class="flex items-center gap-3">
+                        <Button
+                            size="sm"
+                            onclick={generatePlanFromDescription}
+                            disabled={isGeneratingPlan || !llmDescription.trim()}
+                        >
+                            {#if isGeneratingPlan}
+                                Generating...
+                            {:else if selectedPlan}
+                                Revise Plan
+                            {:else}
+                                Generate Plan
+                            {/if}
+                        </Button>
+                        {#if isGeneratingPlan}
+                            <span class="text-xs text-gray-500">Using LLM to generate plan...</span>
+                        {/if}
+                    </div>
+
+                    {#if generationError}
+                        <div class="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                            {generationError}
+                        </div>
                     {/if}
                 </div>
 
-                {#if generationError}
-                    <div class="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
-                        {generationError}
+                <!-- Plan Preview -->
+                {#if selectedPlan}
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm font-medium text-gray-700">Plan Preview</div>
+                            <div class="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="xs"
+                                    onclick={previewInstructions}
+                                    disabled={isLoadingPreview}
+                                >
+                                    {isLoadingPreview ? 'Loading...' : 'Preview Instructions'}
+                                </Button>
+                                <button
+                                    type="button"
+                                    class="px-2 py-1 text-xs font-medium rounded border transition-colors
+                                        {showPlanJson
+                                            ? 'bg-gray-600 text-white border-gray-600'
+                                            : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'}"
+                                    onclick={() => showPlanJson = !showPlanJson}
+                                >
+                                    {showPlanJson ? 'Visual' : 'JSON'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {#if previewError}
+                            <div class="text-xs text-red-600 bg-red-50 p-2 rounded">
+                                {previewError}
+                            </div>
+                        {/if}
+
+                        {#if showPlanJson}
+                            <Textarea
+                                bind:value={selectedPlan}
+                                rows={12}
+                                class="font-mono text-xs"
+                            />
+                        {:else}
+                            <PlanViewer plan={selectedPlan} />
+                        {/if}
+                    </div>
+
+                    <!-- Save as Plan -->
+                    <div class="pt-4 border-t">
+                        <Button variant="outline" size="sm" onclick={openSaveDialog}>
+                            Save as Plan
+                        </Button>
                     </div>
                 {/if}
-            </div>
-
-            <!-- Plan Preview -->
-            {#if selectedPlan}
-                <div class="space-y-3">
-                    <div class="flex items-center justify-between">
-                        <label class="text-sm font-medium text-gray-700">Plan Preview</label>
-                        <div class="flex items-center gap-2">
-                            <Button
-                                variant="outline"
-                                size="xs"
-                                onclick={previewInstructions}
-                                disabled={isLoadingPreview}
-                            >
-                                {isLoadingPreview ? 'Loading...' : 'Preview Instructions'}
-                            </Button>
-                            <button
-                                type="button"
-                                class="px-2 py-1 text-xs font-medium rounded border transition-colors
-                                    {showPlanJson
-                                        ? 'bg-gray-600 text-white border-gray-600'
-                                        : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'}"
-                                onclick={() => showPlanJson = !showPlanJson}
-                            >
-                                {showPlanJson ? 'Visual' : 'JSON'}
-                            </button>
-                        </div>
-                    </div>
-
-                    {#if previewError}
-                        <div class="text-xs text-red-600 bg-red-50 p-2 rounded">
-                            {previewError}
-                        </div>
-                    {/if}
-
-                    {#if showPlanJson}
-                        <Textarea
-                            bind:value={selectedPlan}
-                            rows={12}
-                            class="font-mono text-xs"
-                        />
-                    {:else}
-                        <PlanViewer plan={selectedPlan} />
-                    {/if}
-                </div>
-
-                <!-- Save as Plan -->
-                <div class="pt-4 border-t">
-                    <Button variant="outline" size="sm" onclick={openSaveDialog}>
-                        Save as Plan
-                    </Button>
-                </div>
-            {/if}
             </div>
         {/if}
     {/if}
@@ -1179,29 +1181,19 @@
 <!-- Preview Modal -->
 <Modal
     bind:open={showPreview}
-    title={previewData ? `Instruction Preview: ${previewData.plan.name} (${previewData.plan.strategy})` : 'Instruction Preview'}
+    title={previewData ? `Instruction Preview: ${previewData.plan.name} (${previewData.plan.type})` : 'Instruction Preview'}
 >
     {#snippet children()}
         {#if previewData}
             <div class="space-y-6">
-                {#each previewData.results as result, index}
+                {#each previewData.results as result, resultIndex (resultIndex)}
                     <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
                         <div class="flex items-center gap-2 mb-3">
-                            {#if result.type === 'step'}
-                                <span class="text-xs font-mono bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                    Step {result.index}
-                                </span>
-                            {:else if result.type === 'branch'}
-                                <span class="text-xs font-mono bg-purple-100 text-purple-800 px-2 py-1 rounded">
-                                    Branch {result.index}
-                                </span>
-                            {:else}
-                                <span class="text-xs font-mono bg-green-100 text-green-800 px-2 py-1 rounded">
-                                    {result.type}
-                                </span>
-                            {/if}
+                            <span class="text-xs font-mono bg-green-100 text-green-800 px-2 py-1 rounded">
+                                {result.type}
+                            </span>
                             <span class="text-sm font-semibold text-gray-900">{result.role}</span>
-                            <span class="text-xs text-gray-500">({result.strategy})</span>
+                            <span class="text-xs text-gray-500 font-mono">{result.path}</span>
                         </div>
 
                         <div class="space-y-3">
@@ -1218,7 +1210,7 @@
                                 <div>
                                     <div class="text-xs font-semibold text-gray-700 mb-1">Thread ({result.instructions.thread.length} messages)</div>
                                     <div class="space-y-2">
-                                        {#each result.instructions.thread as msg, idx}
+                                        {#each result.instructions.thread as msg, threadIdx (threadIdx)}
                                             <div class="text-xs bg-white p-2 rounded border border-gray-200">
                                                 <div class="font-semibold mb-1 {msg.role === 'user' ? 'text-blue-600' : 'text-green-600'}">
                                                     {msg.role}:
@@ -1395,7 +1387,7 @@
     {#if frameEditorStack[frameEditorStack.length - 1]?.type === 'main'}
         <div class="space-y-6">
             <div class="space-y-3">
-                <label class="text-sm font-medium text-gray-700">Frame Content</label>
+                <div class="text-sm font-medium text-gray-700">Frame Content</div>
                 <Textarea
                     bind:value={frame.text}
                     rows={12}

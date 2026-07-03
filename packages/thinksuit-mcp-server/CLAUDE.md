@@ -29,7 +29,6 @@ lib/
   index.js              # Server setup - registers all tools
   tools/
     thinksuit.js        # Main execution tool
-    signals.js          # Signal detection tool
     session.js          # Session query tool
     inspect.js          # Deep inspection tool
 bin/
@@ -39,7 +38,6 @@ support/
     commands/
       thinksuit/        # Claude Code slash commands
         thinksuit.md    # /thinksuit command
-        signals.md      # /signals command
         session.md      # /session command
         inspect.md      # /inspect command
 ```
@@ -51,7 +49,7 @@ support/
 This package uses `thinksuit` as a **dependency**, importing from it like any external consumer:
 
 ```javascript
-import { schedule, detectSignals, loadModule } from 'thinksuit';
+import { schedule, loadModule } from 'thinksuit';
 ```
 
 **Never** use relative paths to access thinksuit internals. Always import via the package.

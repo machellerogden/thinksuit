@@ -7,8 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **ThinkSuit** - A modular AI orchestration system, and the kernel of a longer-term
 personal operating system (vision: `docs/vision.md`; what-goes-where:
 `docs/architecture-overview.md`). Packages:
-- **`packages/thinksuit/`** - Core orchestration engine (the kernel): cognition pipeline, `schedule()` API, config registry, secrets keyring, session routing
-- **`packages/thinksuit-modules/`** - Behavioral modules including the mu module (roles, classifiers, rules, prompts; owns `modalities`/`frames`)
+- **`packages/thinksuit/`** - Core orchestration engine (the kernel): plan composer + agent loop, `schedule()` API, config registry, secrets keyring, session routing
+- **`packages/thinksuit-modules/`** - Behavioral modules including the mu module (roles, prompts, `composeInstructions`, and a plan library; owns `modalities`/`frames`)
 - **`packages/thinksuit-broker/`** - Resident execution broker: forks a worker per turn, control channel, queue, per-session workspaces
 - **`packages/thinksuit-cli/`** - Interactive REPL + one-shot runner
 - **`packages/thinksuit-console/`** - Web-based debugging/development UI (session inspection, wakeword studio, services control)
@@ -62,14 +62,17 @@ npm run exec -- --trace --allow-tool roll_dice "Roll a d20" 2>&1 | tail -20
 After running, use the traceId from the output to explore what happened:
 
 ```bash
-# Find and examine signals detected (replace with actual traceId)
-find ~/.thinksuit -name '20250924T155819520Z-fMpbmCpG.jsonl' | xargs cat | jq 'select(.event == "processing.output.generated" and .data.handler == "detectSignals") | .data.facts'
+# See the plan node boundaries that executed (task / sequence / parallel starts)
+find ~/.thinksuit -name '{traceId}.jsonl' | xargs cat | jq 'select(.event | test("^execution\\.(task|sequential|parallel)\\.start$")) | {event, role: .data.role, depth: .data.depth}'
 
-# See which rules fired
-find ~/.thinksuit -name '{traceId}.jsonl' | xargs cat | jq 'select(.event == "pipeline.rule_evaluation.trace") | .data.executionTrace[] | {rule: .ruleName, added: .factsAdded[].type}'
+# Inspect each LLM exchange (role, finish reason, output)
+find ~/.thinksuit -name '{traceId}.jsonl' | xargs cat | jq 'select(.event == "processing.llm.response") | {role: .data.role, finishReason: .data.finishReason, output: .data.output}'
 
-# Check the selected plan
-find ~/.thinksuit -name '{traceId}.jsonl' | xargs cat | jq 'select(.event == "pipeline.plan_selection.complete") | .data.selectedPlan'
+# See tool calls the loop made
+find ~/.thinksuit -name '{traceId}.jsonl' | xargs cat | jq 'select(.event | startswith("execution.tool.")) | {event, tool: .data.request.tool}'
+
+# Check for a policy block (E_DEPTH / E_FANOUT / E_CHILDREN)
+find ~/.thinksuit -name '{traceId}.jsonl' | xargs cat | jq 'select(.event == "session.response") | select(.data.success == false) | .data'
 
 # View session events
 find ~/.thinksuit -name '{traceId}.jsonl' | xargs cat | jq 'select(.event | startswith("session.")) | { event, msg, data }'
@@ -94,11 +97,9 @@ find ~/.thinksuit/sessions -name '*8LtZ_xlY*' -type f
 3. **Data is in .data field**: Most interesting data is in `.data`, not at top level
 4. **The -- is critical**: Always use `--` to pass arguments through npm workspace
 
-### Common Analysis Queries
-
 ## Current Status
 
-✅ **Fully Working**: Complete AI orchestration pipeline with module system, signal detection, and all execution strategies.
+✅ **Fully Working**: Authored-plan orchestration — the agent loop (`executeTask`) composed by `executePlan` (task/sequence/parallel), the module system, and policy enforcement.
 
 📝 **Documentation**:
 - Package-specific README.md and CLAUDE.md files in each package directory

@@ -16,30 +16,27 @@ function userBase() {
 }
 
 /**
- * A plan is a named execution plan stored in the plans library:
- *   <name>.json → { name, description, plan: { …plan.v1… } }
- * Filename (sans ext) is the address; the inner `plan.name` is the operative
- * identity used by precedence rules.
+ * A plan is a named plan.v1 node stored inline in the plans library:
+ *   <name>.json → { name, description?, ...Node }   // the file *is* the root node
+ * Filename (sans ext) is the address; `name`/`description` are authoring metadata
+ * carried alongside the node fields (`type`, `role`, `children`, …).
  */
 function parsePlan(name, raw) {
     const data = JSON.parse(raw);
     return {
+        ...data,
         name: data.name || name,
-        description: data.description || '',
-        plan: data.plan
+        description: data.description || ''
     };
 }
 
 function serializePlan(entry) {
-    return JSON.stringify(
-        {
-            name: entry.name,
-            description: entry.description || '',
-            plan: entry.plan
-        },
-        null,
-        2
-    );
+    // `id` (filename address) and `source` (module|user) are store-managed — never
+    // persist them into the file body, which is the inline node itself.
+    const node = { ...entry, description: entry.description || '' };
+    delete node.id;
+    delete node.source;
+    return JSON.stringify(node, null, 2);
 }
 
 /**
@@ -53,9 +50,9 @@ function serializePlan(entry) {
 export async function loadPlans(_moduleName, module) {
     const modulePlans = module?.dir
         ? (await readArtifacts(module.dir, KIND, EXT, parsePlan)).map((p) => ({
-              ...p,
-              source: 'module'
-          }))
+            ...p,
+            source: 'module'
+        }))
         : [];
     const userPlans = (await readArtifacts(userBase(), KIND, EXT, parsePlan)).map((p) => ({
         ...p,

@@ -1,6 +1,6 @@
 # ThinkSuit
 
-> An AI orchestration system that detects signals from conversation context and orchestrates AI responses through behavioral modules.
+> An AI orchestration system that runs authored plans — composing an agent loop into sequences and parallels — through pluggable behavioral modules.
 
 ```txt
 • • • • • • • • • • • • • • • • • • • • •
@@ -21,7 +21,7 @@
 
 ## Overview
 
-ThinkSuit is a modular AI orchestration system that processes conversation context through a deterministic state machine pipeline. The system combines an orchestration engine with pluggable cognitive modules to enable adaptive AI responses based on detected conversation signals.
+ThinkSuit is a modular AI orchestration system. A turn resolves an **authored plan** — a tree of `task`, `sequence`, and `parallel` nodes — and runs it: `task` is a round-bounded agent loop, and `sequence`/`parallel` compose those loops, threading results between them. The orchestration engine pairs with pluggable behavioral modules (roles, prompts, and a plan library) to shape each response.
 
 That engine is the kernel of a longer-term goal: ThinkSuit as a **personal operating system**. See [`docs/vision.md`](docs/vision.md) for the north star, [`docs/architecture-overview.md`](docs/architecture-overview.md) for what exists and what-goes-where, and [`docs/roadmap.md`](docs/roadmap.md) for the path between.
 
@@ -30,16 +30,16 @@ That engine is the kernel of a longer-term goal: ThinkSuit as a **personal opera
 This monorepo contains:
 
 - **[`packages/thinksuit`](packages/thinksuit/)** - Core orchestration engine
-  - State machine execution via Trajectory (ASL)
+  - Plan composer (`executePlan`) over the agent loop (`executeTask`)
   - Session management with JSONL persistence
   - Provider abstraction for LLMs
-  - Signal detection and rules evaluation pipeline
+  - Policy enforcement (depth/fanout/children) and tool policy
   - Real-time event subscriptions
 
 - **[`packages/thinksuit-modules`](packages/thinksuit-modules/)** - Behavioral modules
   - Ships with `mu` module
   - Defines cognitive roles and behaviors
-  - Provides classifiers, rules, and prompts
+  - Provides roles, prompts, `composeInstructions`, and a plan library
   - Extensible module system
 
 - **[`packages/thinksuit-broker`](packages/thinksuit-broker/)** - Resident execution broker
@@ -74,7 +74,7 @@ This monorepo contains:
 
 - **[`packages/thinksuit-mcp-server`](packages/thinksuit-mcp-server/)** - MCP server
   - Exposes ThinkSuit TO external MCP clients (Claude Desktop, etc.)
-  - Provides thinksuit, signals, session, and inspect tools
+  - Provides thinksuit, session, and inspect tools
 
 ## Installation
 

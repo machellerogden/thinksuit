@@ -26,21 +26,30 @@ const getModelInfo = (model) => MODEL_METADATA[model] || DEFAULT_CAPABILITIES;
 const transformThread = (thread) => {
     const messages = [];
 
+    // Anthropic requires all tool_result blocks answering one assistant turn's tool_use
+    // blocks to sit in the single user message immediately after it. Buffer consecutive
+    // tool results and flush them as one user message when a non-tool message arrives.
+    let pendingToolResults = null;
+    const flushToolResults = () => {
+        if (pendingToolResults) {
+            messages.push({ role: 'user', content: pendingToolResults });
+            pendingToolResults = null;
+        }
+    };
+
     for (const msg of thread) {
-        // Tool results become a user message carrying a tool_result block
+        // Tool results accumulate into one user message carrying all their blocks
         if (msg.role === 'tool') {
-            messages.push({
-                role: 'user',
-                content: [
-                    {
-                        type: 'tool_result',
-                        tool_use_id: msg.tool_call_id,
-                        content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
-                    }
-                ]
+            (pendingToolResults ??= []).push({
+                type: 'tool_result',
+                tool_use_id: msg.tool_call_id,
+                content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)
             });
             continue;
         }
+
+        // Any non-tool message closes the current tool_result group
+        flushToolResults();
 
         // Assistant messages that issued tool calls become tool_use blocks
         if (msg.role === 'assistant' && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
@@ -74,6 +83,7 @@ const transformThread = (thread) => {
         }
     }
 
+    flushToolResults();
     return messages;
 };
 

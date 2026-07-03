@@ -1,17 +1,18 @@
 import prompts from './prompts.js';
-import classifiers from './classifiers/index.js';
-import rules from './rules.js';
 import { composeInstructions } from './composeInstructions.js';
 
 /**
  * Core Thinking Companion Module
- * Implements cognitive roles with ExecutionPlan-driven orchestration
- * Signal-to-adaptation mapping is internal; only ExecutionPlan facts drive control flow
+ * Provides cognitive roles, prompts, composeInstructions, modalities/frames, and a plan
+ * library. Control flow comes from the authored plan (a plan.v1 node tree), not the module.
  */
 const mu = {
     namespace: 'thinksuit',
     name: 'mu',
     version: '0.2.0',
+
+    // Named reference into the plan library used when no plan is explicitly selected.
+    defaultPlan: 'chat',
 
     // Roles enabling intentional selection of cognitive instruments
     roles: [
@@ -84,8 +85,6 @@ const mu = {
     ],
 
     prompts,
-    classifiers,
-    rules,
     composeInstructions,
 
     // Locates this module's on-disk artifacts (plans/, frames/). The engine's
@@ -127,7 +126,7 @@ const mu = {
         }
     },
 
-    description: 'Core thinking roles and signal-responsive adaptations.',
+    description: 'Core thinking roles, prompts, and a plan library.',
     author: 'Mac Heller-Ogden',
     license: 'MIT'
 };

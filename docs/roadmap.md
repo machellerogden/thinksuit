@@ -48,13 +48,15 @@ Read-side introspection exists (the mcp-server tools); the write side does not.
 - **Elevate the home thread** — give `mainSessionId` real self-aware privileges, not
   just persistence.
 
-## Intent cascade & automation language
+## Tiered dispatch & automation language
 
-- **Classifier → ASL-automation dispatch** — the middle rung of the [intent
-  cascade](./vision.md#the-intent-cascade-tiered-dispatch): command-like wakewords
-  that run ASL-defined automations deterministically, no LLM in the loop. Reuses the
-  engine's existing ASL-like state machine (`machine.json` via Trajectory) as the
-  OS's user-facing automation language.
+- **Command-like dispatch** — distinguish command-like wakewords that should run a
+  deterministic automation (no LLM in the loop) from utterances that warrant a full
+  agent turn. See [vision.md](./vision.md) for the north-star framing.
+- **Automation language (undecided)** — a deterministic automation substrate is still a
+  goal, but the engine's former ASL state machine (`machine.json` via Trajectory) was
+  removed by de-pipelining, so the language/runtime for authored automations is an open
+  design question rather than a reuse of existing machinery.
 
 ## Hosted affordances (the "app layer")
 

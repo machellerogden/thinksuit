@@ -109,13 +109,13 @@ function boundaryToTreeNode(boundary, allEvents) {
         metadata: {
             ...(boundary.startEvent?.data || {}),
             // Include execution fields from top-level of start event
-            ...(boundary.startEvent?.cycle !== undefined && { cycle: boundary.startEvent.cycle }),
+            ...(boundary.startEvent?.round !== undefined && { round: boundary.startEvent.round }),
             ...(boundary.startEvent?.step !== undefined && { step: boundary.startEvent.step }),
             ...(boundary.startEvent?.branch !== undefined && { branch: boundary.startEvent.branch }),
             ...(boundary.startEvent?.role !== undefined && { role: boundary.startEvent.role }),
             ...(boundary.startEvent?.depth !== undefined && { depth: boundary.startEvent.depth }),
             ...(boundary.startEvent?.operation !== undefined && { operation: boundary.startEvent.operation }),
-            ...(boundary.startEvent?.maxCycles !== undefined && { maxCycles: boundary.startEvent.maxCycles }),
+            ...(boundary.startEvent?.maxRounds !== undefined && { maxRounds: boundary.startEvent.maxRounds }),
             ...(boundary.startEvent?.totalSteps !== undefined && { totalSteps: boundary.startEvent.totalSteps }),
             ...(boundary.startEvent?.remainingTokens !== undefined && { remainingTokens: boundary.startEvent.remainingTokens }),
             ...(boundary.startEvent?.forced !== undefined && { forced: boundary.startEvent.forced }),
@@ -191,13 +191,13 @@ function extractDirectEvents(boundary) {
             data: {
                 ...(event.data || {}),
                 // Include execution fields from top-level
-                ...(event.cycle !== undefined && { cycle: event.cycle }),
+                ...(event.round !== undefined && { round: event.round }),
                 ...(event.step !== undefined && { step: event.step }),
                 ...(event.branch !== undefined && { branch: event.branch }),
                 ...(event.role !== undefined && { role: event.role }),
                 ...(event.depth !== undefined && { depth: event.depth }),
                 ...(event.operation !== undefined && { operation: event.operation }),
-                ...(event.maxCycles !== undefined && { maxCycles: event.maxCycles }),
+                ...(event.maxRounds !== undefined && { maxRounds: event.maxRounds }),
                 ...(event.totalSteps !== undefined && { totalSteps: event.totalSteps }),
                 ...(event.remainingTokens !== undefined && { remainingTokens: event.remainingTokens }),
                 ...(event.forced !== undefined && { forced: event.forced })
