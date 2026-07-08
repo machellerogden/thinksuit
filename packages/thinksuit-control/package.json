@@ -35,6 +35,7 @@
         "thinksuit": "*",
         "thinksuit-broker": "*",
         "thinksuit-console": "*",
+        "thinksuit-genai": "*",
         "thinksuit-mcp-tools": "*",
         "thinksuit-tty": "*",
         "thinksuit-voice": "*"

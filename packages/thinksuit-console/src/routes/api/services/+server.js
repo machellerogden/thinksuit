@@ -14,6 +14,7 @@ const LAUNCHCTL = '/bin/launchctl';
 
 const SERVICES = [
     { id: 'broker', label: 'thinksuit-broker.service', name: 'Broker' },
+    { id: 'genai', label: 'thinksuit-genai.service', name: 'GenAI' },
     { id: 'tty', label: 'thinksuit-tty.service', name: 'TTY' },
     { id: 'voice', label: 'thinksuit-voice.service', name: 'Voice' },
     // self: the console can't stop/restart itself — that would kill this responder.

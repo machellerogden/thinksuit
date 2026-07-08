@@ -100,8 +100,15 @@ export function cleanThreadForProvider(thread) {
  *   finishReason, toolCalls?, outputItems?, original:{request,response} }
  */
 export async function callProvider(config, params, ctx = {}) {
-    const provider = createProvider(config);
+    return callWithProvider(createProvider(config), params, ctx);
+}
 
+/**
+ * Same normalization as callProvider, against an already-created provider
+ * instance — the daemon's residency pool calls through here so warm instances
+ * still get identical thread cleaning and clamping.
+ */
+export async function callWithProvider(provider, params, ctx = {}) {
     // Get provider capabilities
     const capabilities = provider.getCapabilities(params.model);
 
