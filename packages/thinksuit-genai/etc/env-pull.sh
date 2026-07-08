@@ -9,7 +9,7 @@ set -euo pipefail
 # ONNX_DTYPE, ...) alike. This script is one way to produce that file — it
 # resolves a set of `op://` references with `op inject`. Run it interactively
 # (1Password app unlocked, approve once) whenever a key changes, then
-# `thinkctl restart genai`; the file persists across reboots, so nothing runs
+# `thinkctl start genai`; the file persists across reboots, so nothing runs
 # at login. Copy and adapt it — or swap in a Keychain reader, a hand-edited
 # file, whatever suits you.
 #

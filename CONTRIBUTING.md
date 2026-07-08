@@ -201,11 +201,16 @@ Multi-source configuration with precedence: CLI args > env vars > config file > 
 
 **Environment Variables**:
 ```bash
-OPENAI_API_KEY="your-key"    # Required for OpenAI provider
 LOG_SILENT=true               # Suppress logging
 THINKSUIT_TRACE=true         # Enable tracing
 THINKSUIT_CONFIG="~/config.json"  # Custom config path
 ```
+
+**Provider credentials** (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, ...) are read by
+the **genai service**, not by the engine: set them in its environment or in
+`~/.thinksuit/.env`, and make sure the service is running before executing turns
+(`thinkctl start genai`, or `npm -w thinksuit-genai run dev` for a foreground
+instance). Turns fail fast with an actionable hint when it is down.
 
 **Config File** (`~/.thinksuit.json`):
 ```json

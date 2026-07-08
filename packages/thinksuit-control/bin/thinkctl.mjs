@@ -230,14 +230,14 @@ async function onboard() {
     };
 }
 
-function secretsReminder() {
-    const secrets = join(HOME, '.thinksuit', 'secrets.env');
-    if (existsSync(secrets)) return;
-    C.head('Manual step: provider secrets');
-    C.warn(`Create ${secrets} with your provider keys, e.g.:`);
+function envReminder() {
+    const envFile = process.env.THINKSUIT_ENV_FILE || join(HOME, '.thinksuit', '.env');
+    if (existsSync(envFile)) return;
+    C.head('Manual step: environment (provider credentials)');
+    C.warn(`Create ${envFile} with your provider keys, e.g.:`);
     C.info('    ANTHROPIC_API_KEY=sk-ant-...');
     C.info('    OPENAI_API_KEY=sk-...');
-    C.info(`  Then restart: thinkctl start broker`);
+    C.info(`  Then restart: thinkctl start genai`);
 }
 
 // ── plist generation (in code — nothing is repo-relative) ────────────────────────
@@ -362,7 +362,7 @@ const commands = {
         const svcs = await targets(service);
         const ctx = await onboard();
         for (const svc of svcs) await installOne(svc, ctx);
-        secretsReminder();
+        envReminder();
     },
     async uninstall(service) {
         for (const svc of await targets(service)) uninstall(svc);

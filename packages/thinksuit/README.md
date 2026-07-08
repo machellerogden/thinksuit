@@ -68,31 +68,25 @@ npm run exec -- --help                                                     # Sho
 # Programmatic usage
 import { schedule } from 'thinksuit';
 
+// Credentials never ride this config: the genai service resolves and holds
+// them (environment first, then ~/.thinksuit/.env). It must be running —
+// `thinkctl start genai` — or turns fail fast with an actionable hint.
+
 // OpenAI example
 const { sessionId, scheduled, execution, interrupt } = await schedule({
     input: 'What is quantum computing?',
     provider: 'openai',
     model: 'gpt-4o-mini',
-    providerConfig: {
-        openai: {
-            apiKey: process.env.OPENAI_API_KEY
-        }
-    },
     sessionId: '20250821T164513435Z-xXKTbcJ2',  // Optional: resume existing session
     trace: true,                   // Optional: enable detailed tracing
 });
 
-// Vertex AI example
+// Google (Vertex AI) example — GOOGLE_CLOUD_PROJECT/GOOGLE_CLOUD_LOCATION are
+// read by the genai service from its environment or ~/.thinksuit/.env
 const { sessionId, scheduled, execution } = await schedule({
     input: 'What is quantum computing?',
-    provider: 'vertex-ai',
+    provider: 'google',
     model: 'gemini-2.5-pro',
-    providerConfig: {
-        vertexAi: {
-            projectId: process.env.GOOGLE_CLOUD_PROJECT,
-            location: 'us-central1'  // Optional, defaults to us-central1
-        }
-    },
     trace: true
 });
 
@@ -217,10 +211,7 @@ async function main() {
         module: 'my/custom',
         modules,  // Pass pre-loaded modules object
         provider: 'openai',
-        model: 'gpt-4o-mini',
-        providerConfig: {
-            openai: { apiKey: process.env.OPENAI_API_KEY }
-        }
+        model: 'gpt-4o-mini'
     });
 
     console.log(`[SESSION] ${sessionId}`);
@@ -501,30 +492,20 @@ Primary entry point for executing ThinkSuit.
 
 ```javascript
 // OpenAI example
+// Credentials never ride this config — the genai service holds them.
 const { sessionId, scheduled, execution } = await schedule({
     input: 'Your question here',
     provider: 'openai',
     model: 'gpt-4o-mini',
-    providerConfig: {
-        openai: {
-            apiKey: 'your-api-key'
-        }
-    },
     sessionId: 'existing-session-id', // Optional: resume session
     trace: false // Optional: enable tracing
 });
 
-// Vertex AI example
+// Google (Vertex AI) example
 const { sessionId, scheduled, execution } = await schedule({
     input: 'Your question here',
-    provider: 'vertex-ai',
+    provider: 'google',
     model: 'gemini-2.5-pro',
-    providerConfig: {
-        vertexAi: {
-            projectId: 'your-project-id',
-            location: 'us-central1'  // Optional
-        }
-    },
     trace: false
 });
 

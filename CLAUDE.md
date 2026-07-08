@@ -7,7 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **ThinkSuit** - A modular AI orchestration system, and the kernel of a longer-term
 personal operating system (vision: `docs/vision.md`; what-goes-where:
 `docs/architecture-overview.md`). Packages:
-- **`packages/thinksuit/`** - Core orchestration engine (the kernel): plan composer + agent loop, `schedule()` API, config registry, secrets keyring, session routing
+- **`packages/thinksuit/`** - Core orchestration engine (the kernel): plan composer + agent loop, `schedule()` API, config registry, session routing
+- **`packages/thinksuit-genai/`** - Resident generative-model service: provider library (openai/anthropic/google/hugging-face/onnx), env keyring (`~/.thinksuit/.env`), daemon over `~/.thinksuit/genai.sock` holding credentials + warm models, socket client. **Runtime callers require it** — turns fail fast with a `thinkctl start genai` hint when it's down
 - **`packages/thinksuit-modules/`** - Behavioral modules including the mu module (roles, prompts, `composeInstructions`, and a plan library; owns `modalities`/`frames`)
 - **`packages/thinksuit-broker/`** - Resident execution broker: forks a worker per turn, control channel, queue, per-session workspaces
 - **`packages/thinksuit-cli/`** - Interactive REPL + one-shot runner
@@ -16,7 +17,7 @@ personal operating system (vision: `docs/vision.md`; what-goes-where:
 - **`packages/thinksuit-tty/`** - Terminal component + TTY WebSocket server
 - **`packages/thinksuit-mcp-server/`** - Exposes ThinkSuit *outward* as MCP tools to external clients
 - **`packages/thinksuit-mcp-tools/`** - Custom MCP tools consumed *inward* by ThinkSuit
-- **`packages/thinksuit-control/`** - Operations control plane (`thinkctl`): manages the LaunchAgent services (broker/console/tty/voice), generating each plist in code from the package's `service.js`
+- **`packages/thinksuit-control/`** - Operations control plane (`thinkctl`): manages the LaunchAgent services (broker/genai/console/tty/voice), generating each plist in code from the package's `service.js`
 
 **Service ops go through `thinkctl`** (`up`/`down`/`start`/`stop`/`status`/`ls`/`logs`) — never raw `launchctl`.
 

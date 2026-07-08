@@ -128,7 +128,7 @@ async function start(config) {
                 reason:
                     `No credential for provider '${provider}'. Set ${meta.credentialEnvs.join(' / ')} ` +
                     `in the environment or in ~/.thinksuit/.env, then restart the genai ` +
-                    `service (thinkctl restart genai).`
+                    `service (thinkctl start genai).`
             });
             process.exit(1);
             return;

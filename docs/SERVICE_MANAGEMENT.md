@@ -80,7 +80,7 @@ provider credentials; the broker, workers, console, and voice never see a key.
 ```bash
 printf 'ANTHROPIC_API_KEY=sk-ant-...\nOPENAI_API_KEY=sk-...\n' > ~/.thinksuit/.env
 chmod 600 ~/.thinksuit/.env
-thinkctl restart genai   # values are read once at boot
+thinkctl start genai   # values are read once at boot
 ```
 
 How you populate the file is your concern — e.g. a 1Password `op inject` template (see

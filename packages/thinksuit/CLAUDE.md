@@ -70,10 +70,11 @@ returns a normal error response (`policyBlocked`, code `E_DEPTH`/`E_FANOUT`/`E_C
 ```javascript
 import { schedule } from 'thinksuit';
 
-// Schedule execution and get session ID immediately
+// Schedule execution and get session ID immediately. Credentials never ride
+// this config — the genai service must be running (`thinkctl start genai`).
 const { sessionId, scheduled, execution } = await schedule({
     input: 'Your question here',
-    apiKey: 'your-api-key',
+    provider: 'openai',
     model: 'gpt-4o-mini',
     trace: false
 });

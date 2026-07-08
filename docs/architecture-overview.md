@@ -34,12 +34,16 @@ device it talks to. (OS metaphor is a lens — see [vision.md](./vision.md).)
                              │ forks a worker per turn
                              ▼
                   thinksuit  (engine = kernel)   ──reads──►  ~/.thinksuit.json   (registry)
-           resolve plan → executePlan → executeTask         thinksuit-genai/env  (env keyring)
+           resolve plan → executePlan → executeTask
                              │
-              ┌──────────────┴───────────────┐
-              ▼                               ▼
-     thinksuit-modules                 thinksuit-mcp-tools
-     (installed behaviors: mu)         (tools consumed INWARD by the agent)
+              ┌──────────────┼───────────────┐
+              ▼              ▼               ▼
+     thinksuit-modules   thinksuit-genai   thinksuit-mcp-tools
+     (installed          (resident model   (tools consumed INWARD
+      behaviors: mu)      service: warm     by the agent)
+                          models + creds,
+                          ~/.thinksuit/genai.sock,
+                          env keyring ~/.thinksuit/.env)
 
      thinksuit-mcp-server ── exposes engine / sessions / inspect OUTWARD ──► external MCP clients
 ```
@@ -47,6 +51,7 @@ device it talks to. (OS metaphor is a lens — see [vision.md](./vision.md).)
 | Package | Role (OS lens) | Responsibility | Key interface |
 |---|---|---|---|
 | `thinksuit` | kernel | Plan composer + agent loop; config registry; session routing | `schedule()`; `buildConfig`/`readUserConfig`/`patchUserConfig`; `resolveEnv`; `loadModules`; `subscribeToSession`/`getSessionStatus`/`getTrace`; `callLLM`. bin: `thinksuit-exec` |
+| `thinksuit-genai` | device driver (models) | Resident generative-model daemon: holds credentials (env keyring, `~/.thinksuit/.env`) and warm models (SDK clients + supervised ONNX worker); every LLM call in the product goes through its socket. **Required at runtime** — callers fail fast with a `thinkctl start genai` hint | `./client` (`call`/`health`/`status`/`providers`, `wrapProviderError`); `./env` (`resolveEnv`); `.` (in-process library, tests/dev); `./service` definition (managed by thinkctl) |
 | `thinksuit-modules` | installed behaviors | Cognitive roles, prompts, `composeInstructions`, and a plan library; the `mu` module owns its `modalities`/`frames` | default export (the module map) |
 | `thinksuit-broker` | process host / scheduler | Resident daemon; forks a worker per turn (`src/worker.js`); control channel; queue; per-session workspace provisioning | client export: `run`/`tail`/`interrupt`/`approve`/`status`/`log`/`awaitTurn`; `./broker` daemon; `./service` definition (managed by thinkctl) |
 | `thinksuit-cli` | shell | Terminal REPL + one-shot runner | bin: `thinksuit` |
@@ -55,7 +60,7 @@ device it talks to. (OS metaphor is a lens — see [vision.md](./vision.md).)
 | `thinksuit-tty` | shell component | Terminal Svelte component + TTY WebSocket server | exports `./Terminal.svelte` `./server` `./service`; managed by thinkctl |
 | `thinksuit-mcp-server` | devices (outward) | Exposes ThinkSuit to external MCP clients (Claude Desktop/IDEs) via tools `thinksuit`/`inspect`/`session` | bin: `thinksuit-mcp-server` (stdio MCP) |
 | `thinksuit-mcp-tools` | devices (inward) | Custom MCP tools consumed BY ThinkSuit (e.g. `roll_dice`) | bin: `thinksuit-mcp-tools` (stdio MCP) |
-| `thinksuit-control` | operations control plane | Manages the LaunchAgent services (broker/console/tty/voice): discovers them from its own deps via each package's `./service` definition, generates plists in code, owns `launchctl` | bin: `thinkctl` (`up`/`down`/`start`/`stop`/`status`/`ls`/`logs`) |
+| `thinksuit-control` | operations control plane | Manages the LaunchAgent services (broker/genai/console/tty/voice): discovers them from its own deps via each package's `./service` definition, generates plists in code, owns `launchctl` | bin: `thinkctl` (`up`/`down`/`start`/`stop`/`status`/`ls`/`logs`) |
 
 > Note the two MCP packages point opposite directions: **mcp-server** exposes
 > ThinkSuit *outward* as tools other agents can call; **mcp-tools** provides tools
@@ -99,7 +104,7 @@ sequenceDiagram
     participant ExecutePlan
     participant ExecuteTask
     participant Module
-    participant LLM
+    participant LLM as LLM (via thinksuit-genai daemon)
 
     User->>CLI: Input message
     CLI->>Schedule: schedule(turnRequest)

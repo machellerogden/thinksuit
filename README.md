@@ -36,6 +36,12 @@ This monorepo contains:
   - Policy enforcement (depth/fanout/children) and tool policy
   - Real-time event subscriptions
 
+- **[`packages/thinksuit-genai`](packages/thinksuit-genai/)** - Resident generative-model service
+  - Provider library: OpenAI, Anthropic, Google (Vertex AI), HuggingFace Router, local ONNX
+  - Daemon over `~/.thinksuit/genai.sock` holding credentials + warm models
+  - Env keyring (`~/.thinksuit/.env`); socket client for all callers
+  - Required at runtime — turns fail fast with an actionable hint when it's down
+
 - **[`packages/thinksuit-modules`](packages/thinksuit-modules/)** - Behavioral modules
   - Ships with `mu` module
   - Defines cognitive roles and behaviors
@@ -94,8 +100,12 @@ npm -w thinksuit-cli link
 ## Quick Start
 
 ```bash
-# Set your API key
-export OPENAI_API_KEY="your-key"
+# Provider credentials live in ThinkSuit's env file, read by the genai service
+printf 'ANTHROPIC_API_KEY=sk-ant-...\nOPENAI_API_KEY=sk-...\n' > ~/.thinksuit/.env
+chmod 600 ~/.thinksuit/.env
+
+# The genai service must be running for turns to execute
+thinkctl start genai   # or foreground: npm -w thinksuit-genai run dev
 
 # Start the interactive REPL
 thinksuit
@@ -136,9 +146,9 @@ thinksuit-exec --provider hugging-face --model meta-llama/Llama-3.3-70B-Instruct
 
 ThinkSuit's core (engine, broker, modules) is platform-agnostic — the processes can be
 supervised however your OS prefers. On macOS, you can run them as LaunchAgents: **broker**
-(turn execution), **voice** (hands-free wake → speech), **console** (web UI), and **tty**
-(terminal WebSocket). All four are managed by `thinkctl`, the operations control plane. Bring
-them up with:
+(turn execution), **genai** (model inference + credentials), **voice** (hands-free wake →
+speech), **console** (web UI), and **tty** (terminal WebSocket). All five are managed by
+`thinkctl`, the operations control plane. Bring them up with:
 
 ```bash
 thinkctl up -a
@@ -157,7 +167,7 @@ Run `thinkctl help` for the full verb list (`up`/`down`/`start`/`stop`/`status`/
    ```bash
    printf 'ANTHROPIC_API_KEY=sk-ant-...\nOPENAI_API_KEY=sk-...\n' > ~/.thinksuit/.env
    chmod 600 ~/.thinksuit/.env
-   thinkctl restart genai
+   thinkctl start genai
    ```
 2. **Microphone** — on first voice run macOS prompts for mic access; if not, grant
    "ThinkSuit Voice" under System Settings → Privacy & Security → Microphone.
