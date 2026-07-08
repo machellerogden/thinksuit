@@ -1,132 +1,58 @@
-import { createProvider } from './index.js';
+import { callProvider } from 'thinksuit-genai';
+import { PROCESSING_EVENTS } from '../constants/events.js';
 
 /**
- * Call an LLM with the given configuration and parameters
+ * Thin adapter over the thinksuit-genai provider library. The engine's
+ * execution plane calls generative models only through this boundary; genai
+ * owns request/response transforms, thread normalization, token clamping, and
+ * model residency. This file keeps its path and signature because engine
+ * callers (and their tests) target `callLLM` here.
+ *
  * @param {Object} machineContext - Machine context containing config and execLogger
- * @param {Object} params - LLM call parameters (messages, maxTokens, etc.)
+ * @param {Object} params - LLM call parameters (model, thread, maxTokens, etc.)
  * @param {Object} toolSchemas - Optional tool schemas for function calling
  * @returns {Promise<Object>} - LLM response
  */
-/**
- * Clean thread for provider consumption
- * - Extract system message (last/most recent system role)
- * - Remove semantic labels
- * - Merge adjacent messages of same role
- * @param {Array} thread - Thread with semantic labels
- * @returns {Object} - { systemInstructions, thread } where systemInstructions is string or null
- */
-// A message may be merged with an adjacent same-role message only if it is plain
-// text. Tool results and tool-call carriers must stay distinct: each holds an id
-// (tool_call_id / tool_calls) that pairs it with a specific call, and concatenating
-// them would drop all but the first id — breaking tool_use/tool_result pairing when a
-// turn makes several parallel tool calls.
-function isMergeable(msg) {
-    return typeof msg.content === 'string' && msg.role !== 'tool' && !msg.tool_calls && !msg.tool_call_id;
-}
-
-export function cleanThreadForProvider(thread) {
-    if (!thread || thread.length === 0) return { systemInstructions: null, thread: [] };
-
-    // Extract the last system message (most recent)
-    let systemInstructions = null;
-
-    for (let i = thread.length - 1; i >= 0; i--) {
-        if (thread[i].role === 'system') {
-            systemInstructions = thread[i].content;
-            break;
-        }
-    }
-
-    const cleaned = [];
-    let lastRole = null;
-    let accumulatedContent = [];
-
-    for (let i = 0; i < thread.length; i++) {
-        const msg = thread[i];
-
-        // Skip system messages - they're extracted separately
-        if (msg.role === 'system') {
-            continue;
-        }
-
-        const cleanMsg = { ...msg };
-        delete cleanMsg.semantic; // Remove semantic property
-
-        // If same role as previous and both are plain text, accumulate
-        if (isMergeable(cleanMsg) && cleanMsg.role === lastRole) {
-            accumulatedContent.push(cleanMsg.content);
-        } else {
-            // Flush accumulated content if any
-            if (accumulatedContent.length > 0) {
-                cleaned.push({
-                    ...cleaned.pop(),
-                    content: accumulatedContent.join('\n\n')
-                });
-                accumulatedContent = [];
-            }
-
-            // Start new message
-            cleaned.push(cleanMsg);
-            if (isMergeable(cleanMsg)) {
-                accumulatedContent = [cleanMsg.content];
-                lastRole = cleanMsg.role;
-            } else {
-                // Non-mergeable (tool results, tool-call carriers, non-string content):
-                // keep distinct so ids survive. Reset the merge run.
-                lastRole = null;
-                accumulatedContent = [];
-            }
-        }
-    }
-
-    // Flush any remaining accumulated content
-    if (accumulatedContent.length > 1 && cleaned.length > 0) {
-        const last = cleaned.pop();
-        cleaned.push({
-            ...last,
-            content: accumulatedContent.join('\n\n')
-        });
-    }
-
-    return { systemInstructions, thread: cleaned };
-}
-
 export async function callLLM(machineContext, params, toolSchemas) {
+    const { config, execLogger, abortSignal } = machineContext;
+    const callParams = toolSchemas ? { ...params, toolSchemas } : params;
+
     try {
-        const { config } = machineContext;
-        const provider = createProvider(config);
+        const response = await callProvider(
+            { provider: config.provider, providerConfig: config.providerConfig },
+            callParams,
+            { abortSignal }
+        );
 
-        // Get provider capabilities
-        const capabilities = provider.getCapabilities(params.model);
+        // Re-emit the provider exchange into the session trace from the
+        // normalized original — the provider library is trace-agnostic. Both
+        // events land post-call; the data is the actual wire request/response.
+        execLogger.info({
+            event: PROCESSING_EVENTS.PROVIDER_API_REQUEST,
+            msg: `${config.provider} API request`,
+            data: response.original?.request
+        });
+        execLogger.info({
+            event: PROCESSING_EVENTS.PROVIDER_API_RESPONSE,
+            msg: `${config.provider} API response`,
+            data: response.original?.response
+        });
 
-        // Clean thread before passing to provider - extracts system instructions
-        const { systemInstructions, thread: cleanedThread } = params.thread
-            ? cleanThreadForProvider(params.thread)
-            : { systemInstructions: null, thread: [] };
-
-        // Clamp maxTokens to provider's limit
-        const clampedParams = {
-            ...params,
-            systemInstructions,
-            thread: cleanedThread,
-            maxTokens: Math.min(params.maxTokens, capabilities.maxOutput)
-        };
-
-        // Pass tool schemas if available
-        if (toolSchemas) {
-            clampedParams.toolSchemas = toolSchemas;
+        return response;
+    } catch (error) {
+        // A failed call still traces its request when the provider got as far
+        // as building one.
+        if (error.request !== undefined) {
+            execLogger.info({
+                event: PROCESSING_EVENTS.PROVIDER_API_REQUEST,
+                msg: `${config.provider} API request (failed call)`,
+                data: error.request
+            });
         }
 
-        // Call provider with machineContext
-        return await provider.callLLM(machineContext, clampedParams);
-    } catch (error) {
         // Wrap all provider errors with E_PROVIDER code
         const providerError = new Error(`E_PROVIDER: ${error.message}`);
         providerError.originalError = error;
         throw providerError;
     }
 }
-
-// Future IO functions as pure functions:
-// export function now() { return Date.now(); }
-// export function random() { return Math.random(); }

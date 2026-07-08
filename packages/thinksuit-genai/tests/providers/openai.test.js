@@ -63,7 +63,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createOpenAIProvider } = await import(
-                    '../../../engine/providers/openai.js'
+                    '../../src/providers/openai.js'
                 );
                 const provider = createOpenAIProvider({ apiKey: 'test-key' });
 
@@ -143,7 +143,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createOpenAIProvider } = await import(
-                    '../../../engine/providers/openai.js'
+                    '../../src/providers/openai.js'
                 );
                 const provider = createOpenAIProvider({ apiKey: 'test-key' });
 
@@ -194,7 +194,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createOpenAIProvider } = await import(
-                    '../../../engine/providers/openai.js'
+                    '../../src/providers/openai.js'
                 );
                 const provider = createOpenAIProvider({ apiKey: 'test-key' });
 
@@ -246,7 +246,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createOpenAIProvider } = await import(
-                    '../../../engine/providers/openai.js'
+                    '../../src/providers/openai.js'
                 );
                 const provider = createOpenAIProvider({ apiKey: 'test-key' });
 
@@ -297,7 +297,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createOpenAIProvider } = await import(
-                    '../../../engine/providers/openai.js'
+                    '../../src/providers/openai.js'
                 );
                 const provider = createOpenAIProvider({ apiKey: 'test-key' });
 
@@ -332,7 +332,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createOpenAIProvider } = await import(
-                    '../../../engine/providers/openai.js'
+                    '../../src/providers/openai.js'
                 );
                 const provider = createOpenAIProvider({ apiKey: 'test-key' });
 
@@ -351,7 +351,7 @@ describe('Provider Abstraction', () => {
                 default: class OpenAI {}
             }));
 
-            const { createProvider } = await import('../../../engine/providers/index.js');
+            const { createProvider } = await import('../../src/providers/index.js');
 
             const provider = createProvider({
                 provider: 'openai',
@@ -367,7 +367,7 @@ describe('Provider Abstraction', () => {
         });
 
         it('should throw for unknown provider', async () => {
-            const { createProvider } = await import('../../../engine/providers/index.js');
+            const { createProvider } = await import('../../src/providers/index.js');
 
             expect(() => {
                 createProvider({
@@ -378,7 +378,7 @@ describe('Provider Abstraction', () => {
         });
     });
 
-    describe('Integration with callLLM function', () => {
+    describe('Integration with callProvider function', () => {
         beforeEach(() => {
             vi.resetModules();
             vi.clearAllMocks();
@@ -399,41 +399,37 @@ describe('Provider Abstraction', () => {
                 })
             };
 
-            vi.doMock('../../../engine/providers/index.js', () => ({
+            vi.doMock('../../src/providers/index.js', () => ({
                 createProvider: vi.fn().mockReturnValue(mockProvider)
             }));
 
-            const { callLLM } = await import('../../../engine/providers/io.js');
+            const { callProvider } = await import('../../src/core.js');
 
-            const mockContext = {
-                config: { provider: 'openai', apiKey: 'test' },
-                execLogger: {
-                    debug: vi.fn(),
-                    info: vi.fn(),
-                    warn: vi.fn(),
-                    error: vi.fn()
-                }
-            };
+            const ctx = { abortSignal: undefined };
 
-            await callLLM(mockContext, {
-                model: 'gpt-4',
-                thread: [
-                    { role: 'system', content: 'System' },
-                    { role: 'user', content: 'User' }
-                ],
-                maxTokens: 5000 // Exceeds provider limit
-            });
+            await callProvider(
+                { provider: 'openai', providerConfig: { openai: { apiKey: 'test' } } },
+                {
+                    model: 'gpt-4',
+                    thread: [
+                        { role: 'system', content: 'System' },
+                        { role: 'user', content: 'User' }
+                    ],
+                    maxTokens: 5000 // Exceeds provider limit
+                },
+                ctx
+            );
 
             // Should have clamped to provider's maxOutput
             expect(mockProvider.callLLM).toHaveBeenCalledWith(
-                mockContext,
+                ctx,
                 expect.objectContaining({
                     maxTokens: 1000 // Clamped to limit
                 })
             );
         });
 
-        it('should pass through errors with E_PROVIDER code', async () => {
+        it('should pass provider errors through raw (wrapping is the caller boundary)', async () => {
             const mockProvider = {
                 callLLM: vi.fn().mockRejectedValue(new Error('API Error')),
                 getCapabilities: vi.fn().mockReturnValue({
@@ -443,28 +439,22 @@ describe('Provider Abstraction', () => {
                 })
             };
 
-            vi.doMock('../../../engine/providers/index.js', () => ({
+            vi.doMock('../../src/providers/index.js', () => ({
                 createProvider: vi.fn().mockReturnValue(mockProvider)
             }));
 
-            const { callLLM } = await import('../../../engine/providers/io.js');
-            const mockContext = {
-                config: { provider: 'openai', apiKey: 'test' },
-                execLogger: {
-                    debug: vi.fn(),
-                    info: vi.fn(),
-                    warn: vi.fn(),
-                    error: vi.fn()
-                }
-            };
+            const { callProvider } = await import('../../src/core.js');
 
             await expect(
-                callLLM(mockContext, {
-                    model: 'gpt-4',
-                    thread: [{ role: 'user', content: 'Test' }],
-                    maxTokens: 100
-                })
-            ).rejects.toThrow('E_PROVIDER');
+                callProvider(
+                    { provider: 'openai', providerConfig: { openai: { apiKey: 'test' } } },
+                    {
+                        model: 'gpt-4',
+                        thread: [{ role: 'user', content: 'Test' }],
+                        maxTokens: 100
+                    }
+                )
+            ).rejects.toThrow('API Error');
         });
     });
 });

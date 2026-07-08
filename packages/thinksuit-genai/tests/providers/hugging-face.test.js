@@ -67,7 +67,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createHuggingFaceProvider } = await import(
-                    '../../../engine/providers/hugging-face.js'
+                    '../../src/providers/hugging-face.js'
                 );
                 const provider = createHuggingFaceProvider({ apiKey: 'hf_test_token' });
 
@@ -160,7 +160,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createHuggingFaceProvider } = await import(
-                    '../../../engine/providers/hugging-face.js'
+                    '../../src/providers/hugging-face.js'
                 );
                 const provider = createHuggingFaceProvider({ apiKey: 'hf_test_token' });
 
@@ -260,7 +260,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createHuggingFaceProvider } = await import(
-                    '../../../engine/providers/hugging-face.js'
+                    '../../src/providers/hugging-face.js'
                 );
                 const provider = createHuggingFaceProvider({ apiKey: 'hf_test_token' });
 
@@ -338,7 +338,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createHuggingFaceProvider } = await import(
-                    '../../../engine/providers/hugging-face.js'
+                    '../../src/providers/hugging-face.js'
                 );
                 const provider = createHuggingFaceProvider({ apiKey: 'hf_test_token' });
 
@@ -401,7 +401,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createHuggingFaceProvider } = await import(
-                    '../../../engine/providers/hugging-face.js'
+                    '../../src/providers/hugging-face.js'
                 );
                 const provider = createHuggingFaceProvider({ apiKey: 'hf_test_token' });
 
@@ -434,7 +434,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createHuggingFaceProvider } = await import(
-                    '../../../engine/providers/hugging-face.js'
+                    '../../src/providers/hugging-face.js'
                 );
                 const provider = createHuggingFaceProvider({ apiKey: 'hf_test_token' });
 
@@ -460,7 +460,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createHuggingFaceProvider } = await import(
-                    '../../../engine/providers/hugging-face.js'
+                    '../../src/providers/hugging-face.js'
                 );
                 const provider = createHuggingFaceProvider({ apiKey: 'hf_test_token' });
 

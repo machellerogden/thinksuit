@@ -1,22 +1,54 @@
 /**
- * Worker process for Granite provider
- * Runs ONNX model in isolated process to contain crashes
+ * Resident worker process for the ONNX provider.
+ *
+ * Runs ONNX models in an isolated process to contain crashes, and stays alive
+ * between requests holding loaded models warm. Models are cached by
+ * `${modelId}:${dtype}` with an LRU cap (ONNX_MAX_MODELS, default 1). The
+ * process never exits after a response — ONNX Runtime crashes on teardown, so
+ * teardown never happens; the supervisor kills us on abort or parent exit.
  */
 import { AutoModelForCausalLM, AutoTokenizer, env } from '@huggingface/transformers';
 
 env.cacheDir = './.cache/transformers';
 
-// Listen for requests from parent
+const MAX_MODELS = Math.max(1, parseInt(process.env.ONNX_MAX_MODELS, 10) || 1);
+
+// key `${modelId}:${dtype}` -> { model, tokenizer }; Map order doubles as LRU
+const models = new Map();
+
+async function getModel(modelId, dtype) {
+    const key = `${modelId}:${dtype}`;
+
+    if (models.has(key)) {
+        // LRU touch
+        const entry = models.get(key);
+        models.delete(key);
+        models.set(key, entry);
+        return { ...entry, loadMs: 0 };
+    }
+
+    const start = Date.now();
+    const model = await AutoModelForCausalLM.from_pretrained(modelId, {
+        dtype,
+        device: 'cpu'
+    });
+    const tokenizer = await AutoTokenizer.from_pretrained(modelId);
+
+    while (models.size >= MAX_MODELS) {
+        const oldest = models.keys().next().value;
+        models.delete(oldest);
+    }
+    models.set(key, { model, tokenizer });
+
+    return { model, tokenizer, loadMs: Date.now() - start };
+}
+
+// Listen for requests from the supervisor
 process.on('message', async (request) => {
     const { id, modelId, dtype, params } = request;
 
     try {
-        // Load model
-        const model = await AutoModelForCausalLM.from_pretrained(modelId, {
-            dtype,
-            device: 'cpu'
-        });
-        const tokenizer = await AutoTokenizer.from_pretrained(modelId);
+        const { model, tokenizer, loadMs } = await getModel(modelId, dtype);
 
         // Transform thread - start with system instructions if provided
         const messages = [];
@@ -103,10 +135,11 @@ process.on('message', async (request) => {
             finishReason = 'complete';
         }
 
-        // Send response
+        // Send response — and stay resident for the next request
         process.send({
             id,
             success: true,
+            loadedModels: [...models.keys()],
             result: {
                 output: cleanedOutput,
                 usage: {
@@ -117,24 +150,31 @@ process.on('message', async (request) => {
                 finishReason,
                 toolCalls,
                 original: {
-                    generatedText,
-                    generationTime,
-                    dtype
+                    request: {
+                        modelId,
+                        dtype,
+                        maxTokens: params.maxTokens || 2048,
+                        messageCount: messages.length,
+                        toolCount: tools?.length || 0
+                    },
+                    response: {
+                        generatedText,
+                        generationTime,
+                        loadMs
+                    }
                 }
             }
         });
-
-        // Exit cleanly - let ONNX crash happen after we've sent the response
-        process.exit(0);
-
     } catch (error) {
+        // Report and stay alive — a failed load or generation must not cost the
+        // other cached models their residency.
         process.send({
             id,
             success: false,
             error: error.message,
-            stack: error.stack
+            stack: error.stack,
+            loadedModels: [...models.keys()]
         });
-        process.exit(1);
     }
 });
 

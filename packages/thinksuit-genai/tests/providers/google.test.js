@@ -64,7 +64,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createGoogleProvider } = await import(
-                    '../../../engine/providers/google.js'
+                    '../../src/providers/google.js'
                 );
                 const provider = createGoogleProvider({
                     projectId: 'test-project',
@@ -134,7 +134,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createGoogleProvider } = await import(
-                    '../../../engine/providers/google.js'
+                    '../../src/providers/google.js'
                 );
                 const provider = createGoogleProvider({
                     projectId: 'test-project',
@@ -190,7 +190,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createGoogleProvider } = await import(
-                    '../../../engine/providers/google.js'
+                    '../../src/providers/google.js'
                 );
                 const provider = createGoogleProvider({
                     projectId: 'test-project',
@@ -284,7 +284,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createGoogleProvider } = await import(
-                    '../../../engine/providers/google.js'
+                    '../../src/providers/google.js'
                 );
                 const provider = createGoogleProvider({
                     projectId: 'test-project',
@@ -354,7 +354,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createGoogleProvider } = await import(
-                    '../../../engine/providers/google.js'
+                    '../../src/providers/google.js'
                 );
                 const provider = createGoogleProvider({
                     projectId: 'test-project',
@@ -386,7 +386,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createGoogleProvider } = await import(
-                    '../../../engine/providers/google.js'
+                    '../../src/providers/google.js'
                 );
                 const provider = createGoogleProvider({
                     projectId: 'test-project',
@@ -408,7 +408,7 @@ describe('Provider Abstraction', () => {
                 }));
 
                 const { createGoogleProvider } = await import(
-                    '../../../engine/providers/google.js'
+                    '../../src/providers/google.js'
                 );
 
                 expect(() => {
@@ -424,7 +424,7 @@ describe('Provider Abstraction', () => {
                 GoogleGenAI: class GoogleGenAI {}
             }));
 
-            const { createProvider } = await import('../../../engine/providers/index.js');
+            const { createProvider } = await import('../../src/providers/index.js');
 
             const provider = createProvider({
                 provider: 'google',
@@ -445,7 +445,7 @@ describe('Provider Abstraction', () => {
                 default: class OpenAI {}
             }));
 
-            const { createProvider } = await import('../../../engine/providers/index.js');
+            const { createProvider } = await import('../../src/providers/index.js');
 
             const provider = createProvider({
                 provider: 'openai',

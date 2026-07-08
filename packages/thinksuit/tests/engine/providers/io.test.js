@@ -1,54 +1,116 @@
-import { describe, it, expect } from 'vitest';
-import { cleanThreadForProvider } from '../../../engine/providers/io.js';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-describe('cleanThreadForProvider', () => {
-    it('extracts the last system message as systemInstructions and drops it from the thread', () => {
-        const { systemInstructions, thread } = cleanThreadForProvider([
-            { role: 'system', content: 'be nice' },
-            { role: 'user', content: 'hi' }
-        ]);
-        expect(systemInstructions).toBe('be nice');
-        expect(thread).toEqual([{ role: 'user', content: 'hi' }]);
+vi.mock('thinksuit-genai', () => ({
+    callProvider: vi.fn()
+}));
+
+import { callProvider } from 'thinksuit-genai';
+import { callLLM } from '../../../engine/providers/io.js';
+import { PROCESSING_EVENTS } from '../../../engine/constants/events.js';
+
+function makeContext() {
+    return {
+        config: {
+            provider: 'openai',
+            providerConfig: { openai: { apiKey: 'test-key' } },
+            module: 'unrelated-engine-config'
+        },
+        execLogger: {
+            debug: vi.fn(),
+            info: vi.fn(),
+            warn: vi.fn(),
+            error: vi.fn()
+        },
+        abortSignal: new AbortController().signal
+    };
+}
+
+describe('callLLM adapter (engine → thinksuit-genai)', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
     });
 
-    it('merges adjacent same-role plain-text messages', () => {
-        const { thread } = cleanThreadForProvider([
-            { role: 'user', content: 'one' },
-            { role: 'user', content: 'two' }
-        ]);
-        expect(thread).toEqual([{ role: 'user', content: 'one\n\ntwo' }]);
+    it('narrows config, threads the abort signal, and passes the result through', async () => {
+        const response = {
+            output: 'hi',
+            usage: { prompt: 1, completion: 2 },
+            model: 'gpt-4o-mini',
+            finishReason: 'end_turn',
+            original: { request: { model: 'gpt-4o-mini' }, response: { id: 'r1' } }
+        };
+        callProvider.mockResolvedValue(response);
+
+        const ctx = makeContext();
+        const params = { model: 'gpt-4o-mini', thread: [], maxTokens: 100 };
+        const result = await callLLM(ctx, params);
+
+        expect(result).toBe(response);
+        expect(callProvider).toHaveBeenCalledWith(
+            { provider: 'openai', providerConfig: { openai: { apiKey: 'test-key' } } },
+            params,
+            { abortSignal: ctx.abortSignal }
+        );
     });
 
-    it('strips the semantic property', () => {
-        const { thread } = cleanThreadForProvider([
-            { role: 'user', content: 'hi', semantic: 'input' }
-        ]);
-        expect(thread).toEqual([{ role: 'user', content: 'hi' }]);
+    it('merges toolSchemas into the call params', async () => {
+        callProvider.mockResolvedValue({ output: '', original: {} });
+
+        const ctx = makeContext();
+        const toolSchemas = { my_tool: { description: 'd', inputSchema: {} } };
+        await callLLM(ctx, { model: 'm', thread: [], maxTokens: 10 }, toolSchemas);
+
+        expect(callProvider.mock.calls[0][1]).toMatchObject({ toolSchemas });
     });
 
-    it('keeps parallel tool results distinct — never merges them', () => {
-        // The bug: adjacent tool messages were concatenated, dropping all but the first
-        // tool_call_id and orphaning the other tool_use blocks.
-        const { thread } = cleanThreadForProvider([
-            { role: 'assistant', content: '', tool_calls: [{ id: 'a' }, { id: 'b' }] },
-            { role: 'tool', tool_call_id: 'a', content: 'result a' },
-            { role: 'tool', tool_call_id: 'b', content: 'result b' }
-        ]);
-        expect(thread).toEqual([
-            { role: 'assistant', content: '', tool_calls: [{ id: 'a' }, { id: 'b' }] },
-            { role: 'tool', tool_call_id: 'a', content: 'result a' },
-            { role: 'tool', tool_call_id: 'b', content: 'result b' }
+    it('re-emits provider.api.request/response trace events from the normalized original', async () => {
+        const original = { request: { input: 'x' }, response: { output: 'y' } };
+        callProvider.mockResolvedValue({ output: 'ok', original });
+
+        const ctx = makeContext();
+        await callLLM(ctx, { model: 'm', thread: [], maxTokens: 10 });
+
+        const events = ctx.execLogger.info.mock.calls.map(([entry]) => entry);
+        expect(events).toEqual([
+            expect.objectContaining({
+                event: PROCESSING_EVENTS.PROVIDER_API_REQUEST,
+                data: original.request
+            }),
+            expect.objectContaining({
+                event: PROCESSING_EVENTS.PROVIDER_API_RESPONSE,
+                data: original.response
+            })
         ]);
     });
 
-    it('does not merge an assistant tool-call carrier into adjacent assistant text', () => {
-        const { thread } = cleanThreadForProvider([
-            { role: 'assistant', content: 'thinking' },
-            { role: 'assistant', content: '', tool_calls: [{ id: 'x' }] }
-        ]);
-        expect(thread).toEqual([
-            { role: 'assistant', content: 'thinking' },
-            { role: 'assistant', content: '', tool_calls: [{ id: 'x' }] }
-        ]);
+    it('wraps provider errors with E_PROVIDER and preserves the original error', async () => {
+        const boom = new Error('rate limited');
+        boom.status = 429;
+        callProvider.mockRejectedValue(boom);
+
+        const ctx = makeContext();
+        await expect(
+            callLLM(ctx, { model: 'm', thread: [], maxTokens: 10 })
+        ).rejects.toMatchObject({
+            message: 'E_PROVIDER: rate limited',
+            originalError: boom
+        });
+    });
+
+    it('traces the wire request of a failed call when the provider attached it', async () => {
+        const boom = new Error('bad request');
+        boom.request = { model: 'm', input: 'the wire request' };
+        callProvider.mockRejectedValue(boom);
+
+        const ctx = makeContext();
+        await expect(callLLM(ctx, { model: 'm', thread: [], maxTokens: 10 })).rejects.toThrow(
+            'E_PROVIDER'
+        );
+
+        expect(ctx.execLogger.info).toHaveBeenCalledWith(
+            expect.objectContaining({
+                event: PROCESSING_EVENTS.PROVIDER_API_REQUEST,
+                data: boom.request
+            })
+        );
     });
 });

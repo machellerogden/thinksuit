@@ -1,6 +1,4 @@
 import OpenAI from 'openai';
-import { PROCESSING_EVENTS } from '../constants/events.js';
-
 
 // Model metadata for capabilities
 const MODEL_METADATA = {
@@ -209,18 +207,11 @@ export const createOpenAIProvider = (config) => {
     const client = new OpenAI({ apiKey });
 
     return {
-        async callLLM(machineContext, params) {
-            const { execLogger, abortSignal } = machineContext;
+        async callLLM(ctx, params) {
+            const { abortSignal } = ctx || {};
 
             // Transform params to API request format
             const apiRequest = transformRequest(params);
-
-            // Log request
-            execLogger.info({
-                event: PROCESSING_EVENTS.PROVIDER_API_REQUEST,
-                msg: 'OpenAI API request',
-                data: apiRequest
-            });
 
             // Call OpenAI Responses API with abort signal support
             const options = {};
@@ -228,13 +219,14 @@ export const createOpenAIProvider = (config) => {
                 // OpenAI SDK supports AbortSignal in request options
                 options.signal = abortSignal;
             }
-            const apiResponse = await client.responses.create(apiRequest, options);
-
-            execLogger.info({
-                event: PROCESSING_EVENTS.PROVIDER_API_RESPONSE,
-                msg: 'OpenAI API response',
-                data: apiResponse
-            });
+            let apiResponse;
+            try {
+                apiResponse = await client.responses.create(apiRequest, options);
+            } catch (error) {
+                // Attach the wire request so callers can trace/report the failed call
+                error.request = apiRequest;
+                throw error;
+            }
 
             // Transform response to uniform format
             const transformed = transformResponse(apiResponse);

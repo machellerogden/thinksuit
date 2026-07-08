@@ -1,5 +1,4 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { PROCESSING_EVENTS } from '../constants/events.js';
 
 // Model metadata for capabilities (see https://platform.claude.com/docs/en/docs/about-claude/models/overview)
 const MODEL_METADATA = {
@@ -199,27 +198,22 @@ export const createAnthropicProvider = (config) => {
     const client = new Anthropic({ apiKey });
 
     return {
-        async callLLM(machineContext, params) {
-            const { execLogger, abortSignal } = machineContext;
+        async callLLM(ctx, params) {
+            const { abortSignal } = ctx || {};
 
             const apiRequest = transformRequest(params);
-
-            execLogger.info({
-                event: PROCESSING_EVENTS.PROVIDER_API_REQUEST,
-                msg: 'Anthropic API request',
-                data: apiRequest
-            });
 
             const options = {};
             if (abortSignal) options.signal = abortSignal;
 
-            const apiResponse = await client.messages.create(apiRequest, options);
-
-            execLogger.info({
-                event: PROCESSING_EVENTS.PROVIDER_API_RESPONSE,
-                msg: 'Anthropic API response',
-                data: apiResponse
-            });
+            let apiResponse;
+            try {
+                apiResponse = await client.messages.create(apiRequest, options);
+            } catch (error) {
+                // Attach the wire request so callers can trace/report the failed call
+                error.request = apiRequest;
+                throw error;
+            }
 
             const transformed = transformResponse(apiResponse, params);
             return {

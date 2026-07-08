@@ -16,7 +16,6 @@ export const createHuggingFaceProvider = (config) => {
     return createOpenAIChatCompletionsProvider({
         apiKey: config?.apiKey,
         baseURL: config?.baseURL || 'https://router.huggingface.co/v1',
-        modelMetadata: MODEL_METADATA,
-        providerName: 'HuggingFace Router'
+        modelMetadata: MODEL_METADATA
     });
 };

@@ -1,5 +1,4 @@
 import OpenAI from 'openai';
-import { PROCESSING_EVENTS } from '../constants/events.js';
 
 /**
  * Generic OpenAI-compatible provider factory
@@ -175,10 +174,9 @@ const transformResponse = (apiResponse) => {
  * @param {string} config.apiKey - API key (optional for local providers)
  * @param {string} config.baseURL - Base URL for the API endpoint
  * @param {Object} config.modelMetadata - Model capabilities metadata
- * @param {string} config.providerName - Name for logging
  */
 export const createOpenAIChatCompletionsProvider = (config) => {
-    const { apiKey, baseURL, modelMetadata = {}, providerName = 'OpenAI Chat Completions' } = config || {};
+    const { apiKey, baseURL, modelMetadata = {} } = config || {};
 
     const client = new OpenAI({
         baseURL: baseURL || 'http://localhost:8000/v1',
@@ -186,8 +184,8 @@ export const createOpenAIChatCompletionsProvider = (config) => {
     });
 
     return {
-        async callLLM(machineContext, params) {
-            const { execLogger, abortSignal } = machineContext;
+        async callLLM(ctx, params) {
+            const { abortSignal } = ctx || {};
 
             // Pass model metadata through to transformRequest
             const paramsWithMetadata = {
@@ -198,32 +196,28 @@ export const createOpenAIChatCompletionsProvider = (config) => {
             // Transform params to API request format
             const apiRequest = transformRequest(paramsWithMetadata);
 
-            // Log request
-            execLogger.info({
-                event: PROCESSING_EVENTS.PROVIDER_API_REQUEST,
-                msg: `${providerName} API request`,
-                data: apiRequest
-            });
-
             // Call API with abort signal support
             const options = {};
             if (abortSignal) {
                 options.signal = abortSignal;
             }
-            const apiResponse = await client.chat.completions.create(apiRequest, options);
-
-            // Log response
-            execLogger.info({
-                event: PROCESSING_EVENTS.PROVIDER_API_RESPONSE,
-                msg: `${providerName} API response`,
-                data: apiResponse
-            });
+            let apiResponse;
+            try {
+                apiResponse = await client.chat.completions.create(apiRequest, options);
+            } catch (error) {
+                // Attach the wire request so callers can trace/report the failed call
+                error.request = apiRequest;
+                throw error;
+            }
 
             // Transform response to uniform format
             const transformed = transformResponse(apiResponse);
             return {
                 ...transformed,
-                original: apiResponse
+                original: {
+                    request: apiRequest,
+                    response: apiResponse
+                }
             };
         },
 

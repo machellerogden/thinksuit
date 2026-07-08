@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 
-import { createOpenAIProvider } from '../../engine/providers/openai.js';
-import { createGoogleProvider } from '../../engine/providers/google.js';
-import { callLLM } from '../../engine/providers/io.js';
+import { createOpenAIProvider } from '../../src/providers/openai.js';
+import { createGoogleProvider } from '../../src/providers/google.js';
+import { callProvider } from '../../src/core.js';
 
 // Integration tests that call real APIs
 // Only run when explicitly enabled via TEST_INTEGRATION=true
@@ -21,7 +21,7 @@ describe.skipIf(!shouldRunIntegration)('OpenAI Provider Integration', () => {
         provider = createOpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
         config = {
             provider: 'openai',
-            openai: { apiKey: process.env.OPENAI_API_KEY }
+            providerConfig: { openai: { apiKey: process.env.OPENAI_API_KEY } }
         };
     });
 
@@ -75,8 +75,8 @@ describe.skipIf(!shouldRunIntegration)('OpenAI Provider Integration', () => {
             expect(['stop', 'length']).toContain(result.finishReason);
         }, 10000);
 
-        it('should work through callLLM function with token clamping', async () => {
-            const result = await callLLM(config, {
+        it('should work through callProvider function with token clamping', async () => {
+            const result = await callProvider(config, {
                 model: 'gpt-4o-mini',
                 system: 'Respond with: "IO test works"',
                 user: 'Please respond',
@@ -251,16 +251,18 @@ describe.skipIf(!shouldRunIntegration)('Google Provider Integration', () => {
             expect(['complete', 'max_tokens']).toContain(result.finishReason);
         }, 30000);
 
-        it('should work through callLLM function with token clamping', async () => {
+        it('should work through callProvider function with token clamping', async () => {
             const config = {
                 provider: 'google',
-                google: {
-                    projectId: process.env.GOOGLE_CLOUD_PROJECT,
-                    location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1'
+                providerConfig: {
+                    google: {
+                        projectId: process.env.GOOGLE_CLOUD_PROJECT,
+                        location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1'
+                    }
                 }
             };
 
-            const result = await callLLM(machineContext, {
+            const result = await callProvider(config, {
                 model: 'gemini-2.5-pro',
                 thread: [
                     { role: 'system', content: 'Respond with: "IO test works"' },

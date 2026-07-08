@@ -47,7 +47,7 @@ describe('Provider Abstraction', () => {
                 mockSdk();
 
                 const { createAnthropicProvider } = await import(
-                    '../../../engine/providers/anthropic.js'
+                    '../../src/providers/anthropic.js'
                 );
                 const provider = createAnthropicProvider({ apiKey: 'test-key' });
 
@@ -89,7 +89,7 @@ describe('Provider Abstraction', () => {
                 mockSdk();
 
                 const { createAnthropicProvider } = await import(
-                    '../../../engine/providers/anthropic.js'
+                    '../../src/providers/anthropic.js'
                 );
                 const provider = createAnthropicProvider({ apiKey: 'test-key' });
 
@@ -118,7 +118,7 @@ describe('Provider Abstraction', () => {
                 mockSdk();
 
                 const { createAnthropicProvider } = await import(
-                    '../../../engine/providers/anthropic.js'
+                    '../../src/providers/anthropic.js'
                 );
                 const provider = createAnthropicProvider({ apiKey: 'test-key' });
 
@@ -159,7 +159,7 @@ describe('Provider Abstraction', () => {
                 mockSdk();
 
                 const { createAnthropicProvider } = await import(
-                    '../../../engine/providers/anthropic.js'
+                    '../../src/providers/anthropic.js'
                 );
                 const provider = createAnthropicProvider({ apiKey: 'test-key' });
 
@@ -213,7 +213,7 @@ describe('Provider Abstraction', () => {
                 mockSdk();
 
                 const { createAnthropicProvider } = await import(
-                    '../../../engine/providers/anthropic.js'
+                    '../../src/providers/anthropic.js'
                 );
                 const provider = createAnthropicProvider({ apiKey: 'test-key' });
 
@@ -266,7 +266,7 @@ describe('Provider Abstraction', () => {
                 mockSdk();
 
                 const { createAnthropicProvider } = await import(
-                    '../../../engine/providers/anthropic.js'
+                    '../../src/providers/anthropic.js'
                 );
                 const provider = createAnthropicProvider({ apiKey: 'test-key' });
 
@@ -308,7 +308,7 @@ describe('Provider Abstraction', () => {
             it('should return capabilities for known models', async () => {
                 mockSdk();
                 const { createAnthropicProvider } = await import(
-                    '../../../engine/providers/anthropic.js'
+                    '../../src/providers/anthropic.js'
                 );
                 const provider = createAnthropicProvider({ apiKey: 'test-key' });
 
@@ -327,7 +327,7 @@ describe('Provider Abstraction', () => {
             it('should return default capabilities for unknown models', async () => {
                 mockSdk();
                 const { createAnthropicProvider } = await import(
-                    '../../../engine/providers/anthropic.js'
+                    '../../src/providers/anthropic.js'
                 );
                 const provider = createAnthropicProvider({ apiKey: 'test-key' });
 
@@ -348,7 +348,7 @@ describe('Provider Abstraction', () => {
                 }
             }));
 
-            const { createProvider } = await import('../../../engine/providers/index.js');
+            const { createProvider } = await import('../../src/providers/index.js');
 
             const provider = createProvider({
                 provider: 'anthropic',

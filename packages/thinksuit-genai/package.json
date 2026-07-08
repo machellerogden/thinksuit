@@ -14,8 +14,10 @@
     },
     "homepage": "https://github.com/machellerogden/thinksuit/tree/main/packages/thinksuit-genai#readme",
     "exports": {
+        ".": "./src/index.js",
         "./secrets": "./src/secrets.js"
     },
+    "main": "./src/index.js",
     "scripts": {
         "test": "vitest --config ../../vitest.config.js"
     },
@@ -30,6 +32,12 @@
         "email": "mac@machellerogden.com"
     },
     "license": "Apache-2.0",
+    "dependencies": {
+        "@anthropic-ai/sdk": "^0.105.0",
+        "@google/genai": "^1.31.0",
+        "@huggingface/transformers": "^4.2.0",
+        "openai": "^5.20.1"
+    },
     "engines": {
         "node": ">=22"
     }

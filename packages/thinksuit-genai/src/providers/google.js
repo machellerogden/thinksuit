@@ -1,5 +1,4 @@
 import { GoogleGenAI } from '@google/genai';
-import { PROCESSING_EVENTS } from '../constants/events.js';
 
 // Model metadata for capabilities
 // Sources: https://ai.google.dev/gemini-api/docs/models
@@ -284,18 +283,11 @@ export const createGoogleProvider = (config) => {
     });
 
     return {
-        async callLLM(machineContext, params) {
-            const { execLogger, abortSignal } = machineContext;
+        async callLLM(ctx, params) {
+            const { abortSignal } = ctx || {};
 
             // Transform params to API request format
             const apiRequest = transformRequest(params);
-
-            // Log request
-            execLogger.info({
-                event: PROCESSING_EVENTS.PROVIDER_API_REQUEST,
-                msg: 'Google GenAI API request',
-                data: apiRequest
-            });
 
             try {
                 // Call Google GenAI with abort signal support
@@ -320,22 +312,22 @@ export const createGoogleProvider = (config) => {
                     apiResponse = await ai.models.generateContent(apiRequest);
                 }
 
-                // Log response
-                execLogger.info({
-                    event: PROCESSING_EVENTS.PROVIDER_API_RESPONSE,
-                    msg: 'Google GenAI API response',
-                    data: apiResponse
-                });
-
                 // Transform response to uniform format
                 const transformed = transformResponse(apiResponse);
                 return {
                     ...transformed,
-                    original: apiResponse
+                    original: {
+                        request: apiRequest,
+                        response: apiResponse
+                    }
                 };
             } catch (error) {
-                // Enhance error message with context
-                throw new Error(`Google GenAI API call failed: ${error.message}`);
+                // Enhance error message with context; attach the wire request so
+                // callers can trace/report the failed call
+                const wrapped = new Error(`Google GenAI API call failed: ${error.message}`);
+                wrapped.request = apiRequest;
+                wrapped.cause = error;
+                throw wrapped;
             }
         },
 
