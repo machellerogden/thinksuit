@@ -20,6 +20,11 @@ personal operating system (vision: `docs/vision.md`; what-goes-where:
 
 **Service ops go through `thinkctl`** (`up`/`down`/`start`/`stop`/`status`/`ls`/`logs`) — never raw `launchctl`.
 
+**These packages are one product**, not separate scopes. Package boundaries are
+implementation structure; a feature is planned and delivered across *every* surface it
+touches as one unit — engine, config schema, console/CLI, status, and docs — never
+engine-first with the UI or observability treated as a separate follow-up.
+
 ## For Development Details
 
 See **CONTRIBUTING.md** for:
