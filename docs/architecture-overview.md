@@ -34,7 +34,7 @@ device it talks to. (OS metaphor is a lens — see [vision.md](./vision.md).)
                              │ forks a worker per turn
                              ▼
                   thinksuit  (engine = kernel)   ──reads──►  ~/.thinksuit.json   (registry)
-           resolve plan → executePlan → executeTask         thinksuit-genai/secrets (keyring)
+           resolve plan → executePlan → executeTask         thinksuit-genai/env  (env keyring)
                              │
               ┌──────────────┴───────────────┐
               ▼                               ▼
@@ -46,7 +46,7 @@ device it talks to. (OS metaphor is a lens — see [vision.md](./vision.md).)
 
 | Package | Role (OS lens) | Responsibility | Key interface |
 |---|---|---|---|
-| `thinksuit` | kernel | Plan composer + agent loop; config registry; secrets keyring; session routing | `schedule()`; `buildConfig`/`readUserConfig`/`patchUserConfig`; `resolveSecret`; `loadModules`; `subscribeToSession`/`getSessionStatus`/`getTrace`; `callLLM`. bin: `thinksuit-exec` |
+| `thinksuit` | kernel | Plan composer + agent loop; config registry; session routing | `schedule()`; `buildConfig`/`readUserConfig`/`patchUserConfig`; `resolveEnv`; `loadModules`; `subscribeToSession`/`getSessionStatus`/`getTrace`; `callLLM`. bin: `thinksuit-exec` |
 | `thinksuit-modules` | installed behaviors | Cognitive roles, prompts, `composeInstructions`, and a plan library; the `mu` module owns its `modalities`/`frames` | default export (the module map) |
 | `thinksuit-broker` | process host / scheduler | Resident daemon; forks a worker per turn (`src/worker.js`); control channel; queue; per-session workspace provisioning | client export: `run`/`tail`/`interrupt`/`approve`/`status`/`log`/`awaitTurn`; `./broker` daemon; `./service` definition (managed by thinkctl) |
 | `thinksuit-cli` | shell | Terminal REPL + one-shot runner | bin: `thinksuit` |
@@ -307,6 +307,7 @@ A block produces a normal error response (`policyBlocked`, code `E_DEPTH`/`E_FAN
 3. **Tool Approval**: User approval required for tool execution (configurable)
 4. **Policy Override**: System can override module decisions based on user policy
 5. **Audit Trail**: Complete trace logging for security analysis
-6. **Secrets never enter logs**: Provider credentials flow through config in-process
-   only; the worker resolves them by name (`resolveSecret`) and they are never
-   serialized into the session JSONL on disk.
+6. **Secrets never enter logs**: Provider credentials live only in the genai
+   service, which resolves them by name (`resolveEnv`, environment first then
+   `~/.thinksuit/.env`); they never reach the engine, broker, or console
+   processes and are never serialized into the session JSONL on disk.

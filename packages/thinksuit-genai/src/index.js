@@ -9,4 +9,4 @@ export {
 } from './providers/index.js';
 export { getONNXWorkerStatus } from './providers/onnx.js';
 export { buildProviderConfig } from './config.js';
-export { resolveSecret, clearSecretsCache } from './secrets.js';
+export { resolveEnv, clearEnvCache } from './env.js';

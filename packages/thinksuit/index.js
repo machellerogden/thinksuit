@@ -20,7 +20,7 @@ export { createSessionSubscriber, subscribeToSession } from './engine/subscribe.
 export { getTrace } from './engine/traces.js';
 export { resolveApproval, getApprovalInfo } from './engine/approval/async.js';
 export { buildConfig, readUserConfig, patchUserConfig } from './engine/config.js';
-export { resolveSecret } from 'thinksuit-genai/secrets';
+export { resolveEnv } from 'thinksuit-genai/env';
 export { loadModule } from './engine/run.js';
 export { callLLM } from './engine/providers/io.js';
 export { loadPlans, getPlan, savePlan, deletePlan } from './plans.js';

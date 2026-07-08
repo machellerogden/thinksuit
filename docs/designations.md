@@ -69,7 +69,7 @@ independently, not as a per-session attribute.
      `~/.thinksuit.json` and `console/settings.json`); `system` was rejected as
      vague.
    - Precedent for a small owned store already exists: `console/settings.json`,
-     `secrets.env`, and the wakeword store's "two homes by design"
+     `~/.thinksuit/.env`, and the wakeword store's "two homes by design"
      (`thinksuit-voice/src/wakewords/store.js:1-10`).
 6. **`mainSessionId` retires** from both `~/.thinksuit.json` and
    `userConfig.v1.json` (formerly `config.v1.json`), replaced by `designations` in

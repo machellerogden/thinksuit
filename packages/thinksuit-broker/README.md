@@ -78,33 +78,20 @@ The daemon also stays runnable directly for debugging: `node bin/service.mjs`. S
 the [Service Management Guide](../../docs/SERVICE_MANAGEMENT.md) for the full verb
 set and restart policy.
 
-## Configuration & secrets
+## Configuration & credentials
 
 Provider/model selection lives in `~/.thinksuit.json` (and can be overridden
-per run). **Secrets never live in `~/.thinksuit.json`.** thinksuit resolves each
-secret *by name* at startup: from the **environment** first, then from a
-vendor-neutral **`~/.thinksuit/secrets.env`** (`KEY=value`, override the path with
-`THINKSUIT_SECRETS_FILE`). Resolution is per-name, so a service only ever loads
-the keys it actually uses — the voice and tty agents never see `OPENAI_API_KEY`.
+per run). **Credentials never live in `~/.thinksuit.json`** — and they never
+pass through the broker at all. The **genai service** (`thinksuit-genai`)
+resolves each value *by name* at boot: from the **environment** first, then
+from ThinkSuit's env file **`~/.thinksuit/.env`** (`KEY=value`; override the
+path with `THINKSUIT_ENV_FILE`). No other process — broker, worker, console,
+voice — ever sees a key. See the `thinksuit-genai` package README for how the
+env file is populated (`etc/env-pull.sh` there is a 1Password example).
 
-How `~/.thinksuit/secrets.env` gets populated is **your** concern, not
-thinksuit's: a secrets manager, a Keychain reader, hand-editing — anything that
-writes the file. Because it persists on disk, services read it at startup with
-**no per-reboot step** and no shared-environment leakage; the only tradeoff is a
-`600` file at rest.
-
-`etc/secrets-pull.sh` is an **example** (not an installed command) that
-materializes the file from 1Password via `op inject` — copy and adapt it, or
-replace it with whatever your setup uses:
-
-```bash
-# with your 1Password app unlocked (approve once), from the broker package:
-./etc/secrets-pull.sh
-```
-
-If a selected provider's key is set nowhere, the worker fails fast before
-acquiring a session with a clear *"No credential for provider …"* message —
-never a silent half-session.
+If the genai service is down, or the selected provider's credential is set
+nowhere, the worker fails fast **before acquiring a session** with an
+actionable error — never a silent half-session.
 
 For a foreground instance during development:
 

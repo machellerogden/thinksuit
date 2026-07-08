@@ -183,7 +183,7 @@ async function main() {
         if (meta && !meta.configured) {
             console.error(
                 `No credential for provider '${config.provider}'. Set ${meta.credentialEnvs.join(' / ')} ` +
-                    `in the environment or in ~/.thinksuit/secrets.env, then restart the genai ` +
+                    `in the environment or in ~/.thinksuit/.env, then restart the genai ` +
                     `service (thinkctl restart genai).`
             );
             process.exit(1);

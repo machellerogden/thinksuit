@@ -64,26 +64,28 @@ without starting, use `thinkctl install -a` then `thinkctl load -a`.
 **Prerequisites:** macOS, Node ≥ 22, and the monorepo cloned with `npm install` already run.
 
 Two things `thinkctl` deliberately does **not** do — complete them afterward:
-[Secrets](#secrets) and [Microphone permission](#microphone-permission).
+[Environment](#environment-credentials--provider-settings) and
+[Microphone permission](#microphone-permission).
 
-## Secrets
+## Environment (credentials & provider settings)
 
-Secrets are **never** stored in `~/.thinksuit.json`, and `thinkctl` does not provision them —
-this step is always manual. ThinkSuit resolves each secret *by name* at startup: from the
-**environment** first, then from a vendor-neutral **`~/.thinksuit/secrets.env`**
-(`KEY=value` per line; override the path with `THINKSUIT_SECRETS_FILE`). Resolution is
-per-name, so each service loads only the keys it uses — the voice and tty agents never see
-`OPENAI_API_KEY`.
+Credentials are **never** stored in `~/.thinksuit.json`, and `thinkctl` does not provision
+them — this step is always manual. The **genai service** resolves each value *by name* at
+boot: from the **environment** first, then from ThinkSuit's env file **`~/.thinksuit/.env`**
+(`KEY=value` per line; override the path with `THINKSUIT_ENV_FILE`). The file is ThinkSuit's
+environment, not just a secrets store — credentials and plain provider settings
+(`GOOGLE_CLOUD_PROJECT`, `ONNX_DTYPE`, ...) alike. Only the genai daemon reads it for
+provider credentials; the broker, workers, console, and voice never see a key.
 
 ```bash
-printf 'ANTHROPIC_API_KEY=sk-ant-...\nOPENAI_API_KEY=sk-...\n' > ~/.thinksuit/secrets.env
-chmod 600 ~/.thinksuit/secrets.env
-thinkctl start broker   # reload so the worker sees them
+printf 'ANTHROPIC_API_KEY=sk-ant-...\nOPENAI_API_KEY=sk-...\n' > ~/.thinksuit/.env
+chmod 600 ~/.thinksuit/.env
+thinkctl restart genai   # values are read once at boot
 ```
 
 How you populate the file is your concern — e.g. a 1Password `op inject` template (see
-`packages/thinksuit-broker/etc/secrets-pull.sh`). If the selected provider has no
-credential anywhere, the broker worker fails fast with an actionable error rather than
+`packages/thinksuit-genai/etc/env-pull.sh`). If the genai service is down, or the selected
+provider has no credential anywhere, turns fail fast with an actionable error rather than
 starting a half-session.
 
 ## Microphone permission

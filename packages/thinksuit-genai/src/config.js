@@ -1,32 +1,33 @@
-import { resolveSecret } from './secrets.js';
+import { resolveEnv } from './env.js';
 
 /**
- * Assemble the full providerConfig from the environment and the secrets
- * keyring. This is the single credential table for every ThinkSuit process —
- * it replaces the per-process copies that used to live in the engine's
- * config assembly and the broker worker.
+ * Assemble the full providerConfig from ThinkSuit's environment. This is the
+ * single provider-configuration table for every ThinkSuit process — it
+ * replaces the per-process copies that used to live in the engine's config
+ * assembly and the broker worker.
  *
- * Secrets resolve by name via resolveSecret (environment first, then
- * ~/.thinksuit/secrets.env). Read-once semantics: a long-lived process picks
- * up rotated keys on restart.
+ * Every value resolves by name via resolveEnv (process environment first,
+ * then ~/.thinksuit/.env) — credentials and plain settings alike, so the env
+ * file honors everything the error messages name. Read-once semantics: a
+ * long-lived process picks up changes on restart.
  */
 export function buildProviderConfig() {
     return {
         openai: {
-            apiKey: resolveSecret('OPENAI_API_KEY')
+            apiKey: resolveEnv('OPENAI_API_KEY')
         },
         anthropic: {
-            apiKey: resolveSecret('ANTHROPIC_API_KEY')
+            apiKey: resolveEnv('ANTHROPIC_API_KEY')
         },
         google: {
-            projectId: process.env.GOOGLE_CLOUD_PROJECT,
-            location: process.env.GOOGLE_CLOUD_LOCATION || 'global'
+            projectId: resolveEnv('GOOGLE_CLOUD_PROJECT'),
+            location: resolveEnv('GOOGLE_CLOUD_LOCATION') || 'global'
         },
         huggingFace: {
-            apiKey: resolveSecret('HF_TOKEN')
+            apiKey: resolveEnv('HF_TOKEN')
         },
         onnx: {
-            dtype: process.env.ONNX_DTYPE || 'q4'
+            dtype: resolveEnv('ONNX_DTYPE') || 'q4'
         }
     };
 }

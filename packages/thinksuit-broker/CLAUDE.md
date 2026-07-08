@@ -58,7 +58,7 @@ See **../../CONTRIBUTING.md** for repo-wide commands, architecture, and style.
 - `src/paths.js` — socket path resolution (`THINKSUIT_BROKER_SOCK` or default).
 - `bin/service.mjs` — daemon entry (also runnable directly for debugging).
 - `service.js` — the service definition `thinkctl` (`thinksuit-control`) consumes to
-  generate the LaunchAgent plist in code; `etc/secrets-pull.sh` — example secret puller.
+  generate the LaunchAgent plist in code.
 
 ### Workspaces
 
@@ -83,15 +83,12 @@ relative inputs). `status`/`sessions` surface it via `getSessionWorkspace`.
   before emitting `turn.complete`, so clients never hang.
 - **A bad request must not crash the daemon.** All handlers run behind a request
   boundary that converts throws into responses; keep it that way.
-- **Credentials are resolved by name, never stored in `~/.thinksuit.json`.** The
-  worker (`mergeProviderConfig`) fills any provider credential the client omitted
-  via `resolveSecret(name)` (exported from `thinksuit`), which reads the
-  environment first, then the vendor-neutral `~/.thinksuit/secrets.env`. Resolution
-  is per-name, so a service only loads the keys it uses. If the selected provider
-  has no credential anywhere, the worker **fails fast before acquiring a session**
-  (sends `error` → 409) with an actionable message — never a silent half-session.
-  How `secrets.env` is populated is the operator's concern (see
-  `etc/secrets-pull.sh` for a 1Password example); thinksuit knows of no vendor.
+- **Credentials never pass through the broker.** The genai service resolves and
+  holds them (environment first, then `~/.thinksuit/.env` — see the
+  `thinksuit-genai` package). The worker checks the service's `/providers` route
+  **before acquiring a session**: service down or provider unconfigured → an
+  actionable `error` (409) — never a silent half-session, never a key in a
+  worker process.
 
 ### Testing (coding agents)
 

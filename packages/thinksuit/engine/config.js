@@ -10,7 +10,7 @@ import {
     DEFAULT_POLICY
 } from './constants/defaults.js';
 import { validateUserConfig, formatValidationErrors } from '../schemas/validate.js';
-import { resolveSecret } from 'thinksuit-genai/secrets';
+import { resolveEnv } from 'thinksuit-genai/env';
 
 import meow from 'meow';
 
@@ -396,13 +396,13 @@ function buildConfig(options = {}) {
     };
 
     // Presence-only view of key-bearing providers, resolved by name (so it
-    // honors secrets.env, not just process.env). Booleans only — safe to
+    // honors ~/.thinksuit/.env, not just process.env). Booleans only — safe to
     // serialize across the config boundary. The keys themselves never enter
     // this config: the genai service resolves and holds credentials.
     config.apiKeys = {
-        openai: !!resolveSecret('OPENAI_API_KEY'),
-        anthropic: !!resolveSecret('ANTHROPIC_API_KEY'),
-        huggingFace: !!resolveSecret('HF_TOKEN')
+        openai: !!resolveEnv('OPENAI_API_KEY'),
+        anthropic: !!resolveEnv('ANTHROPIC_API_KEY'),
+        huggingFace: !!resolveEnv('HF_TOKEN')
     };
 
     // Add debug flag from environment

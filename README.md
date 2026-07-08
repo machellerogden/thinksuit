@@ -152,12 +152,12 @@ Run `thinkctl help` for the full verb list (`up`/`down`/`start`/`stop`/`status`/
 
 **Two manual steps remain afterward:**
 
-1. **Secrets** — create `~/.thinksuit/secrets.env` with your provider keys, then
-   restart the broker:
+1. **Environment** — create `~/.thinksuit/.env` with your provider keys (and any
+   provider settings), then restart the genai service:
    ```bash
-   printf 'ANTHROPIC_API_KEY=sk-ant-...\nOPENAI_API_KEY=sk-...\n' > ~/.thinksuit/secrets.env
-   chmod 600 ~/.thinksuit/secrets.env
-   thinkctl start broker
+   printf 'ANTHROPIC_API_KEY=sk-ant-...\nOPENAI_API_KEY=sk-...\n' > ~/.thinksuit/.env
+   chmod 600 ~/.thinksuit/.env
+   thinkctl restart genai
    ```
 2. **Microphone** — on first voice run macOS prompts for mic access; if not, grant
    "ThinkSuit Voice" under System Settings → Privacy & Security → Microphone.
