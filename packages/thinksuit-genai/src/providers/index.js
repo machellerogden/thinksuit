@@ -12,30 +12,35 @@ const PROVIDER_REGISTRY = {
         factory: createOpenAIProvider,
         configKey: 'openai',
         requiresConfig: (config) => !!config?.apiKey,
+        credentialEnvs: ['OPENAI_API_KEY'],
         description: 'OpenAI API (GPT models)'
     },
     'anthropic': {
         factory: createAnthropicProvider,
         configKey: 'anthropic',
         requiresConfig: (config) => !!config?.apiKey,
+        credentialEnvs: ['ANTHROPIC_API_KEY'],
         description: 'Anthropic API (Claude models via Messages API)'
     },
     'google': {
         factory: createGoogleProvider,
         configKey: 'google',
         requiresConfig: (config) => !!config?.projectId,
+        credentialEnvs: ['GOOGLE_CLOUD_PROJECT', 'GOOGLE_CLOUD_LOCATION'],
         description: 'Google (Gemini models via Vertex AI)'
     },
     'hugging-face': {
         factory: createHuggingFaceProvider,
         configKey: 'huggingFace',
         requiresConfig: (config) => !!config?.apiKey,
+        credentialEnvs: ['HF_TOKEN'],
         description: 'HuggingFace Router (various models)'
     },
     'onnx': {
         factory: createONNXProvider,
         configKey: 'onnx',
         requiresConfig: () => true,
+        credentialEnvs: [],
         description: 'Local ONNX models via Transformers.js'
     }
 };
@@ -71,6 +76,7 @@ export const getProviderMetadata = (provider) => {
     return {
         name: provider,
         configKey: entry.configKey,
+        credentialEnvs: entry.credentialEnvs,
         description: entry.description
     };
 };

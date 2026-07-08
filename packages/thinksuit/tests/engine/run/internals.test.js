@@ -24,7 +24,6 @@ describe('run/internals', () => {
             const config = {
                 input: 'test input',
                 provider: 'openai',
-                providerConfig: { openai: { apiKey: 'test-key' } },
                 sessionId: 'test-session'
             };
 
@@ -40,7 +39,6 @@ describe('run/internals', () => {
 
             // Test that provided values are preserved
             expect(result.input).toBe('test input');
-            expect(result.providerConfig.openai.apiKey).toBe('test-key');
             expect(result.sessionId).toBe('test-session');
         });
 
@@ -50,7 +48,6 @@ describe('run/internals', () => {
                 sessionId: 'custom-session',
                 module: 'custom/module.v1',
                 provider: 'anthropic',
-                providerConfig: { anthropic: { apiKey: 'test-key' } },
                 model: 'claude-3',
                 policy: {
                     maxDepth: 10,
@@ -81,7 +78,6 @@ describe('run/internals', () => {
             const config = {
                 input: 'test',
                 provider: 'openai',
-                providerConfig: { openai: { apiKey: 'key' } },
                 sessionId: 'session',
                 policy: {
                     maxDepth: 10
@@ -104,33 +100,10 @@ describe('run/internals', () => {
             expect(() => normalizeConfig(config)).toThrow('Input is required');
         });
 
-        it('should throw error when apiKey is missing for OpenAI provider', () => {
-            const config = {
-                input: 'test',
-                sessionId: 'test-session',
-                provider: 'openai',
-                providerConfig: { openai: {} }
-            };
-
-            expect(() => normalizeConfig(config)).toThrow('OpenAI API key is required');
-        });
-
-        it('should throw error when Google Cloud project is missing for Google provider', () => {
-            const config = {
-                input: 'test',
-                sessionId: 'test-session',
-                provider: 'google',
-                providerConfig: { google: {} }
-            };
-
-            expect(() => normalizeConfig(config)).toThrow('Google Cloud project ID is required');
-        });
-
         it('should throw error when sessionId is missing', () => {
             const config = {
                 input: 'test',
-                provider: 'openai',
-                providerConfig: { openai: { apiKey: 'test-key' } }
+                provider: 'openai'
             };
 
             expect(() => normalizeConfig(config)).toThrow('sessionId is required');
@@ -140,7 +113,6 @@ describe('run/internals', () => {
             const config = {
                 input: 'test',
                 provider: 'openai',
-                providerConfig: { openai: { apiKey: 'test-key' } },
                 sessionId: 'test-session',
                 tools: ['tool1', 'tool2'],
                 autoApproveTools: true,
@@ -158,7 +130,6 @@ describe('run/internals', () => {
             const config = {
                 input: 'test',
                 provider: 'openai',
-                providerConfig: { openai: { apiKey: 'test-key' } },
                 sessionId: 'test-session',
                 allowedTools: ['roll_dice'],
                 cwd: '/test/dir'

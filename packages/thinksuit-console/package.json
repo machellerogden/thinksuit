@@ -55,6 +55,7 @@
         "highlight.js": "^11.11.1",
         "thinksuit": "*",
         "thinksuit-broker": "*",
+        "thinksuit-genai": "*",
         "thinksuit-tty": "*",
         "thinksuit-voice": "*"
     },

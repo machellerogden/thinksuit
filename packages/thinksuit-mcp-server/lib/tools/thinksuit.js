@@ -36,8 +36,7 @@ export function registerThinkSuitTool(server) {
                 // thin client. Base config comes from ~/.thinksuit.json via
                 // buildConfig (mcpServers, provider/model defaults, policy,
                 // allowedDirectories); call-time options override on top. Credentials
-                // are resolved by the worker from the environment /
-                // ~/.thinksuit/secrets.env — never passed from here.
+                // live in the genai service — never passed from here.
                 const base = buildConfig();
                 const { tools, autoApproveTools, maxDepth, maxFanout, ...rest } = options;
                 const config = {
@@ -45,7 +44,7 @@ export function registerThinkSuitTool(server) {
                     modulesPackage: base.modulesPackage,
                     provider: base.provider,
                     model: base.model,
-                    // no providerConfig: per the note above, the worker resolves secrets itself; sending stale keys causes 401s after rotation.
+                    // no credentials ride this config: per the note above, the genai service holds them.
                     cwd: base.cwd,
                     allowedDirectories: base.allowedDirectories,
                     mcpServers: base.mcpServers,

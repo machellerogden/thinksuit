@@ -144,7 +144,7 @@ async function main() {
                 modulesPackage: baseConfig.modulesPackage,
                 provider: baseConfig.provider,
                 model: baseConfig.model,
-                // no providerConfig cached: the broker worker resolves secrets itself; a long-lived REPL holding stale keys causes 401s after rotation.
+                // no credentials cached: the genai service resolves and holds them; a long-lived REPL never touches a key.
                 tools: baseConfig.allowedTools || [],
                 allowedDirectories: baseConfig.allowedDirectories,
                 mcpServers: baseConfig.mcpServers,

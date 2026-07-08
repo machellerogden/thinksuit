@@ -60,7 +60,6 @@ export function normalizeConfig(config) {
         modules: config.modules, // Required: modules object (loaded at entry point)
         provider: config.provider || DEFAULT_PROVIDER,
         model: config.model || DEFAULT_MODEL,
-        providerConfig: config.providerConfig,
         policy: {
             maxDepth: config.policy?.maxDepth ?? DEFAULT_POLICY.maxDepth,
             maxFanout: config.policy?.maxFanout ?? DEFAULT_POLICY.maxFanout,
@@ -91,20 +90,9 @@ export function normalizeConfig(config) {
         throw new Error('Input is required');
     }
 
-    // Validate provider-specific authentication
-    if (finalConfig.provider === 'google') {
-        if (!finalConfig.providerConfig?.google?.projectId) {
-            throw new Error('Google Cloud project ID is required for Google provider (set GOOGLE_CLOUD_PROJECT)');
-        }
-    } else if (finalConfig.provider === 'openai') {
-        if (!finalConfig.providerConfig?.openai?.apiKey) {
-            throw new Error('OpenAI API key is required (set OPENAI_API_KEY in the environment or ~/.thinksuit/secrets.env)');
-        }
-    } else if (finalConfig.provider === 'anthropic') {
-        if (!finalConfig.providerConfig?.anthropic?.apiKey) {
-            throw new Error('Anthropic API key is required (set ANTHROPIC_API_KEY in the environment or ~/.thinksuit/secrets.env)');
-        }
-    }
+    // Provider credentials are the genai service's concern: the daemon resolves
+    // and holds them, and callers fail fast against its /providers route (the
+    // broker worker pre-session, execute.js at its door).
 
     if (!finalConfig.sessionId) {
         throw new Error('sessionId is required - use schedule() to initiate execution');

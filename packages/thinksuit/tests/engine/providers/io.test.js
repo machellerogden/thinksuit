@@ -1,10 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('thinksuit-genai', () => ({
-    callProvider: vi.fn()
-}));
+// Mock only the RPC; keep the real error helpers so the E_PROVIDER/down-hint
+// contract under test is the real one.
+vi.mock('thinksuit-genai/client', async (importOriginal) => {
+    const actual = await importOriginal();
+    return { ...actual, call: vi.fn() };
+});
 
-import { callProvider } from 'thinksuit-genai';
+import { call as genaiCall, GENAI_DOWN_HINT } from 'thinksuit-genai/client';
 import { callLLM } from '../../../engine/providers/io.js';
 import { PROCESSING_EVENTS } from '../../../engine/constants/events.js';
 
@@ -12,7 +15,6 @@ function makeContext() {
     return {
         config: {
             provider: 'openai',
-            providerConfig: { openai: { apiKey: 'test-key' } },
             module: 'unrelated-engine-config'
         },
         execLogger: {
@@ -25,12 +27,12 @@ function makeContext() {
     };
 }
 
-describe('callLLM adapter (engine → thinksuit-genai)', () => {
+describe('callLLM adapter (engine → genai service)', () => {
     beforeEach(() => {
         vi.clearAllMocks();
     });
 
-    it('narrows config, threads the abort signal, and passes the result through', async () => {
+    it('sends provider + params over the client and passes the result through', async () => {
         const response = {
             output: 'hi',
             usage: { prompt: 1, completion: 2 },
@@ -38,33 +40,32 @@ describe('callLLM adapter (engine → thinksuit-genai)', () => {
             finishReason: 'end_turn',
             original: { request: { model: 'gpt-4o-mini' }, response: { id: 'r1' } }
         };
-        callProvider.mockResolvedValue(response);
+        genaiCall.mockResolvedValue(response);
 
         const ctx = makeContext();
         const params = { model: 'gpt-4o-mini', thread: [], maxTokens: 100 };
         const result = await callLLM(ctx, params);
 
         expect(result).toBe(response);
-        expect(callProvider).toHaveBeenCalledWith(
-            { provider: 'openai', providerConfig: { openai: { apiKey: 'test-key' } } },
-            params,
-            { abortSignal: ctx.abortSignal }
+        expect(genaiCall).toHaveBeenCalledWith(
+            { provider: 'openai', model: 'gpt-4o-mini', thread: [], maxTokens: 100 },
+            { signal: ctx.abortSignal }
         );
     });
 
     it('merges toolSchemas into the call params', async () => {
-        callProvider.mockResolvedValue({ output: '', original: {} });
+        genaiCall.mockResolvedValue({ output: '', original: {} });
 
         const ctx = makeContext();
         const toolSchemas = { my_tool: { description: 'd', inputSchema: {} } };
         await callLLM(ctx, { model: 'm', thread: [], maxTokens: 10 }, toolSchemas);
 
-        expect(callProvider.mock.calls[0][1]).toMatchObject({ toolSchemas });
+        expect(genaiCall.mock.calls[0][0]).toMatchObject({ toolSchemas });
     });
 
     it('re-emits provider.api.request/response trace events from the normalized original', async () => {
         const original = { request: { input: 'x' }, response: { output: 'y' } };
-        callProvider.mockResolvedValue({ output: 'ok', original });
+        genaiCall.mockResolvedValue({ output: 'ok', original });
 
         const ctx = makeContext();
         await callLLM(ctx, { model: 'm', thread: [], maxTokens: 10 });
@@ -82,24 +83,29 @@ describe('callLLM adapter (engine → thinksuit-genai)', () => {
         ]);
     });
 
-    it('wraps provider errors with E_PROVIDER and preserves the original error', async () => {
+    it('wraps provider errors with E_PROVIDER and preserves rehydrated facts', async () => {
         const boom = new Error('rate limited');
-        boom.status = 429;
-        callProvider.mockRejectedValue(boom);
+        boom.statusCode = 502;
+        boom.originalError = { message: 'rate limited', status: 429, code: 'rate_limit_exceeded' };
+        genaiCall.mockRejectedValue(boom);
 
         const ctx = makeContext();
-        await expect(
-            callLLM(ctx, { model: 'm', thread: [], maxTokens: 10 })
-        ).rejects.toMatchObject({
-            message: 'E_PROVIDER: rate limited',
-            originalError: boom
-        });
+        let caught;
+        try {
+            await callLLM(ctx, { model: 'm', thread: [], maxTokens: 10 });
+        } catch (err) {
+            caught = err;
+        }
+
+        expect(caught.message).toBe('E_PROVIDER: rate limited');
+        expect(caught.originalError.status).toBe(429);
+        expect(caught.originalError.code).toBe('rate_limit_exceeded');
     });
 
-    it('traces the wire request of a failed call when the provider attached it', async () => {
+    it('traces the wire request of a failed call when the daemon returned it', async () => {
         const boom = new Error('bad request');
         boom.request = { model: 'm', input: 'the wire request' };
-        callProvider.mockRejectedValue(boom);
+        genaiCall.mockRejectedValue(boom);
 
         const ctx = makeContext();
         await expect(callLLM(ctx, { model: 'm', thread: [], maxTokens: 10 })).rejects.toThrow(
@@ -112,5 +118,21 @@ describe('callLLM adapter (engine → thinksuit-genai)', () => {
                 data: boom.request
             })
         );
+    });
+
+    it('passes the service-down hint through unwrapped', async () => {
+        const down = Object.assign(new Error(GENAI_DOWN_HINT), { code: 'E_GENAI_DOWN' });
+        genaiCall.mockRejectedValue(down);
+
+        const ctx = makeContext();
+        let caught;
+        try {
+            await callLLM(ctx, { model: 'm', thread: [], maxTokens: 10 });
+        } catch (err) {
+            caught = err;
+        }
+
+        expect(caught).toBe(down);
+        expect(caught.message).not.toContain('E_PROVIDER');
     });
 });

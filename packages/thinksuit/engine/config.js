@@ -395,33 +395,14 @@ function buildConfig(options = {}) {
         _cli: cli
     };
 
-    // Provider-specific configurations under providerConfig namespace
-    config.providerConfig = {
-        openai: {
-            apiKey: resolveSecret('OPENAI_API_KEY')
-        },
-        google: {
-            projectId: process.env.GOOGLE_CLOUD_PROJECT,
-            location: process.env.GOOGLE_CLOUD_LOCATION || 'global'
-        },
-        anthropic: {
-            apiKey: resolveSecret('ANTHROPIC_API_KEY')
-        },
-        huggingFace: {
-            apiKey: resolveSecret('HF_TOKEN')
-        },
-        onnx: {
-            dtype: process.env.ONNX_DTYPE || 'q4'
-        }
-    };
-
-    // Presence-only view of key-bearing providers, derived from the already
-    // resolved providerConfig (so it honors secrets.env, not just process.env).
-    // Booleans only — safe to serialize across the config boundary.
+    // Presence-only view of key-bearing providers, resolved by name (so it
+    // honors secrets.env, not just process.env). Booleans only — safe to
+    // serialize across the config boundary. The keys themselves never enter
+    // this config: the genai service resolves and holds credentials.
     config.apiKeys = {
-        openai: !!config.providerConfig.openai.apiKey,
-        anthropic: !!config.providerConfig.anthropic.apiKey,
-        huggingFace: !!config.providerConfig.huggingFace.apiKey
+        openai: !!resolveSecret('OPENAI_API_KEY'),
+        anthropic: !!resolveSecret('ANTHROPIC_API_KEY'),
+        huggingFace: !!resolveSecret('HF_TOKEN')
     };
 
     // Add debug flag from environment

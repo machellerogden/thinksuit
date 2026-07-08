@@ -129,9 +129,8 @@ export async function createVoiceDaemon(overrides = {}) {
             modulesPackage: base.modulesPackage,
             provider: base.provider,
             model: base.model,
-            // No providerConfig: the broker's per-turn worker resolves secrets
-            // fresh. The daemon is long-lived, so a cached key sent here could
-            // win over the worker's current one.
+            // No credentials ride this config: the genai service resolves and
+            // holds them; this long-lived daemon never touches a key.
             // No cwd/workdir: the voice daemon has no summon location, so sessions
             // lean on auto-provisioning (a managed workspace). A pre-existing
             // session promoted to the voice designation keeps its own fixed home.

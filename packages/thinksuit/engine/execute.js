@@ -14,6 +14,7 @@ import { getFrame } from '../frames.js';
 import { assertValidTurnRequest } from '../schemas/validate.js';
 import { provisionWorkspace } from './sessions/index.js';
 import { generateId } from './utils/id.js';
+import { providers as genaiProviders } from 'thinksuit-genai/client';
 
 /**
  * Output message respecting CLI output mode
@@ -173,6 +174,25 @@ async function main() {
         process.exit(1);
     }
 
+    // Fail fast at the door when the genai service is down or the selected
+    // provider has no usable credential — an actionable error beats a failed
+    // callLLM mid-turn.
+    try {
+        const providerTable = await genaiProviders();
+        const meta = providerTable[config.provider];
+        if (meta && !meta.configured) {
+            console.error(
+                `No credential for provider '${config.provider}'. Set ${meta.credentialEnvs.join(' / ')} ` +
+                    `in the environment or in ~/.thinksuit/secrets.env, then restart the genai ` +
+                    `service (thinkctl restart genai).`
+            );
+            process.exit(1);
+        }
+    } catch (error) {
+        console.error(error.message); // carries the thinkctl hint when the service is down
+        process.exit(1);
+    }
+
     // Map CLI config to schedule() config
     const scheduleConfig = {
         input,
@@ -180,7 +200,6 @@ async function main() {
         modules,
         provider: config.provider,
         model: config.model,
-        providerConfig: config.providerConfig,
         workdir, // resolved session home base
         cwd: config.cwd, // explicit --cwd only; defaults to workdir in normalizeConfig
         allowedDirectories: config.allowedDirectories, // Pass through allowed directories

@@ -61,9 +61,10 @@ export async function health(opts) {
 
 /**
  * Start a broker-hosted turn. `config` is a serializable run config (input,
- * sessionId?, module, modulesPackage, provider, model, providerConfig, cwd,
+ * sessionId?, module, modulesPackage, provider, model, cwd,
  * allowedDirectories, mcpServers, allowedTools, policy, trace, selectedPlan,
  * frame, autoApproveTools). Returns `{ sessionId, isNew, status }` immediately.
+ * Credentials never ride this config: the genai service resolves and holds them.
  */
 export async function run(config, opts) {
     return request('POST', '/run', { config }, opts);

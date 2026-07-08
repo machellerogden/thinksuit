@@ -30,9 +30,9 @@ import {
     resolveApproval,
     flushAllSessionStreams,
     generateId,
-    provisionWorkspace,
-    resolveSecret
+    provisionWorkspace
 } from 'thinksuit';
+import { providers as genaiProviders } from 'thinksuit-genai/client';
 import { modules as defaultModules } from 'thinksuit-modules';
 import { assertValidTurnRequest } from 'thinksuit/schemas/validate';
 import { getFrame } from 'thinksuit/frames';
@@ -41,8 +41,8 @@ let interruptFn = null;
 let started = false;
 
 // Project the serializable broker payload down to the surface turnRequest for
-// validation. Transport bits the worker needs (modulesPackage, workdir,
-// providerConfig) are intentionally excluded — they are not part of the contract.
+// validation. Transport bits the worker needs (modulesPackage, workdir) are
+// intentionally excluded — they are not part of the contract.
 // The allow-list rides as `allowedTools` on the wire but is `tools` in the contract.
 function toTurnRequest(config) {
     const r = {};
@@ -97,47 +97,6 @@ function serializeResult(result) {
     };
 }
 
-// Provider credential metadata: which providerConfig key holds creds, what's
-// required, and the env var that supplies it. Mirrors engine config.js so the
-// worker can fill gaps from its own environment.
-const PROVIDERS = {
-    openai: { key: 'openai', required: (c) => !!c.apiKey, env: 'OPENAI_API_KEY' },
-    anthropic: { key: 'anthropic', required: (c) => !!c.apiKey, env: 'ANTHROPIC_API_KEY' },
-    'hugging-face': { key: 'huggingFace', required: (c) => !!c.apiKey, env: 'HF_TOKEN' },
-    google: { key: 'google', required: (c) => !!c.projectId, env: 'GOOGLE_CLOUD_PROJECT' },
-    onnx: { key: 'onnx', required: () => true, env: '' }
-};
-
-/**
- * Merge broker-resolved provider credentials into the client-supplied
- * providerConfig. Client-provided real values win; resolveSecret fills the gaps
- * (from the environment or ~/.thinksuit/secrets.env), so a client that carries no
- * keys of its own (e.g. the console) still runs.
- */
-function mergeProviderConfig(clientProviderConfig = {}) {
-    const envConfig = {
-        openai: { apiKey: resolveSecret('OPENAI_API_KEY') },
-        anthropic: { apiKey: resolveSecret('ANTHROPIC_API_KEY') },
-        google: {
-            projectId: process.env.GOOGLE_CLOUD_PROJECT,
-            location: process.env.GOOGLE_CLOUD_LOCATION || 'global'
-        },
-        huggingFace: { apiKey: resolveSecret('HF_TOKEN') },
-        onnx: { dtype: process.env.ONNX_DTYPE || 'q4' }
-    };
-
-    const merged = {};
-    for (const providerKey of Object.keys(envConfig)) {
-        const out = { ...envConfig[providerKey] };
-        const over = clientProviderConfig[providerKey] || {};
-        for (const [k, v] of Object.entries(over)) {
-            if (v !== undefined && v !== null && v !== '') out[k] = v;
-        }
-        merged[providerKey] = out;
-    }
-    return merged;
-}
-
 async function start(config) {
     if (started) return;
     started = true;
@@ -155,19 +114,27 @@ async function start(config) {
     }
 
     const provider = config.provider || 'openai';
-    const providerConfig = mergeProviderConfig(config.providerConfig);
 
-    // Fail fast (before acquiring a session) when the selected provider has no
-    // usable credential, so clients get an actionable error instead of a silent,
-    // half-created session.
-    const meta = PROVIDERS[provider];
-    if (meta && !meta.required(providerConfig[meta.key] || {})) {
-        send({
-            type: 'error',
-            reason:
-                `No credential for provider '${provider}'. Set ${meta.env} in the environment or ` +
-                `in ~/.thinksuit/secrets.env, or pass it in the run config.`
-        });
+    // Fail fast (before acquiring a session) when the genai service is down or
+    // the selected provider has no usable credential, so clients get an
+    // actionable error instead of a silent, half-created session. Credentials
+    // themselves live in the genai daemon; this worker never sees them.
+    try {
+        const providerTable = await genaiProviders();
+        const meta = providerTable[provider];
+        if (meta && !meta.configured) {
+            send({
+                type: 'error',
+                reason:
+                    `No credential for provider '${provider}'. Set ${meta.credentialEnvs.join(' / ')} ` +
+                    `in the environment or in ~/.thinksuit/secrets.env, then restart the genai ` +
+                    `service (thinkctl restart genai).`
+            });
+            process.exit(1);
+            return;
+        }
+    } catch (err) {
+        send({ type: 'error', reason: err.message }); // carries the thinkctl hint when down
         process.exit(1);
         return;
     }
@@ -223,7 +190,6 @@ async function start(config) {
         ...config,
         sessionId,
         provider,
-        providerConfig,
         workdir: workspace,
         frame: resolvedFrame,
         modules,
@@ -231,6 +197,7 @@ async function start(config) {
     };
     delete scheduleConfig.modulesPackage; // schedule() takes loaded modules, not a path
     delete scheduleConfig.cwd; // the turn's cwd defaults to workdir in normalizeConfig
+    delete scheduleConfig.providerConfig; // retired: credentials live in the genai service
 
     const { scheduled, isNew, execution, interrupt, reason } = await schedule(scheduleConfig);
 

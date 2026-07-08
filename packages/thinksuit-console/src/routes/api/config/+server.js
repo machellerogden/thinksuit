@@ -17,9 +17,9 @@ export async function GET() {
         // Remove internal CLI object
         delete configWithTty._cli;
 
-        // Never serialize resolved secrets to the browser. The presence-only
-        // `apiKeys` booleans stay; `providerConfig` (which holds the keys) goes.
-        delete configWithTty.providerConfig;
+        // Never serialize secrets to the browser. Credentials live in the genai
+        // service, not in this config; only the presence-only `apiKeys` booleans
+        // ride here.
 
         return json(configWithTty);
     } catch (error) {

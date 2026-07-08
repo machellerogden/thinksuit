@@ -96,7 +96,11 @@ describe('genai daemon ↔ client over a temp socket', () => {
 
     it('answers /providers with configured flags and descriptions', async () => {
         const res = await providers({ socketPath });
-        expect(res.openai).toEqual({ configured: true, description: expect.any(String) });
+        expect(res.openai).toEqual({
+            configured: true,
+            credentialEnvs: ['OPENAI_API_KEY'],
+            description: expect.any(String)
+        });
         expect(res.anthropic.configured).toBe(false);
         expect(res.onnx.configured).toBe(true);
     });

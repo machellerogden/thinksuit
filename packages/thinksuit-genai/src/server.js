@@ -143,9 +143,11 @@ export function createGenaiServer({
             const providers = {};
             const configured = listConfiguredProviders({ providerConfig });
             for (const name of known) {
+                const meta = getProviderMetadata(name);
                 providers[name] = {
                     configured: configured[name],
-                    description: getProviderMetadata(name).description
+                    credentialEnvs: meta.credentialEnvs,
+                    description: meta.description
                 };
             }
             return sendJson(res, 200, { providers });

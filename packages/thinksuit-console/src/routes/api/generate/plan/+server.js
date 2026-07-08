@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { buildConfig, loadModules, createLogger, callLLM } from 'thinksuit';
+import { buildConfig, loadModules } from 'thinksuit';
+import { call as genaiCall, wrapProviderError, isGenaiDownError } from 'thinksuit-genai/client';
 import { validatePlan } from 'thinksuit/schemas/validate';
 import { modules as defaultModules } from 'thinksuit-modules';
 
@@ -213,15 +214,9 @@ export async function POST({ request }) {
             return json({ error: 'Description is required and must be a string' }, { status: 400 });
         }
 
-        // Load base config
+        // Load base config — used for model/provider *selection* only; the
+        // genai service holds the credentials (none live in this process).
         const config = buildConfig({ argv: [] });
-
-        // Create logger for this request
-        const execLogger = createLogger({
-            level: 'info',
-            silent: false,
-            format: 'json'
-        });
 
         // Determine modules
         let modules;
@@ -257,12 +252,6 @@ export async function POST({ request }) {
             .filter(key => key.startsWith('adapt.'))
             .map(key => key.replace('adapt.', ''));
 
-        // Build machine context for callLLM
-        const machineContext = {
-            config,
-            execLogger
-        };
-
         // ============================================================
         // STAGE 1: Determine strategy and roles
         // ============================================================
@@ -289,22 +278,22 @@ Return ONLY the JSON object. No explanation, no markdown code blocks.`;
             ? `Revise the strategy for: ${description}\n\nCurrent plan:\n${JSON.stringify(currentPlan, null, 2)}`
             : `Determine the strategy and roles for: ${description}`;
 
-        const stage1Response = await callLLM(
-            machineContext,
-            {
-                model: config.model || 'gpt-4o-mini',
-                thread: [
-                    { role: 'system', content: stage1SystemPrompt },
-                    { role: 'user', content: stage1UserPrompt }
-                ],
-                responseFormat: {
-                    name: 'plan_structure',
-                    schema: stage1Schema
-                },
-                maxTokens: 1000,
-                temperature: 0.7
-            }
-        );
+        const stage1Response = await genaiCall({
+            provider: config.provider,
+            model: config.model || 'gpt-4o-mini',
+            thread: [
+                { role: 'system', content: stage1SystemPrompt },
+                { role: 'user', content: stage1UserPrompt }
+            ],
+            responseFormat: {
+                name: 'plan_structure',
+                schema: stage1Schema
+            },
+            maxTokens: 1000,
+            temperature: 0.7
+        }).catch((err) => {
+            throw wrapProviderError(err);
+        });
 
         const stage1Result = JSON.parse(stage1Response.output);
 
@@ -422,22 +411,22 @@ Return ONLY the JSON object. No explanation, no markdown code blocks.`;
                 break;
         }
 
-        const stage2Response = await callLLM(
-            machineContext,
-            {
-                model: config.model || 'gpt-4o-mini',
-                thread: [
-                    { role: 'system', content: stage2SystemPrompt },
-                    { role: 'user', content: stage2UserPrompt }
-                ],
-                responseFormat: {
-                    name: 'plan_details',
-                    schema: stage2Schema
-                },
-                maxTokens: 1500,
-                temperature: 0.7
-            }
-        );
+        const stage2Response = await genaiCall({
+            provider: config.provider,
+            model: config.model || 'gpt-4o-mini',
+            thread: [
+                { role: 'system', content: stage2SystemPrompt },
+                { role: 'user', content: stage2UserPrompt }
+            ],
+            responseFormat: {
+                name: 'plan_details',
+                schema: stage2Schema
+            },
+            maxTokens: 1500,
+            temperature: 0.7
+        }).catch((err) => {
+            throw wrapProviderError(err);
+        });
 
         const stage2Result = JSON.parse(stage2Response.output);
 
@@ -462,6 +451,11 @@ Return ONLY the JSON object. No explanation, no markdown code blocks.`;
 
     } catch (error) {
         console.error('Error generating plan:', error);
+
+        // The genai service is required: down → 503 with the thinkctl hint.
+        if (isGenaiDownError(error)) {
+            return json({ error: error.message }, { status: 503 });
+        }
 
         // Handle provider errors (wrapped with E_PROVIDER prefix)
         if (error.message?.startsWith('E_PROVIDER:')) {
