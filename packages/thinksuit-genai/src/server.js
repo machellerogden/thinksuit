@@ -7,12 +7,15 @@
 
 import http from 'node:http';
 import fs from 'node:fs';
+import { createServiceLogger } from 'thinksuit-log';
 import { resolveSocketPath } from './paths.js';
 import { buildProviderConfig } from './config.js';
 import { createProviderPool } from './residency.js';
 import { callWithProvider } from './core.js';
 import { listAvailableProviders, getProviderMetadata, listConfiguredProviders } from './providers/index.js';
 import { getONNXWorkerStatus } from './providers/onnx.js';
+
+const log = createServiceLogger('genai');
 
 function sendJson(res, status, body) {
     const payload = JSON.stringify(body);
@@ -89,27 +92,29 @@ export function createGenaiServer({
                 abortSignal: ac.signal
             });
             responded = true;
-            console.log(
-                JSON.stringify({
+            log.info(
+                {
                     event: 'genai.call',
                     provider: providerName,
                     model: params.model,
                     durationMs: Date.now() - start,
                     usage: result.usage,
                     finishReason: result.finishReason
-                })
+                },
+                'model call'
             );
             return sendJson(res, 200, result);
         } catch (error) {
             responded = true;
-            console.log(
-                JSON.stringify({
+            log.error(
+                {
                     event: 'genai.call',
                     provider: providerName,
                     model: params.model,
                     durationMs: Date.now() - start,
                     error: error.message
-                })
+                },
+                'model call failed'
             );
             return sendJson(res, 502, {
                 error: error.message,
@@ -165,7 +170,7 @@ export function createGenaiServer({
         Promise.resolve()
             .then(() => route(req, res))
             .catch((err) => {
-                console.error('genai request error:', err.message);
+                log.error({ event: 'genai.request.error', error: err.message }, 'request error');
                 if (!res.headersSent) {
                     sendJson(res, err.badRequest ? 400 : 500, { error: err.message });
                 } else {
@@ -195,7 +200,7 @@ export function startGenaiServer({ socketPath = resolveSocketPath(), ...opts } =
         server.once('error', reject);
         server.listen(socketPath, () => {
             server.removeListener('error', reject);
-            console.log(`genai service listening on ${socketPath} (pid ${process.pid})`);
+            log.info({ event: 'genai.listening', socketPath }, `genai service listening on ${socketPath}`);
             resolve({
                 socketPath,
                 close: () => new Promise((done) => server.close(done))

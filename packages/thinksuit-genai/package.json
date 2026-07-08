@@ -36,6 +36,7 @@
     },
     "license": "Apache-2.0",
     "dependencies": {
+        "thinksuit-log": "*",
         "@anthropic-ai/sdk": "^0.105.0",
         "@google/genai": "^1.31.0",
         "@huggingface/transformers": "^4.2.0",

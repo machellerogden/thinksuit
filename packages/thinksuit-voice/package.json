@@ -49,7 +49,8 @@
         "naudiodon2": "^2.4.0",
         "onnxruntime-node": "^1.20.0",
         "thinksuit": "*",
-        "thinksuit-broker": "*"
+        "thinksuit-broker": "*",
+        "thinksuit-log": "*"
     },
     "engines": {
         "node": ">=22"

@@ -13,6 +13,7 @@ import {
     setDesignation as brokerSetDesignation
 } from 'thinksuit-broker';
 import { buildConfig, getDesignation } from 'thinksuit';
+import { createServiceLogger } from 'thinksuit-log';
 import { createPipeline } from './wake/pipeline.js';
 import { createDetector } from './wake/detector.js';
 import { createCapture, listInputDevices } from './audio/capture.js';
@@ -28,6 +29,8 @@ import { resolveMelModelPath, resolveEmbeddingModelPath } from './paths.js';
 import { resolveActiveWakewords } from './wakewords/store.js';
 import { sessionForAction } from './session.js';
 
+const log = createServiceLogger('voice');
+
 // Resolve the configured input device. Prefer deviceName (stable across CoreAudio
 // index shuffles): match it case-insensitively against the live input devices and
 // use whatever id it currently has. If the named mic is absent (unplugged,
@@ -41,7 +44,8 @@ function resolveInputDevice(input) {
     const match = devices.find((d) => d.name.toLowerCase().includes(needle));
     if (match) return match;
     const list = devices.map((d) => `  - ${d.name} (id ${d.id})`).join('\n');
-    console.warn(
+    log.warn(
+        { event: 'voice.device.fallback', deviceName: input.deviceName },
         `input device "${input.deviceName}" not found — falling back to system default. ` +
             `Available input devices:\n${list}`
     );
@@ -53,7 +57,8 @@ export async function createVoiceDaemon(overrides = {}) {
     // provider credentials from its own env, so the daemon carries no secrets.
     const base = buildConfig();
     const config = loadVoiceConfig(base.voice, overrides);
-    console.log(
+    log.info(
+        { event: 'voice.config', capture: config.capture, cuesEnabled: config.cues.enabled },
         `capture: startTimeout=${config.capture.startTimeoutMs}ms silence=${config.capture.silenceMs}ms ` +
             `max=${config.capture.maxMs}ms; cues ${config.cues.enabled ? 'on' : 'off'}`
     );
@@ -61,7 +66,8 @@ export async function createVoiceDaemon(overrides = {}) {
     // Select the active wakewords from the library: every enabled wakeword. Each
     // owns its model + threshold, and the daemon listens for all of them at once.
     const wakewords = resolveActiveWakewords();
-    console.log(
+    log.info(
+        { event: 'voice.wakewords', wakewords: wakewords.map((w) => ({ name: w.name, binding: w.binding, threshold: w.threshold })) },
         `wakewords: ${wakewords
             .map((w) => `${w.name}→${w.binding} (threshold ${w.threshold})`)
             .join(', ')}`
@@ -85,7 +91,7 @@ export async function createVoiceDaemon(overrides = {}) {
         ...config.detector,
         rms: { threshold: config.capture?.rmsThreshold, ...config.detector?.rms }
     });
-    console.log(`detector: ${config.detector?.provider ?? 'silero'}`);
+    log.info({ event: 'voice.detector', provider: config.detector?.provider ?? 'silero' }, `detector: ${config.detector?.provider ?? 'silero'}`);
     const cues = createCuePlayer(config.cues);
 
     // Probe the start cue's real length once so capture trims exactly the beep
@@ -95,7 +101,8 @@ export async function createVoiceDaemon(overrides = {}) {
     if (config.cues.enabled && config.cues.start) {
         const d = await probeDurationMs(config.cues.start);
         startCueMs = (d ?? 600) + cueMarginMs;
-        console.log(
+        log.info(
+            { event: 'voice.cue.start', cue: config.cues.start, durationMs: d ?? null, trimFloorMs: startCueMs },
             `start cue ${config.cues.start}: duration=${d ?? 'unknown→600'}ms, trim floor=${startCueMs}ms (margin ${cueMarginMs}ms)`
         );
     }
@@ -163,7 +170,7 @@ export async function createVoiceDaemon(overrides = {}) {
         try {
             await brokerSetDesignation(designationName, sessionId);
         } catch (err) {
-            console.error('could not persist designation:', err.message);
+            log.error({ event: 'voice.designation.error', error: err.message }, 'could not persist designation');
         }
 
         let closed = false;
@@ -174,8 +181,11 @@ export async function createVoiceDaemon(overrides = {}) {
                 if (name === 'session.response') {
                     cues.stopLoop();
                     const text = ev.data?.response;
-                    console.log(`response: ${text}`);
-                    if (text) tts.speak(text).catch((e) => console.error(`tts failed: ${e.message}`));
+                    log.info({ event: 'voice.response', response: text }, `response: ${text}`);
+                    if (text)
+                        tts.speak(text).catch((e) =>
+                            log.error({ event: 'voice.tts.error', error: e.message }, `tts failed: ${e.message}`)
+                        );
                 }
                 if (
                     name === 'session.turn.complete' ||
@@ -188,7 +198,7 @@ export async function createVoiceDaemon(overrides = {}) {
                     stream.close();
                 }
             },
-            { from, onError: (e) => !closed && console.error('tail error:', e.message) }
+            { from, onError: (e) => !closed && log.error({ event: 'voice.tail.error', error: e.message }, 'tail error') }
         );
     }
 
@@ -196,10 +206,10 @@ export async function createVoiceDaemon(overrides = {}) {
         try {
             const input = (await stt.transcribe(audio)).trim();
             if (!input) {
-                console.log('(no speech recognized)');
+                log.info({ event: 'voice.stt.empty' }, '(no speech recognized)');
                 return;
             }
-            console.log(`heard: ${input}`);
+            log.info({ event: 'voice.heard', input }, `heard: ${input}`);
 
             // Apply the woken wakeword's action at the turn boundary (not at wake),
             // so an aborted/silent capture doesn't consume a `new`. This repoints
@@ -207,13 +217,13 @@ export async function createVoiceDaemon(overrides = {}) {
             const action = state.pendingAction || 'converse';
             state.pendingAction = 'converse';
             state.lastSessionId = sessionForAction(action, state.lastSessionId);
-            if (action !== 'converse') console.log(`session action: ${action}`);
+            if (action !== 'converse') log.info({ event: 'voice.session.action', action }, `session action: ${action}`);
 
             await runTurn(input);
         } catch (err) {
             cues.stopLoop();
             state.lastError = { message: err.message, at: Date.now() };
-            console.error(`turn failed: ${err.message}`);
+            log.error({ event: 'voice.turn.failed', error: err.message }, `turn failed: ${err.message}`);
             cues.play('error');
         }
     }
@@ -229,7 +239,7 @@ export async function createVoiceDaemon(overrides = {}) {
         try {
             await brokerInterrupt(state.lastSessionId);
         } catch (err) {
-            console.error(`interrupt failed: ${err.message}`);
+            log.error({ event: 'voice.interrupt.failed', error: err.message }, `interrupt failed: ${err.message}`);
         }
         state.turnActive = false;
         return { interrupted: true };
@@ -244,7 +254,7 @@ export async function createVoiceDaemon(overrides = {}) {
         const action = bindings[name] || 'converse';
         state.pendingAction = action;
         state.lastWake = { name, action, confidence, at: Date.now() };
-        console.log(`wake: ${name}→${action} (confidence=${confidence.toFixed(3)})`);
+        log.info({ event: 'voice.wake', name, action, confidence }, `wake: ${name}→${action} (confidence=${confidence.toFixed(3)})`);
 
         // Begin recording now; the start cue plays concurrently and is removed by
         // the endpointer's cue floor (cue duration + margin), not by gating frames.
@@ -278,7 +288,8 @@ export async function createVoiceDaemon(overrides = {}) {
         state.mode = 'listening';
         if (audio) {
             const keptMs = Math.round((audio.length / SAMPLE_RATE) * 1000);
-            console.log(
+            log.info(
+                { event: 'voice.capture', ...s, keptMs },
                 `capture: cueFloor=${s.cueMs}ms onset=${s.onsetMs}ms windowStart=${s.windowStartMs}ms ` +
                     `captured=${s.capturedMs}ms kept=${keptMs}ms meanProb=${s.meanProb}`
             );
@@ -292,7 +303,7 @@ export async function createVoiceDaemon(overrides = {}) {
             capturePump = capturePump
                 .then(() => handleCaptureFrame(frames))
                 .catch((err) => {
-                    console.error(`capture error: ${err.message}`);
+                    log.error({ event: 'voice.capture.error', error: err.message }, `capture error: ${err.message}`);
                     endpointer = null;
                     state.mode = 'listening';
                 });
@@ -305,7 +316,10 @@ export async function createVoiceDaemon(overrides = {}) {
     config.input.deviceId = device.id;
     state.device = { id: device.id, name: device.name || config.input.deviceName || null };
     if (device.name) {
-        console.log(`input device "${config.input.deviceName}" resolved to ${device.name} (id ${device.id})`);
+        log.info(
+            { event: 'voice.device.resolved', deviceName: config.input.deviceName, resolved: device.name, id: device.id },
+            `input device "${config.input.deviceName}" resolved to ${device.name} (id ${device.id})`
+        );
     }
 
     // capture.stop() destroys the PortAudio stream (ai.quit), so re-arming after a
@@ -315,7 +329,7 @@ export async function createVoiceDaemon(overrides = {}) {
         return createCapture({
             deviceId: device.id,
             onFrames,
-            onError: (err) => console.error('audio error:', err)
+            onError: (err) => log.error({ event: 'voice.audio.error', error: err?.message ?? String(err) }, 'audio error')
         });
     }
 
@@ -327,7 +341,7 @@ export async function createVoiceDaemon(overrides = {}) {
         capture = buildCapture();
         capture.start();
         state.micOn = true;
-        console.log('mic on (device acquired)');
+        log.info({ event: 'voice.mic.on' }, 'mic on (device acquired)');
     }
     function micOff() {
         if (!state.micOn) return;
@@ -336,7 +350,7 @@ export async function createVoiceDaemon(overrides = {}) {
         endpointer = null;
         state.mode = 'listening';
         state.micOn = false;
-        console.log('mic off (device released)');
+        log.info({ event: 'voice.mic.off' }, 'mic off (device released)');
     }
 
     function getStatus() {
@@ -361,7 +375,9 @@ export async function createVoiceDaemon(overrides = {}) {
         config,
         async start() {
             // Load the STT model in the background so the first utterance is fast.
-            stt.warmup?.().catch((e) => console.error(`stt warmup failed: ${e.message}`));
+            stt.warmup?.().catch((e) =>
+                log.error({ event: 'voice.stt.warmup.failed', error: e.message }, `stt warmup failed: ${e.message}`)
+            );
             state.startedAt = Date.now();
             micOn();
             control = await startControlServer({

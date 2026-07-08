@@ -18,11 +18,12 @@ import { homedir, platform } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdirSync, writeFileSync, existsSync, rmSync, readFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
 import meow from 'meow';
+import pretty from 'pino-pretty';
 import { readUserConfig, patchUserConfig } from 'thinksuit';
 import pkg from '../package.json' with { type: 'json' };
 
@@ -49,7 +50,7 @@ Commands
   stop       <svc|-a>   signal stop (TERM)
   status     [svc|-a]   show launchd state (all if omitted)
   ls                    list services and their state
-  logs       <svc>      print recent stdout+stderr (--tail to follow)
+  logs       <svc>      print recent stdout+stderr (--tail to follow, --pretty to render)
   clear-logs <svc|-a>   delete stdout + stderr logs
 
 Flags
@@ -57,6 +58,7 @@ Flags
   --yes,   -y   non-interactive onboarding (keep existing config, fill defaults)
   --tail        logs: follow the log (like tail -f) instead of printing and exiting
   --lines, -n   logs: number of lines to show (default: 200)
+  --pretty      logs: render through pino-pretty (non-pino lines pass through)
 
 Services resolve by short name (broker) or full name (thinksuit-broker).`;
 
@@ -66,12 +68,13 @@ const cli = meow(HELP, {
         yes: { type: 'boolean', shortFlag: 'y', default: false },
         all: { type: 'boolean', shortFlag: 'a', default: false },
         tail: { type: 'boolean', default: false },
-        lines: { type: 'number', shortFlag: 'n', default: 200 }
+        lines: { type: 'number', shortFlag: 'n', default: 200 },
+        pretty: { type: 'boolean', default: false }
     }
 });
 
 const [CMD, SERVICE] = cli.input;
-const { yes: YES, all: ALL, tail: TAIL, lines: LINES } = cli.flags;
+const { yes: YES, all: ALL, tail: TAIL, lines: LINES, pretty: PRETTY } = cli.flags;
 
 const DEFAULTS = {
     provider: 'anthropic',
@@ -387,7 +390,19 @@ const commands = {
         // starting from the last N lines.
         const tailArgs = ['-q', '-n', String(LINES)];
         if (TAIL) tailArgs.push('-f');
-        sh('tail', [...tailArgs, svc.stdout, svc.stderr]);
+        if (!PRETTY) {
+            sh('tail', [...tailArgs, svc.stdout, svc.stderr]);
+            return;
+        }
+        // --pretty: the familiar `tail | pino-pretty` pipe, wired in-process.
+        // pino-pretty passes non-pino lines (framework output, old history)
+        // through untouched. Rendering is thinkctl's concern alone — the
+        // thinksuit-log contract is emit-only.
+        const child = spawn('tail', [...tailArgs, svc.stdout, svc.stderr], {
+            stdio: ['ignore', 'pipe', 'inherit']
+        });
+        child.stdout.pipe(pretty({ colorize: process.stdout.isTTY })).pipe(process.stdout);
+        await new Promise((resolve) => child.on('close', resolve));
     },
 
     async 'clear-logs'(service) {

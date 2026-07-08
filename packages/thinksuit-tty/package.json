@@ -47,6 +47,7 @@
         "@xterm/addon-webgl": "^0.18.0",
         "@xterm/xterm": "^5.5.0",
         "express": "^5.2.1",
+        "thinksuit-log": "*",
         "ws": "^8.17.0"
     },
     "devDependencies": {

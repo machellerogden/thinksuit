@@ -1,0 +1,38 @@
+{
+    "name": "thinksuit-log",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Standardized pino JSONL service logging for ThinkSuit - the contract, the logger, and the human renderer",
+    "type": "module",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/machellerogden/thinksuit.git",
+        "directory": "packages/thinksuit-log"
+    },
+    "bugs": {
+        "url": "https://github.com/machellerogden/thinksuit/issues"
+    },
+    "homepage": "https://github.com/machellerogden/thinksuit/tree/main/packages/thinksuit-log#readme",
+    "main": "./src/index.js",
+    "exports": {
+        ".": "./src/index.js"
+    },
+    "scripts": {
+        "test": "vitest --config ../../vitest.config.js"
+    },
+    "keywords": [
+        "thinksuit",
+        "logging"
+    ],
+    "author": {
+        "name": "Mac Heller-Ogden",
+        "email": "mac@machellerogden.com"
+    },
+    "license": "Apache-2.0",
+    "dependencies": {
+        "pino": "^10.3.1"
+    },
+    "engines": {
+        "node": ">=22"
+    }
+}

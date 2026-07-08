@@ -18,6 +18,7 @@ personal operating system (vision: `docs/vision.md`; what-goes-where:
 - **`packages/thinksuit-mcp-server/`** - Exposes ThinkSuit *outward* as MCP tools to external clients
 - **`packages/thinksuit-mcp-tools/`** - Custom MCP tools consumed *inward* by ThinkSuit
 - **`packages/thinksuit-control/`** - Operations control plane (`thinkctl`): manages the LaunchAgent services (broker/genai/console/tty/voice), generating each plist in code from the package's `service.js`
+- **`packages/thinksuit-log/`** - Standardized service logging (leaf; everything may depend on it): the pino JSONL contract every service emits through (`createServiceLogger`). Emit-only; rendering is the reader's business (`thinkctl logs --pretty` pipes through pino-pretty). Logging only — the name is the charter
 
 **Service ops go through `thinkctl`** (`up`/`down`/`start`/`stop`/`status`/`ls`/`logs`) — never raw `launchctl`.
 

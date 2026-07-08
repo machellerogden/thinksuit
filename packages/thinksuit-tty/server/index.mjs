@@ -7,6 +7,9 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import pty from '@homebridge/node-pty-prebuilt-multiarch';
 import WebSocket, { WebSocketServer } from 'ws';
+import { createServiceLogger } from 'thinksuit-log';
+
+const log = createServiceLogger('tty');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -48,17 +51,21 @@ export function startServer(options = {}) {
     // Require auth token
     const AUTH_TOKEN = process.env.THINKSUIT_TTY_AUTH_TOKEN;
     if (!AUTH_TOKEN) {
-        console.error('THINKSUIT_TTY_AUTH_TOKEN environment variable is required for security.');
-        console.error('Generate a token with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
-        console.error('Then set it in your LaunchAgent plist or environment.');
+        log.fatal(
+            { event: 'tty.auth.missing' },
+            'THINKSUIT_TTY_AUTH_TOKEN environment variable is required for security. ' +
+                'Generate a token with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))" ' +
+                'then set it in your LaunchAgent plist or environment.'
+        );
         process.exit(1);
     }
 
     // Check for SSL certificates
     if (!fs.existsSync(sslKeyPath) || !fs.existsSync(sslCertPath)) {
-        console.error('SSL certificates not found. Please generate them first.');
-        console.error(`Expected key: ${sslKeyPath}`);
-        console.error(`Expected cert: ${sslCertPath}`);
+        log.fatal(
+            { event: 'tty.ssl.missing', sslKeyPath, sslCertPath },
+            'SSL certificates not found. Please generate them first.'
+        );
         process.exit(1);
     }
 
@@ -73,7 +80,7 @@ export function startServer(options = {}) {
             if (protocols.has(AUTH_TOKEN)) {
                 return AUTH_TOKEN;
             }
-            console.warn('Unauthorized WebSocket connection attempt');
+            log.warn({ event: 'tty.unauthorized' }, 'Unauthorized WebSocket connection attempt');
             return false;
         }
     });
@@ -81,7 +88,7 @@ export function startServer(options = {}) {
     wss.on('connection', (ws, request) => {
         // Verify authentication - protocol must match AUTH_TOKEN
         if (ws.protocol !== AUTH_TOKEN) {
-            console.warn('Unauthorized WebSocket connection attempt - invalid or missing auth token');
+            log.warn({ event: 'tty.unauthorized' }, 'Unauthorized WebSocket connection attempt - invalid or missing auth token');
             ws.close(1008, 'Unauthorized');
             return;
         }
@@ -118,19 +125,19 @@ export function startServer(options = {}) {
             });
 
             ptyProcess.on('error', err => {
-                console.error('PTY error:', err);
+                log.error({ event: 'tty.pty.error', error: err?.message ?? String(err) }, 'PTY error');
                 ws.close(1011, 'PTY process error');
             });
 
             ptyProcess.on('exit', (code, signal) => {
-                console.log(`PTY exited: code=${code} signal=${signal}`);
+                log.info({ event: 'tty.pty.exit', code, signal }, `PTY exited: code=${code} signal=${signal}`);
                 activePtys.delete(ptyProcess);
                 ws.close(1000, 'Process exited');
             });
 
             ws.on('message', message => {
                 const str = printable(message);
-                console.log('received: %s', str);
+                log.debug({ event: 'tty.received', data: str }, 'received');
 
                 let payload = message;
                 if (str.startsWith('{') && str.endsWith('}')) {
@@ -150,7 +157,7 @@ export function startServer(options = {}) {
             });
 
             ws.on('error', err => {
-                console.error('WebSocket error:', err);
+                log.error({ event: 'tty.ws.error', error: err?.message ?? String(err) }, 'WebSocket error');
                 if (ptyProcess) {
                     ptyProcess.kill();
                     activePtys.delete(ptyProcess);
@@ -158,7 +165,7 @@ export function startServer(options = {}) {
             });
 
             ws.on('close', () => {
-                console.log('WebSocket closed');
+                log.info({ event: 'tty.ws.closed' }, 'WebSocket closed');
                 if (ptyProcess) {
                     ptyProcess.kill();
                     activePtys.delete(ptyProcess);
@@ -166,14 +173,14 @@ export function startServer(options = {}) {
             });
 
         } catch (err) {
-            console.error('Failed to spawn PTY:', err);
+            log.error({ event: 'tty.pty.spawn.failed', error: err?.message ?? String(err) }, 'Failed to spawn PTY');
             ws.close(1011, 'Failed to spawn PTY');
         }
     });
 
     server.listen(port, '127.0.0.1', () => {
         const address = server.address();
-        console.log(`TTY server started on port ${address.port}`);
+        log.info({ event: 'tty.listening', port: address.port }, `TTY server started on port ${address.port}`);
         if (onReady) {
             onReady(address);
         }
@@ -181,12 +188,12 @@ export function startServer(options = {}) {
 
     // Cleanup on shutdown
     const cleanup = () => {
-        console.log('Shutting down TTY server...');
+        log.info({ event: 'tty.shutdown' }, 'Shutting down TTY server...');
         activePtys.forEach(pty => {
             try {
                 pty.kill();
             } catch (err) {
-                console.error('Error killing PTY:', err);
+                log.error({ event: 'tty.pty.kill.failed', error: err?.message ?? String(err) }, 'Error killing PTY');
             }
         });
         activePtys.clear();

@@ -98,6 +98,22 @@ is the fence, defaulting to `[workdir]`.
 
 ## Debugging & Trace Analysis
 
+### Service Logs
+
+Resident services (broker, genai, voice, tty) log standardized pino JSONL to stdout
+via `thinksuit-log`'s `createServiceLogger` — every line carries `time`, `level`,
+`service`, `msg`, and an optional machine-readable `event`. launchd routes them to
+`~/Library/Logs/thinksuit-<name>.service.stdout.log`.
+
+```bash
+thinkctl logs genai --pretty          # human rendering (--tail to follow)
+jq -R 'fromjson? | select(.event == "genai.call")' ~/Library/Logs/thinksuit-genai.service.stdout.log
+```
+
+New service code logs through `createServiceLogger`, never bare `console.*`
+(exceptions — interactive CLIs, framework output — are case-by-case; see
+`packages/thinksuit-log/README.md`).
+
 ### Session Inspection
 
 Sessions are stored in: `~/.thinksuit/sessions/streams/YYYY/MM/DD/HH/`

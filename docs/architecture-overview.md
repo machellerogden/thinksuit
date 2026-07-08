@@ -60,7 +60,8 @@ device it talks to. (OS metaphor is a lens — see [vision.md](./vision.md).)
 | `thinksuit-tty` | shell component | Terminal Svelte component + TTY WebSocket server | exports `./Terminal.svelte` `./server` `./service`; managed by thinkctl |
 | `thinksuit-mcp-server` | devices (outward) | Exposes ThinkSuit to external MCP clients (Claude Desktop/IDEs) via tools `thinksuit`/`inspect`/`session` | bin: `thinksuit-mcp-server` (stdio MCP) |
 | `thinksuit-mcp-tools` | devices (inward) | Custom MCP tools consumed BY ThinkSuit (e.g. `roll_dice`) | bin: `thinksuit-mcp-tools` (stdio MCP) |
-| `thinksuit-control` | operations control plane | Manages the LaunchAgent services (broker/genai/console/tty/voice): discovers them from its own deps via each package's `./service` definition, generates plists in code, owns `launchctl` | bin: `thinkctl` (`up`/`down`/`start`/`stop`/`status`/`ls`/`logs`) |
+| `thinksuit-control` | operations control plane | Manages the LaunchAgent services (broker/genai/console/tty/voice): discovers them from its own deps via each package's `./service` definition, generates plists in code, owns `launchctl` | bin: `thinkctl` (`up`/`down`/`start`/`stop`/`status`/`ls`/`logs [--pretty]`) |
+| `thinksuit-log` | logging | Standardized service logging (leaf; logging only — the name is the charter): the pino JSONL contract every service emits through. Emit-only; rendering belongs to readers | `createServiceLogger(service)` |
 
 > Note the two MCP packages point opposite directions: **mcp-server** exposes
 > ThinkSuit *outward* as tools other agents can call; **mcp-tools** provides tools

@@ -116,20 +116,25 @@ All ops go through `thinkctl` — never raw `launchctl`. Substitute `<svc>` with
 | `thinkctl stop <svc>` | graceful stop (SIGTERM) |
 | `thinkctl status [<svc>]` | launchd state + PID |
 | `thinkctl ls` | list all services and their state |
-| `thinkctl logs <svc>` | tail stdout + stderr (Ctrl-C to stop) |
+| `thinkctl logs <svc>` | tail stdout + stderr (Ctrl-C to stop); `--pretty` renders JSONL humanely |
 | `thinkctl clear-logs <svc>` | delete the log files |
 | `thinkctl install` / `uninstall` / `load` / `unload` | the primitives `up` / `down` compose |
 
 Logs are always at `~/Library/Logs/thinksuit-<name>.service.{stdout,stderr}.log`.
+Services log standardized pino JSONL (the `thinksuit-log` contract: `time`,
+`level`, `service`, `msg`, optional machine-readable `event`), so the log
+directory is one jq-able corpus; `thinkctl logs <svc> --pretty` renders it for
+humans.
 
 ### Restart policy
 
-Only the **broker** auto-restarts on a crash — `KeepAlive={Crashed:true}`, throttled to
-30s. It's the execution hub and safe to relaunch. `console`/`tty`/`voice` do **not**
-auto-restart; a crash leaves them down until `thinkctl start <svc>`. A `thinkctl stop` is always
-respected (SIGTERM is not a crash), so a stopped service stays stopped. There is no
-"give up after N crashes" — a persistently-crashing broker re-launches every 30s until you
-`thinkctl stop` it.
+Only the **broker** and **genai** auto-restart on a crash — `KeepAlive={Crashed:true}`,
+throttled to 30s. They're the execution hub and the model service every turn requires;
+both are safe to relaunch. `console`/`tty`/`voice` do **not** auto-restart; a crash
+leaves them down until `thinkctl start <svc>`. A `thinkctl stop` is always respected
+(SIGTERM is not a crash), so a stopped service stays stopped. There is no "give up
+after N crashes" — a persistently-crashing broker or genai re-launches every 30s until
+you `thinkctl stop` it.
 
 ## Operations
 

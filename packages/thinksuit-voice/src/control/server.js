@@ -5,7 +5,10 @@
 
 import http from 'node:http';
 import fs from 'node:fs';
+import { createServiceLogger } from 'thinksuit-log';
 import { resolveControlSocketPath } from '../paths.js';
+
+const log = createServiceLogger('voice');
 
 function sendJson(res, status, body) {
     const payload = JSON.stringify(body);
@@ -54,7 +57,7 @@ export function createControlServer(controls) {
         Promise.resolve()
             .then(() => route(req, res))
             .catch((err) => {
-                console.error('voice control request error:', err.message);
+                log.error({ event: 'voice.control.request.error', error: err.message }, 'control request error');
                 if (!res.headersSent) sendJson(res, 500, { ok: false, error: err.message });
                 else res.destroy();
             });
@@ -81,7 +84,7 @@ export function startControlServer(controls, { socketPath = resolveControlSocket
         server.once('error', reject);
         server.listen(socketPath, () => {
             server.removeListener('error', reject);
-            console.log(`voice control listening on ${socketPath} (pid ${process.pid})`);
+            log.info({ event: 'voice.control.listening', socketPath }, `voice control listening on ${socketPath}`);
             resolve({
                 socketPath,
                 close: () => new Promise((done) => server.close(done))

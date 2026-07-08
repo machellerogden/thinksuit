@@ -13,8 +13,11 @@ import {
     subscribeToSession,
     setDesignation
 } from 'thinksuit';
+import { createServiceLogger } from 'thinksuit-log';
 import { resolveSocketPath } from './paths.js';
 import { derivePendingApproval, derivePendingApprovalDetail } from './approvals.js';
+
+const log = createServiceLogger('broker');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
@@ -548,8 +551,7 @@ export function createBroker() {
         Promise.resolve()
             .then(() => route(req, res))
             .catch((err) => {
-                // eslint-disable-next-line no-console
-                console.error('Broker request error:', err.message);
+                log.error({ event: 'broker.request.error', error: err.message }, 'request error');
                 if (!res.headersSent) {
                     const status = /Invalid ID format/.test(err.message) ? 400 : 500;
                     sendJson(res, status, { ok: false, error: err.message });
@@ -574,8 +576,7 @@ export function startBroker({ socketPath = resolveSocketPath() } = {}) {
     // the daemon down. The request boundary handles the known cases; this keeps
     // the broker resident if something slips through.
     process.on('unhandledRejection', (reason) => {
-        // eslint-disable-next-line no-console
-        console.error('Broker unhandledRejection:', reason);
+        log.error({ event: 'broker.unhandledRejection', error: String(reason) }, 'unhandled rejection');
     });
 
     try {
@@ -592,15 +593,12 @@ export function startBroker({ socketPath = resolveSocketPath() } = {}) {
             // post-listen socket error is an unhandled 'error' event and crashes
             // the resident daemon.
             server.on('error', (err) => {
-                // eslint-disable-next-line no-console
-                console.error('Broker server error:', err.message);
+                log.error({ event: 'broker.server.error', error: err.message }, 'server error');
             });
-            // eslint-disable-next-line no-console
-            console.log(`ThinkSuit broker listening on ${socketPath} (pid ${process.pid})`);
+            log.info({ event: 'broker.listening', socketPath }, `ThinkSuit broker listening on ${socketPath}`);
 
             const shutdown = (signal) => {
-                // eslint-disable-next-line no-console
-                console.log(`Received ${signal}, shutting down broker`);
+                log.info({ event: 'broker.shutdown', signal }, `Received ${signal}, shutting down broker`);
                 for (const entry of registry.values()) {
                     if (entry.child && !entry.child.killed) {
                         entry.child.kill('SIGTERM');
