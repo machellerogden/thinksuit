@@ -10,7 +10,7 @@ import {
     DEFAULT_POLICY
 } from './constants/defaults.js';
 import { validateUserConfig, formatValidationErrors } from '../schemas/validate.js';
-import { resolveSecret } from './secrets/index.js';
+import { resolveSecret } from 'thinksuit-genai/secrets';
 
 import meow from 'meow';
 

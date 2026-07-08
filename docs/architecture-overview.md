@@ -34,7 +34,7 @@ device it talks to. (OS metaphor is a lens — see [vision.md](./vision.md).)
                              │ forks a worker per turn
                              ▼
                   thinksuit  (engine = kernel)   ──reads──►  ~/.thinksuit.json   (registry)
-           resolve plan → executePlan → executeTask         engine/secrets       (keyring)
+           resolve plan → executePlan → executeTask         thinksuit-genai/secrets (keyring)
                              │
               ┌──────────────┴───────────────┐
               ▼                               ▼

@@ -89,7 +89,8 @@ Illustrative, not exhaustive, none built yet:
   replaced the earlier classification pipeline; see
   [plans/de-pipelining.md](./plans/de-pipelining.md).)*
 - Config-as-registry (`~/.thinksuit.json`, validated by `schemas/userConfig.v1.json`)
-  and a secrets keyring (`engine/secrets`).
+  and a secrets keyring (`thinksuit-genai/secrets`, re-exported by the kernel as
+  `resolveSecret`).
 - The broker process-host (worker-per-turn, control channel, queue, workspaces).
 - A working voice loop (wake → capture → STT → turn → TTS) with a wakeword studio.
 - MCP tools exposing self-introspection and self-invocation.

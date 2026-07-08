@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { resolveSecret, clearSecretsCache } from '../engine/secrets/index.js';
+import { resolveSecret, clearSecretsCache } from '../src/secrets.js';
 
 describe('resolveSecret', () => {
     let dir;
