@@ -34,6 +34,7 @@
     let voiceInputDeviceName = $state('');
     let voiceSttProvider = $state('');
     let voiceTtsProvider = $state('');
+    let voiceDetectorProvider = $state('');
 
     // Capture / endpointer tuning (post-wake recording)
     let voiceCaptureRmsThreshold = $state(400);
@@ -108,6 +109,7 @@
             voiceInputDeviceName = voice.input?.deviceName || '';
             voiceSttProvider = voice.stt?.provider || '';
             voiceTtsProvider = voice.tts?.provider || '';
+            voiceDetectorProvider = voice.detector?.provider || '';
             voiceCaptureRmsThreshold = voice.capture?.rmsThreshold ?? 400;
             voiceCaptureSilenceMs = voice.capture?.silenceMs ?? 700;
             voiceCaptureStartTimeoutMs = voice.capture?.startTimeoutMs ?? 3000;
@@ -183,6 +185,7 @@
             voice.cues = cues;
             if (voiceSttProvider) voice.stt = { provider: voiceSttProvider };
             if (voiceTtsProvider) voice.tts = { provider: voiceTtsProvider };
+            if (voiceDetectorProvider) voice.detector = { provider: voiceDetectorProvider };
             if (Object.keys(voice).length) updatedConfig.voice = voice;
 
             const response = await fetch('/api/config/user', {
@@ -238,6 +241,7 @@
         voiceInputDeviceName = voice.input?.deviceName || '';
         voiceSttProvider = voice.stt?.provider || '';
         voiceTtsProvider = voice.tts?.provider || '';
+        voiceDetectorProvider = voice.detector?.provider || '';
         voiceCaptureRmsThreshold = voice.capture?.rmsThreshold ?? 400;
         voiceCaptureSilenceMs = voice.capture?.silenceMs ?? 700;
         voiceCaptureStartTimeoutMs = voice.capture?.startTimeoutMs ?? 3000;
@@ -258,7 +262,7 @@
             allowedDirectories: allowedDirectories.split('\n').map(d => d.trim()).filter(Boolean),
             mcpServersJson,
             approvalTimeout,
-            voiceInputDeviceName, voiceSttProvider, voiceTtsProvider,
+            voiceInputDeviceName, voiceSttProvider, voiceTtsProvider, voiceDetectorProvider,
             voiceCaptureRmsThreshold, voiceCaptureSilenceMs, voiceCaptureStartTimeoutMs, voiceCaptureMaxMs,
             voiceCuesEnabled, voiceCuesStart, voiceCuesEnd, voiceCuesError, voiceCuesWorking
         };
@@ -282,6 +286,7 @@
             voiceInputDeviceName: originalConfig.voice?.input?.deviceName || '',
             voiceSttProvider: originalConfig.voice?.stt?.provider || '',
             voiceTtsProvider: originalConfig.voice?.tts?.provider || '',
+            voiceDetectorProvider: originalConfig.voice?.detector?.provider || '',
             voiceCaptureRmsThreshold: originalConfig.voice?.capture?.rmsThreshold ?? 400,
             voiceCaptureSilenceMs: originalConfig.voice?.capture?.silenceMs ?? 700,
             voiceCaptureStartTimeoutMs: originalConfig.voice?.capture?.startTimeoutMs ?? 3000,
@@ -621,6 +626,24 @@
                                         />
                                     </label>
                                 </div>
+                            </div>
+
+                            <div class="mt-3">
+                                <label for="voice-detector" class="block text-xs font-medium text-gray-600 mb-1">
+                                    Endpointing detector
+                                </label>
+                                <select
+                                    id="voice-detector"
+                                    bind:value={voiceDetectorProvider}
+                                    class="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                                >
+                                    <option value="">Default (silero)</option>
+                                    <option value="silero">silero — neural VAD, reliable in noise (default)</option>
+                                    <option value="rms">rms — energy threshold, transparent (fallback)</option>
+                                </select>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    How end-of-turn is detected. silero handles background noise; rms is a simple energy threshold. Restart the voice daemon to apply.
+                                </p>
                             </div>
 
                             <div class="pt-3 border-t border-gray-100">

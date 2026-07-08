@@ -21,6 +21,7 @@ import { createCuePlayer, probeDurationMs } from './audio/cues.js';
 import { SAMPLE_RATE } from './audio/constants.js';
 import { createSTT } from './stt/index.js';
 import { createTTS } from './tts/index.js';
+import { createSpeechDetector } from './detect/index.js';
 import { loadVoiceConfig } from './config.js';
 import { startControlServer } from './control/server.js';
 import { resolveMelModelPath, resolveEmbeddingModelPath } from './paths.js';
@@ -54,8 +55,7 @@ export async function createVoiceDaemon(overrides = {}) {
     const config = loadVoiceConfig(base.voice, overrides);
     console.log(
         `capture: startTimeout=${config.capture.startTimeoutMs}ms silence=${config.capture.silenceMs}ms ` +
-            `max=${config.capture.maxMs}ms rmsThreshold=${config.capture.rmsThreshold}; ` +
-            `cues ${config.cues.enabled ? 'on' : 'off'}`
+            `max=${config.capture.maxMs}ms; cues ${config.cues.enabled ? 'on' : 'off'}`
     );
 
     // Select the active wakewords from the library: every enabled wakeword. Each
@@ -78,6 +78,14 @@ export async function createVoiceDaemon(overrides = {}) {
 
     const stt = createSTT(config.stt);
     const tts = createTTS(config.tts);
+    // Speech/silence detector for endpointing. The `rms` provider's threshold falls
+    // back to capture.rmsThreshold (config migration) unless detector.rms.threshold is
+    // set. Created once (paying any model load up front), reset per utterance.
+    const speechDetector = await createSpeechDetector({
+        ...config.detector,
+        rms: { threshold: config.capture?.rmsThreshold, ...config.detector?.rms }
+    });
+    console.log(`detector: ${config.detector?.provider ?? 'silero'}`);
     const cues = createCuePlayer(config.cues);
 
     // Probe the start cue's real length once so capture trims exactly the beep
@@ -241,7 +249,8 @@ export async function createVoiceDaemon(overrides = {}) {
 
         // Begin recording now; the start cue plays concurrently and is removed by
         // the endpointer's cue floor (cue duration + margin), not by gating frames.
-        endpointer = createEndpointer({ ...config.capture, cueMs: startCueMs });
+        speechDetector.reset();
+        endpointer = createEndpointer({ ...config.capture, cueMs: startCueMs, detector: speechDetector });
         cues.play('start');
 
         // Stop a spoken response still playing and interrupt any in-flight turn;
@@ -255,23 +264,39 @@ export async function createVoiceDaemon(overrides = {}) {
         onWake
     });
 
+    // The detector's push is async (neural inference), so capture frames drain through
+    // a serial promise chain — ordered, never dropped. The wake path stays synchronous
+    // (fire-and-forget into the wake detector's own busy guard).
+    let capturePump = Promise.resolve();
+
+    async function handleCaptureFrame(frames) {
+        if (state.mode !== 'capturing' || !endpointer) return;
+        const { done, aborted } = await endpointer.push(frames);
+        if (!done) return;
+        const audio = aborted ? null : endpointer.result();
+        const s = endpointer.stats();
+        endpointer = null;
+        state.mode = 'listening';
+        if (audio) {
+            const keptMs = Math.round((audio.length / SAMPLE_RATE) * 1000);
+            console.log(
+                `capture: cueFloor=${s.cueMs}ms onset=${s.onsetMs}ms windowStart=${s.windowStartMs}ms ` +
+                    `captured=${s.capturedMs}ms kept=${keptMs}ms meanProb=${s.meanProb}`
+            );
+            cues.play('end');
+            onUtterance(audio);
+        }
+    }
+
     function onFrames(frames) {
         if (state.mode === 'capturing') {
-            const { done, aborted } = endpointer.push(frames);
-            if (!done) return;
-            const audio = aborted ? null : endpointer.result();
-            const s = endpointer.stats();
-            endpointer = null;
-            state.mode = 'listening';
-            if (audio) {
-                const keptMs = Math.round((audio.length / SAMPLE_RATE) * 1000);
-                console.log(
-                    `capture: cueFloor=${s.cueMs}ms onset=${s.onsetMs}ms windowStart=${s.windowStartMs}ms ` +
-                        `captured=${s.capturedMs}ms kept=${keptMs}ms`
-                );
-                cues.play('end');
-                onUtterance(audio);
-            }
+            capturePump = capturePump
+                .then(() => handleCaptureFrame(frames))
+                .catch((err) => {
+                    console.error(`capture error: ${err.message}`);
+                    endpointer = null;
+                    state.mode = 'listening';
+                });
             return;
         }
         detector.push(frames);
@@ -325,6 +350,7 @@ export async function createVoiceDaemon(overrides = {}) {
             lastWake: state.lastWake,
             lastError: state.lastError,
             uptimeMs: state.startedAt ? Date.now() - state.startedAt : 0,
+            detector: config.detector,
             capture: config.capture,
             cues: config.cues
         };

@@ -11,11 +11,16 @@
 // Final window = [ max(cueMs, onset − guardLead) , end ]. cueMs (beep + latency
 // margin) is a hard floor, so the beep can never re-enter even if you speak the
 // instant it stops. push() reports {done, aborted}; result() returns the window.
+//
+// The speech/silence decision is DELEGATED to an injected detector (see src/detect/):
+// this module owns only the windowing — cue floor, guard lead, onset refinement,
+// trailing-silence timing — and consumes the detector's per-chunk Decisions
+// ({ speech, prob, sample, len }). push() is async because a neural detector's
+// inference is async.
 
 import { SAMPLE_RATE } from './constants.js';
 
 const DEFAULTS = {
-    rmsThreshold: 400, // int16 RMS above this counts as speech (mic-gain dependent)
     silenceMs: 700, // trailing silence that ends the utterance
     startTimeoutMs: 3000, // give up if no speech starts (measured after the cue)
     maxMs: 300000, // hard cap on captured utterance length
@@ -25,13 +30,8 @@ const DEFAULTS = {
 
 const toSamples = (ms) => Math.round((SAMPLE_RATE * ms) / 1000);
 
-function rms(samples, start, len) {
-    let sum = 0;
-    for (let i = start; i < start + len; i++) sum += samples[i] * samples[i];
-    return Math.sqrt(sum / len);
-}
-
-export function createEndpointer(opts = {}) {
+export function createEndpointer({ detector, ...opts } = {}) {
+    if (!detector) throw new Error('createEndpointer requires a detector');
     const cfg = { ...DEFAULTS, ...opts };
     const silenceLimit = toSamples(cfg.silenceMs);
     const startLimit = toSamples(cfg.startTimeoutMs);
@@ -39,32 +39,38 @@ export function createEndpointer(opts = {}) {
     const cueSamples = toSamples(cfg.cueMs);
     const guardSamples = toSamples(cfg.guardLeadMs);
 
-    const chunks = [];
+    const chunks = []; // raw audio frames, for the final window
+    const perChunk = []; // recorded detector decisions, for onset refinement
     let elapsed = 0; // total samples pushed
-    let onset = -1; // sample index where speech first detected (coarse, for control)
+    let onset = -1; // sample offset where speech first detected (coarse, for control)
     let silence = 0; // trailing-silence samples since last speech (after onset)
 
     // Accept an Int16Array of new samples. Returns { done, aborted }.
-    function push(frame) {
+    async function push(frame) {
         chunks.push(frame.slice());
-        const start = elapsed;
         elapsed += frame.length;
-        const speech = rms(frame, 0, frame.length) > cfg.rmsThreshold;
+        const decisions = await detector.push(frame);
 
-        if (onset < 0) {
-            // Waiting for speech; ignore anything inside the cue floor.
-            if (speech && start >= cueSamples) {
-                onset = start;
-                silence = 0;
-            } else if (elapsed - cueSamples >= startLimit) {
-                return { done: true, aborted: true };
+        for (const d of decisions) {
+            perChunk.push(d);
+            if (onset < 0) {
+                // Waiting for speech; ignore anything inside the cue floor.
+                if (d.speech && d.sample >= cueSamples) {
+                    onset = d.sample;
+                    silence = 0;
+                }
+            } else {
+                silence = d.speech ? 0 : silence + d.len;
+                if (silence >= silenceLimit || elapsed - onset >= maxLimit) {
+                    return { done: true, aborted: false };
+                }
             }
-            return { done: false };
         }
 
-        silence = speech ? 0 : silence + frame.length;
-        if (silence >= silenceLimit || elapsed - onset >= maxLimit) {
-            return { done: true, aborted: false };
+        // Time-based abort: no speech yet and we've waited past the limit. Checked on
+        // elapsed (not decisions) so a run of sub-chunk frames still times out.
+        if (onset < 0 && elapsed - cueSamples >= startLimit) {
+            return { done: true, aborted: true };
         }
         return { done: false };
     }
@@ -79,14 +85,14 @@ export function createEndpointer(opts = {}) {
         return all;
     }
 
-    // Refine the onset at fine (20ms) resolution within the retained buffer, after
-    // the cue floor, requiring two consecutive windows to avoid a transient blip.
-    function preciseOnset(all) {
-        const win = toSamples(20);
-        for (let i = cueSamples; i + 2 * win <= elapsed; i += win) {
-            if (rms(all, i, win) > cfg.rmsThreshold && rms(all, i + win, win) > cfg.rmsThreshold) {
-                return i;
-            }
+    // Refine onset to the first of two consecutive speech chunks past the cue floor,
+    // reusing recorded decisions (no re-scan — so a stateful neural detector needn't
+    // be re-run mid-buffer). Two-in-a-row avoids a transient blip.
+    function preciseOnset() {
+        for (let i = 0; i + 1 < perChunk.length; i++) {
+            const a = perChunk[i];
+            const b = perChunk[i + 1];
+            if (a.sample >= cueSamples && a.speech && b.speech) return a.sample;
         }
         return onset < 0 ? cueSamples : onset;
     }
@@ -95,17 +101,20 @@ export function createEndpointer(opts = {}) {
 
     function result() {
         const all = flatten();
-        const startIdx = Math.max(cueSamples, preciseOnset(all) - guardSamples);
+        const startIdx = Math.max(cueSamples, preciseOnset() - guardSamples);
         lastWindow = { startSamples: startIdx };
         return all.subarray(startIdx, elapsed).slice();
     }
 
     function stats() {
+        const probs = perChunk.map((d) => d.prob);
+        const meanProb = probs.length ? probs.reduce((a, b) => a + b, 0) / probs.length : null;
         return {
             cueMs: cfg.cueMs,
             onsetMs: onset < 0 ? null : Math.round((onset / SAMPLE_RATE) * 1000),
             capturedMs: Math.round((elapsed / SAMPLE_RATE) * 1000),
-            windowStartMs: lastWindow ? Math.round((lastWindow.startSamples / SAMPLE_RATE) * 1000) : null
+            windowStartMs: lastWindow ? Math.round((lastWindow.startSamples / SAMPLE_RATE) * 1000) : null,
+            meanProb: meanProb == null ? null : Math.round(meanProb * 1000) / 1000
         };
     }
 

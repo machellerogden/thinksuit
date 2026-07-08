@@ -189,13 +189,40 @@
           },
           "additionalProperties": true
         },
+        "detector": {
+          "type": "object",
+          "description": "Speech/silence detector (endpointing) backend selection",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "description": "Detector provider name: 'silero' (neural VAD, default) or 'rms' (energy threshold, fallback)"
+            },
+            "rms": {
+              "type": "object",
+              "description": "rms detector tuning; threshold falls back to capture.rmsThreshold if unset",
+              "properties": {
+                "threshold": { "type": "number", "description": "int16 RMS above which a chunk counts as speech" }
+              },
+              "additionalProperties": true
+            },
+            "silero": {
+              "type": "object",
+              "description": "silero detector tuning",
+              "properties": {
+                "threshold": { "type": "number", "description": "speech probability (0-1) above which a chunk counts as speech" }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        },
         "capture": {
           "type": "object",
           "description": "Utterance capture / endpointer tuning (post-wake recording)",
           "properties": {
             "rmsThreshold": {
               "type": "number",
-              "description": "int16 RMS above which a frame counts as speech (mic-gain dependent)"
+              "description": "DEPRECATED (moved to detector.rms.threshold): int16 RMS above which a frame counts as speech (mic-gain dependent). Still read as the rms detector's fallback threshold during migration."
             },
             "silenceMs": {
               "type": "integer",

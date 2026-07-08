@@ -48,15 +48,20 @@ Paths relative to `packages/thinksuit-voice/`.
 - **Phantom-wake fix**: on fire, the ring buffer is zeroed (`ring.fill(0)`, ~`:73`)
   so frozen wake audio can't re-fire during capture.
 
-### Endpointing — `src/audio/endpoint.js`
-- **Energy-based only**: onset = RMS > `rmsThreshold` (default **400**); end =
-  trailing silence ≥ `silenceMs` (default **700 ms**). Comment flags it
-  "mic-gain dependent."
-- Non-destructive window: cue floor (`cueMs`), guard lead (`guardLeadMs` 180),
-  and a 20 ms precise-onset refinement.
-- `push(frame)` is **synchronous**, returns `{done, aborted}`. (Relevant to any
-  neural-detector adoption — see `intent.md` "Deliberately not now.")
-- **No provider seam here** — one hardcoded strategy, unlike STT/TTS.
+### Endpointing — `src/audio/endpoint.js` + `src/detect/`
+> Updated 2026-07-07 (this line supersedes the pre-change snapshot): the speech/
+> silence decision is now a **pluggable detector seam**. See `capture-substrate.md`.
+- The endpointer keeps only the windowing (cue floor, guard lead `guardLeadMs` 180,
+  onset refinement, trailing silence ≥ `silenceMs` default **700 ms**) and delegates
+  the speech decision to an injected detector. `push(frame)` is now **async**,
+  returns `{done, aborted}`, and consumes the detector's per-chunk `Decision[]`.
+- **Detector registry** `src/detect/` (mirrors STT/TTS): `createSpeechDetector` →
+  `{ rms, silero }`; default **silero** (neural VAD, ONNX via `onnxruntime-node`,
+  model at `models/silero_vad.onnx`), `rms` the energy-threshold fallback. Decisions
+  at 512-sample (32 ms) granularity; detector owns the chunk accumulator + state.
+- Measured (`tools/endpoint-file.mjs`): in background noise (int16 RMS 700) `rms`
+  never ends a turn (reads speech everywhere → runs to `maxMs`); `silero` ends
+  correctly. Clean audio: both agree.
 
 ### STT / TTS — `src/stt/`, `src/tts/`
 - Provider registries, one entry each: `stt/index.js` → `{ whisper }`,

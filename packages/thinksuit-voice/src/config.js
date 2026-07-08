@@ -23,7 +23,10 @@ const DEFAULTS = {
         working: '/System/Library/Sounds/Purr.aiff' // gentle loop while the turn runs
     },
     stt: { provider: 'whisper' },
-    tts: { provider: 'say' }
+    tts: { provider: 'say' },
+    // Endpointing speech/silence detector. `rms` threshold falls back to
+    // capture.rmsThreshold (see daemon wiring) during the config migration.
+    detector: { provider: 'silero', rms: {}, silero: { threshold: 0.5 } }
 };
 
 function mergeSection(name, ...sources) {
@@ -37,6 +40,7 @@ export function loadVoiceConfig(fileVoice = {}, overrides = {}) {
         capture: mergeSection('capture', fileVoice, overrides),
         cues: mergeSection('cues', fileVoice, overrides),
         stt: mergeSection('stt', fileVoice, overrides),
-        tts: mergeSection('tts', fileVoice, overrides)
+        tts: mergeSection('tts', fileVoice, overrides),
+        detector: mergeSection('detector', fileVoice, overrides)
     };
 }

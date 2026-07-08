@@ -128,6 +128,7 @@
                             ? `${status.lastWake.confidence.toFixed(3)} (${fmtAgo(status.lastWake.at)})`
                             : '—'}
                     </div>
+                    <div>Detector: <span class="font-mono">{status.detector?.provider || '—'}</span></div>
                     <div>Session: <span class="font-mono">{status.lastSessionId || '—'}</span></div>
                     <div class="col-span-2">
                         Last error: {status.lastError

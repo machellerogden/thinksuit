@@ -31,6 +31,10 @@ export function resolveEmbeddingModelPath() {
     return join(MODELS_DIR, 'embedding_model.onnx');
 }
 
+export function resolveSileroVadModelPath() {
+    return join(MODELS_DIR, 'silero_vad.onnx');
+}
+
 // The wakeword library lives under the voice home. Each wakeword is a
 // self-contained bundle (manifest + samples + model versions + run logs).
 export function resolveWakewordsDir() {
